@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import { gql } from '@apollo/client';
 import { SessionPreparing, useSessionHandoffSettle } from '@reservations/ui';
 import { useMutation } from '@/lib/apollo-hooks';
+import { ALL_LOCATIONS_VALUE } from '@/lib/restaurants';
+import { ACTIVE_RESTAURANT_STORAGE_KEY } from '@/lib/restaurantScope';
 
 const LOGIN = gql`
   mutation Login($input: LoginInput!) {
@@ -68,6 +70,16 @@ const AuthContext = createContext<{
 
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 
+function rememberLoginRestaurantScope(user: DashUser) {
+  if (user.restaurantIds.length > 1) {
+    localStorage.setItem(ACTIVE_RESTAURANT_STORAGE_KEY, ALL_LOCATIONS_VALUE);
+    return;
+  }
+  if (user.restaurantIds.length === 1) {
+    localStorage.setItem(ACTIVE_RESTAURANT_STORAGE_KEY, user.restaurantIds[0]);
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [user, setUser] = useState<DashUser | null>(null);
@@ -127,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const beginImpersonation = (nextUser: DashUser, nextImpersonator: Impersonator) => {
     // Cookies are swapped by the startImpersonation mutation response (Set-Cookie).
+    rememberLoginRestaurantScope(nextUser);
     setUser(nextUser);
     setImpersonator(nextImpersonator);
   };
@@ -154,6 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         'This hub is for restaurant partners. Sign in on the diner app to manage your bookings.',
       );
     }
+    rememberLoginRestaurantScope(nextUser);
     setSession(nextUser);
     if (!nextUser.needsEmailVerification) setPreparingSession(true);
     return nextUser;

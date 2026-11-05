@@ -48,6 +48,14 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
 
   const tableStates = tables.map((table) => {
     const tableId = table._id.toString();
+    const upcomingFor = (currentId?: string) =>
+      reservations.filter(
+        (r) =>
+          ['pending', 'confirmed'].includes(r.status) &&
+          r.tableIds.some((id) => id.toString() === tableId) &&
+          r.slotStart > now &&
+          r._id.toString() !== currentId,
+      );
     const seatedRes = reservations.find(
       (r) =>
         r.status === 'seated' &&
@@ -66,6 +74,7 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
         table,
         status,
         reservation: seatedRes,
+        upcoming: upcomingFor(seatedRes._id.toString()),
         seatedMinutes,
         turnMinutesRemaining,
       };
@@ -83,6 +92,7 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
         table,
         status: 'reserved' as FloorTableStatus,
         reservation: upcomingRes,
+        upcoming: upcomingFor(upcomingRes._id.toString()),
         seatedMinutes: null,
         turnMinutesRemaining: null,
       };
@@ -92,6 +102,7 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
       table,
       status: 'free' as FloorTableStatus,
       reservation: null,
+      upcoming: upcomingFor(),
       seatedMinutes: null,
       turnMinutesRemaining: null,
     };

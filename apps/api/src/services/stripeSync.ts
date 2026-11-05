@@ -148,6 +148,8 @@ export async function syncStripeInvoice(stripeInvoice: {
         canceledAt: status === 'canceled' ? new Date() : undefined,
         stripeInvoiceId: stripeInvoice.id,
         notes: `Synced from Stripe ${stripeInvoice.id}`,
+        source: 'stripe_subscription',
+        ...(status === 'paid' ? { autoChargeError: undefined } : {}),
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },

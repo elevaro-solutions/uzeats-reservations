@@ -7,15 +7,16 @@ const connection = { url: env.REDIS_URL };
 
 export const billingQueue = new Queue('billing', { connection });
 
-export async function runPeriodInvoiceJob() {
+export async function runPeriodInvoiceJob(opts: { autoCharge?: boolean } = {}) {
   try {
-    const result = await generateDuePeriodInvoices();
+    const result = await generateDuePeriodInvoices(new Date(), opts);
     logger.info(
       {
         previous: result.previous,
         current: result.current,
         autoCharge: result.autoCharge,
         enforcement: result.enforcement,
+        alerts: result.alerts,
       },
       'period invoices generated',
     );
@@ -29,7 +30,8 @@ export async function runPeriodInvoiceJob() {
 export function startBillingWorker() {
   if (process.env.NODE_ENV === 'test') return;
 
-  void runPeriodInvoiceJob().catch((err) => {
+  // Startup only refreshes invoices; charges and notices wait for the 04:00 UTC run.
+  void runPeriodInvoiceJob({ autoCharge: false }).catch((err) => {
     logger.error({ err }, 'period invoice job failed on startup');
   });
 

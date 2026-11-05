@@ -1,5 +1,23 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-05] QA checklist catalog is v0.101.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.101.0`. Testers use owner Billing and the setup guide for the default card, a decline test card for failed-charge alerts, Admin → Billing Failed charges, a multi-restaurant owner for All restaurants and Pay all, Live floor Tables view and drawer, Menu → Online ordering and the Menu editor, and the diner home hero.
+- Why it matters: Do not re-test v0.100.x agreement items on this gate. Prior runs stay on History.
+
+## [2026-11-05] Live floor Tables view is the default
+- `/floor-ops` view modes are `tables` | `list` | `plan` | `3d`; empty `rt-floor-ops-view` now falls back to `tables`. A saved `plan` choice is kept.
+- `FloorTablesCards` draws one chair per seat from `table.maxCapacity` (capped at 12; 7+ seats span two grid columns). On busy tables the first `partySize` chairs are solid and the rest pale. Chair split follows `floorTableChairDistribution` in `lib/floorOpsStatus.ts`, same rules as merchant mobile Cards.
+- Status colors and labels for every Live floor view (plan, list, 3D legend, drawer) come from `lib/floorOpsStatus.ts`. `free` is shown as **Available**; turning is blue (was orange, too close to reserved amber).
+- Why it matters: Don't reintroduce a page-local `STATUS_COLORS` map; the 3D `tableColors` and legend must stay in sync with the 2D views.
+- Table drawer is `FloorTableDrawer` (all views). `floorPlanOps.tables[].upcoming` = that table's pending/confirmed bookings for the ops day with `slotStart > now`, excluding the current `reservation`. "Today" is the restaurant's calendar day, so late at night the list is short or empty.
+- Drawer ⋯ → Edit table links `/floor?restaurant=…&editTable=<id>`; `/floor` opens the edit modal once, then strips the param.
+- Demo data: `apps/api/scripts/seed-floor-ops-demo.ts [restaurantId]` books tables relative to now (seated, turning, reserved, upcoming, arriving). Rows are tagged `[floor-demo]` in `guestNotes` and replaced on re-run. Local DB only.
+
+## [2026-11-04] All restaurants is the multi-location default
+- Partners with more than one restaurant start on All restaurants after sign-in (`activeRestaurantId=all`, no `?restaurant=`). Header **All restaurants** and My restaurants are the ways into a single venue. While All is selected, the sider is only Overview, My restaurants, Reservations, Waitlist, and Billing.
+- A real restaurant id in `?restaurant=` wins and is the only id those pages query. Overview passes `restaurantId` into `myOwnerOverview`. Waitlist and pending/open-invoice counts omit `restaurantId` only in All mode. Billing All uses `myBillingOverview` and does not load one subscription. **Pay all invoices** is `startAllOpenInvoicesPayment` (one charge for every open invoice). A selected restaurant still uses `startOpenInvoicesPayment`. The card form waits on invoice confirm and shows “Payment received” before the success toast. A PaymentIntent that already succeeded is finished locally instead of confirmed again.
+- Why it matters: Do not default the header back to `restaurantIds[0]`. Do not fire the combined billing/overview query on a URL that already has a restaurant id.
+
 ## [2026-11-04] QA checklist catalog is v0.100.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.100.0`. Testers use Admin Agreements, diner and partner signup, owner `/agreements/sign` and Settings Agreements, the setup guide Go live step, Billing Pay all and `/billing/unpaid`, Admin Pricing Featured, Platform hub, `/menu`, `/restaurant-profile`, and diner restaurant pages.
 - Why it matters: Do not re-test v0.99.0 QA Dashboard / View as items on this gate. Super Admin now opens QA from Platform → QA, not a top-level sider group.
@@ -96,6 +114,11 @@
 ## [2026-11-01] QA checklist catalog is v0.96.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.96.0`. Testers use Restaurant profile Contact for Order online URL, cancelled owner Billing for View invoice and Core Recommended, Admin Invoices / Stripe for hosted invoices, and a period-invoice refresh for the recommended Stripe void/recreate check.
 - Why it matters: Do not re-test v0.95.0 diner Delete account / waitlist items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-11-05] Order online fields are one shared component
+- `OnlineOrderFields` (Menu editor card, Restaurant profile Contact, Admin Contact) owns `onlineOrderUrl` + `onlineOrderEnabled` inside an antd Form. It turns the switch on only through the URL input's `getValueFromEvent`, so loading a saved "off" restaurant doesn't flip it back on. Submit with `normalizeOnlineOrderUrl` (null clears).
+- Menu editor counts use `Form.useWatch('sections', { form, preserve: true })`; without `preserve`, dishes hidden by search or never opened drop out of the Popular / dish counts.
+- Why it matters: Don't add another raw URL input for ordering; the toggle rules and tracked preview live in one place.
 
 ## [2026-11-01] Online order URL is next to website, not menu
 - Profile / admin restaurant Contact has `onlineOrderUrl` (DoorDash, Uber Eats, Toast). It is not `website` and not `menuUrl`. Empty omits the diner **Order online** button.

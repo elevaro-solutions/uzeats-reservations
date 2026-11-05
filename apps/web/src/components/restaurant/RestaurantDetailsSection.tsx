@@ -38,6 +38,8 @@ type Props = {
   phone?: string | null;
   website?: string | null;
   onlineOrderUrl?: string | null;
+  /** Tracked Order online target; the row is hidden when null (ordering off). */
+  onlineOrderLink?: string | null;
   cuisine: string;
   priceRange: number;
   diningStyles?: string[];
@@ -60,6 +62,7 @@ export function RestaurantDetailsSection({
   phone,
   website,
   onlineOrderUrl,
+  onlineOrderLink,
   cuisine,
   priceRange,
   diningStyles = [],
@@ -79,7 +82,8 @@ export function RestaurantDetailsSection({
 
   const directionsUrl = buildDirectionsUrl(address, location);
   const mapsUrl = buildMapsSearchUrl(address, location);
-  const orderOnlineHref = normalizeHttpUrl(onlineOrderUrl);
+  const orderOnlineHref = onlineOrderLink || null;
+  const orderOnlineLabel = normalizeHttpUrl(onlineOrderUrl) ?? orderOnlineHref ?? '';
 
   const rows: DetailRow[] = [
     {
@@ -188,7 +192,7 @@ export function RestaurantDetailsSection({
               rel="noopener noreferrer"
               className="rt-restaurant-link"
             >
-              {orderOnlineHref.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              {orderOnlineLabel.replace(/^https?:\/\//, '').replace(/\/$/, '')}
             </a>
           ),
         }

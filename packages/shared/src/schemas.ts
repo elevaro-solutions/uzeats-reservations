@@ -236,14 +236,17 @@ export const restaurantInputObjectSchema = z.object({
     .union([z.string().url(), z.literal("")])
     .optional()
     .transform((v) => (v === "" || v == null ? undefined : v)),
+  // "" / null clears the stored link; omitted keeps it (Mongoose drops undefined from $set).
   menuUrl: z
-    .union([z.string().url(), z.literal("")])
+    .union([z.string().url(), z.literal(""), z.null()])
     .optional()
-    .transform((v) => (v === "" || v == null ? undefined : v)),
+    .transform((v) => (v === "" || v === null ? null : v)),
   onlineOrderUrl: z
-    .union([z.string().url(), z.literal("")])
+    .union([z.string().url(), z.literal(""), z.null()])
     .optional()
-    .transform((v) => (v === "" || v == null ? undefined : v)),
+    .transform((v) => (v === "" || v === null ? null : v)),
+  /** Omitted keeps the stored flag; see `resolveOnlineOrderPatch` in the API. */
+  onlineOrderEnabled: z.boolean().nullable().optional(),
   logoUrl: z
     .union([z.string().url(), z.literal(""), z.null()])
     .optional()

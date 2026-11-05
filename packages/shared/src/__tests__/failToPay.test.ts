@@ -6,7 +6,10 @@ import {
   financeChargeAssessmentsDue,
   financeChargeCentsForTotal,
   invoiceStatusFromDaysPastDue,
+  isAutoChargeRetryDay,
   isFailToPayAllowedPartnerPath,
+  isHardDeclineCode,
+  nextAutoChargeRetryDay,
   isFailToPayPubliclyListed,
   partnerMayCreateNewCover,
   partnerMayHonorExisting,
@@ -72,6 +75,17 @@ describe('failToPay', () => {
     expect(invoiceStatusFromDaysPastDue(0)).toBe('pending');
     expect(invoiceStatusFromDaysPastDue(7)).toBe('pending');
     expect(invoiceStatusFromDaysPastDue(8)).toBe('overdue');
+  });
+
+  it('retries auto-charge on days 0, 1, 3, 5, 7, then weekly', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 14, 15, 21].map(isAutoChargeRetryDay)).toEqual([
+      true, true, false, true, false, true, false, true, false, true, false, true,
+    ]);
+    expect(isAutoChargeRetryDay(-1)).toBe(false);
+    expect(nextAutoChargeRetryDay(1)).toBe(3);
+    expect(nextAutoChargeRetryDay(7)).toBe(14);
+    expect(isHardDeclineCode('stolen_card')).toBe(true);
+    expect(isHardDeclineCode('insufficient_funds')).toBe(false);
   });
 
   it('returns notice keys only on cadence days', () => {

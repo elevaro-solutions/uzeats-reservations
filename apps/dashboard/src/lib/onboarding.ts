@@ -23,6 +23,10 @@ export type OnboardingRestaurant = {
 export type PartnerSetupSignals = {
   accessRuleCount?: number;
   subscriptionStatus?: string | null;
+  /** `false` once loaded with no subscription; `undefined` while loading. */
+  hasSubscription?: boolean;
+  /** Default card for auto-charges (renewals, cover-fee invoices, add-ons). */
+  hasDefaultPaymentMethod?: boolean;
   /** `false` when the venue's plan lacks access rules; `undefined` while loading. */
   accessRulesIncluded?: boolean;
   /** Platform deposits kill switch; `undefined` while loading. */
@@ -278,7 +282,7 @@ export function buildPartnerSetupGuide(
       tasks: [
         {
           key: 'plan',
-          title: 'Choose a plan & add a card',
+          title: 'Choose a plan',
           description:
             signals.subscriptionStatus === 'past_due'
               ? 'Your last payment failed. Update your card to avoid interruptions.'
@@ -286,6 +290,18 @@ export function buildPartnerSetupGuide(
           href: '/billing',
           required: false,
           complete: subscriptionOk,
+        },
+        {
+          key: 'payment-method',
+          title: 'Add a default payment card',
+          description:
+            'Save a debit or credit card. We auto-charge it for your subscription, monthly cover fees and invoices, and paid extras like SMS credits.',
+          href: '/billing?section=payment-method',
+          cta: 'Add card',
+          required: true,
+          complete: Boolean(signals.hasDefaultPaymentMethod),
+          blockedReason:
+            signals.hasSubscription === false ? 'Choose a plan first' : undefined,
         },
         ...(signals.depositsEnabled === false
           ? []

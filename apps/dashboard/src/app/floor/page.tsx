@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   App,
   Avatar,
@@ -257,6 +257,23 @@ function FloorPageContent() {
     tableDirty.clearDirty();
     setTableModalOpen(true);
   };
+
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const editTableParam = searchParams.get('editTable');
+  const handledEditTableRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editTableParam || !restaurant) return;
+    if (handledEditTableRef.current === editTableParam) return;
+    handledEditTableRef.current = editTableParam;
+    const target = tables.find((t) => t.id === editTableParam);
+    if (target) openEditTable(target);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('editTable');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTableParam, restaurant]);
 
   const closeTableModal = () => {
     setTableModalOpen(false);

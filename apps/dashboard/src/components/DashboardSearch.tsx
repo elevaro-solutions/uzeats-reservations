@@ -13,6 +13,8 @@ import {
   matchPages,
   type SearchablePage,
 } from '@/lib/dashboardNav';
+import { COMBINED_NAV_HREFS } from '@/lib/restaurantScope';
+import { restaurantHref } from '@/lib/restaurants';
 
 const { Text } = Typography;
 
@@ -35,6 +37,10 @@ type DashboardSearchProps = {
   role?: string;
   restaurants?: RestaurantOption[];
   onSelectRestaurant?: (id: string) => void;
+  /** Limit page results to the combined multi-restaurant menu. */
+  combinedOnly?: boolean;
+  /** Kept on page links so a selected restaurant stays in the URL. */
+  scopeRestaurantId?: string;
 };
 
 function loadRecent(): string[] {
@@ -95,6 +101,8 @@ export function DashboardSearch({
   role,
   restaurants = [],
   onSelectRestaurant,
+  combinedOnly = false,
+  scopeRestaurantId,
 }: DashboardSearchProps) {
   const router = useRouter();
   const inputRef = useRef<InputRef>(null);
@@ -116,23 +124,45 @@ export function DashboardSearch({
       showOnboarding,
       isSuperAdmin,
       role,
-    }).map((p) => ({ ...p, kind: 'page' as const }));
+    })
+      .filter((p) =>
+        combinedOnly
+          ? (COMBINED_NAV_HREFS as readonly string[]).includes(p.href)
+          : true,
+      )
+      .map((p) => ({ ...p, kind: 'page' as const }));
 
     if (isAdmin || isQa || restaurants.length === 0) return pages;
 
-    const restaurantEntries: SearchablePage[] = restaurants.map((r) => ({
-      href: `restaurant:${r.id}`,
-      label: r.name,
-      group: 'Restaurants',
-      audience: 'partner' as const,
-      icon: <ShopOutlined />,
-      keywords: [r.city ?? '', 'location', 'venue', 'switch'].filter(Boolean),
-      kind: 'restaurant' as const,
-      description: r.city ? `Switch to ${r.city}` : 'Switch active restaurant',
-    }));
+    const restaurantEntries: SearchablePage[] = [
+      ...(restaurants.length > 1
+        ? [
+            {
+              href: 'restaurant:all',
+              label: 'All restaurants',
+              group: 'Restaurants',
+              audience: 'partner' as const,
+              icon: <ShopOutlined />,
+              keywords: ['all', 'locations', 'every'],
+              kind: 'restaurant' as const,
+              description: 'Combined overview for every restaurant',
+            },
+          ]
+        : []),
+      ...restaurants.map((r) => ({
+        href: `restaurant:${r.id}`,
+        label: r.name,
+        group: 'Restaurants',
+        audience: 'partner' as const,
+        icon: <ShopOutlined />,
+        keywords: [r.city ?? '', 'location', 'venue', 'switch'].filter(Boolean),
+        kind: 'restaurant' as const,
+        description: r.city ? `Switch to ${r.city}` : 'Switch active restaurant',
+      })),
+    ];
 
     return [...pages, ...restaurantEntries];
-  }, [isAdmin, isQa, showOnboarding, isSuperAdmin, role, restaurants]);
+  }, [isAdmin, isQa, showOnboarding, isSuperAdmin, role, restaurants, combinedOnly]);
 
   const results = useMemo(() => {
     if (query.trim()) return matchPages(catalog, query);
@@ -178,9 +208,13 @@ export function DashboardSearch({
       }
       pushRecent(page.href);
       close();
-      router.push(page.href);
+      const href =
+        scopeRestaurantId && restaurants.length > 1
+          ? restaurantHref(page.href, scopeRestaurantId)
+          : page.href;
+      router.push(href);
     },
-    [close, onSelectRestaurant, router],
+    [close, onSelectRestaurant, restaurants.length, router, scopeRestaurantId],
   );
 
   const onKeyDown = (e: React.KeyboardEvent) => {

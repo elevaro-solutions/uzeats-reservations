@@ -316,6 +316,10 @@ export const typeDefs = `#graphql
     menuUrl: String
     """DoorDash, Uber Eats, Toast, or other online ordering page."""
     onlineOrderUrl: String
+    """Order online button is on (true while a valid URL is stored, until switched off)."""
+    onlineOrderEnabled: Boolean!
+    """Diner-facing ordering link with Tablevera UTMs. Null when ordering is off or the URL is missing."""
+    onlineOrderLink: String
     logoUrl: String
     photos: [String!]!
     status: RestaurantStatus!
@@ -867,6 +871,8 @@ export const typeDefs = `#graphql
     table: Table!
     status: FloorTableStatus!
     reservation: Reservation
+    """Today's later pending/confirmed bookings on this table (excludes the current reservation), soonest first."""
+    upcoming: [Reservation!]!
     seatedMinutes: Int
     turnMinutesRemaining: Int
   }
@@ -1106,6 +1112,9 @@ export const typeDefs = `#graphql
     stripeSubscriptionId: String
     preferredPaymentMethodId: String
     autoChargeInvoices: Boolean!
+    """Default card on file for auto-charging renewals, cover-fee invoices, and add-ons."""
+    hasDefaultPaymentMethod: Boolean!
+    defaultCard: PaymentCardSummary
     currentPeriodStart: DateTime
     currentPeriodEnd: DateTime
     trialEndsAt: DateTime
@@ -1199,6 +1208,18 @@ export const typeDefs = `#graphql
     nextWebsiteCoverFeeCents: Int!
   }
 
+  type PaymentCardSummary {
+    brand: String
+    last4: String
+    expMonth: Int
+    expYear: Int
+  }
+
+  type DefaultPaymentMethodSetup {
+    clientSecret: String
+    paymentMode: String
+  }
+
   type PlanChangePayload {
     subscription: SubscriptionType!
     clientSecret: String
@@ -1253,6 +1274,22 @@ export const typeDefs = `#graphql
     openWaitlist: Int!
     tableCount: Int!
     shiftCount: Int!
+  }
+
+  type BillingLocationSummary {
+    restaurantId: ID!
+    name: String!
+    plan: String
+    subscriptionStatus: String
+    openInvoiceCount: Int!
+    outstandingCents: Int!
+  }
+
+  type BillingOverview {
+    openInvoiceCount: Int!
+    outstandingCents: Int!
+    locations: [BillingLocationSummary!]!
+    openInvoices: [Invoice!]!
   }
 
   type OwnerOverview {
@@ -1663,6 +1700,15 @@ export const typeDefs = `#graphql
     payUrl: String
     emailSentAt: DateTime
     emailSentTo: String
+    """Owner-facing reason the last automatic charge failed (null once paid)."""
+    autoChargeError: String
+    autoChargeAttemptedAt: DateTime
+    autoChargeAttempts: Int!
+    """Hard decline (lost/stolen/expired…): retries wait for a new default card."""
+    autoChargePaused: Boolean!
+    """Stripe subscription renewal — Stripe owns the retry schedule."""
+    autoChargeRetriedByStripe: Boolean!
+    nextAutoChargeAt: DateTime
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -3350,8 +3396,10 @@ export const typeDefs = `#graphql
     phone: String
     website: String
     menuUrl: String
-    """DoorDash, Uber Eats, Toast, or other online ordering page."""
+    """DoorDash, Uber Eats, Toast, or other online ordering page. Empty string or null clears it."""
     onlineOrderUrl: String
+    """Show the diner Order online button. Owners, managers, and admins only. Omit to keep the current setting."""
+    onlineOrderEnabled: Boolean
     logoUrl: String
     depositRequired: Boolean
     depositAmountCents: Int
@@ -3697,6 +3745,16 @@ export const typeDefs = `#graphql
     diningStyles: [DiscoveryIndexEntry!]!
     dietaryTags: [DiscoveryIndexEntry!]!
     amenities: [DiscoveryIndexEntry!]!
+  }
+
+  "Public platform totals for the diner home hero. Cached server-side for 24 hours."
+  type HomeStats {
+    restaurants: Int!
+    cities: Int!
+    dinersServed: Int!
+    averageRating: Float
+    reviewCount: Int!
+    computedAt: DateTime!
   }
 
   type SearchSuggestion {
@@ -4198,6 +4256,7 @@ export const typeDefs = `#graphql
     validateGiftCard(restaurantId: ID!, code: String!, depositCents: Int!): GiftCardValidation!
     searchRestaurants(input: SearchRestaurantsInput!): RestaurantConnection!
     discoveryIndex(input: DiscoveryIndexInput): DiscoveryIndex!
+    homeStats: HomeStats!
     searchSuggestions(input: SearchSuggestionsInput!): [SearchSuggestion!]!
     trendingSearches(input: TrendingSearchesInput!): [TrendingSearchTerm!]!
     myRecentSearches(limit: Int): [RecentSearchEntry!]!
@@ -4247,7 +4306,7 @@ export const typeDefs = `#graphql
     partnerReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(
-      restaurantId: ID!
+      restaurantId: ID
       limit: Int
       offset: Int
       """Defaults to waiting + notified (live queue). Pass history statuses to include seated/booked/expired/cancelled."""
@@ -4269,15 +4328,16 @@ export const typeDefs = `#graphql
     """Count of visible reviews that still need an owner/manager reply (sidebar badge)."""
     restaurantUnrepliedReviewCount(restaurantId: ID!): Int!
     """Count of upcoming reservations still pending confirmation (Reservations sidebar badge)."""
-    restaurantPendingReservationCount(restaurantId: ID!): Int!
+    restaurantPendingReservationCount(restaurantId: ID): Int!
     """Count of unpaid invoices with a balance for a restaurant (Billing sidebar badge)."""
-    restaurantOpenInvoiceCount(restaurantId: ID!): Int!
+    restaurantOpenInvoiceCount(restaurantId: ID): Int!
     loyaltyProgram: LoyaltyProgram!
     myLoyalty: [LoyaltyTransaction!]!
     myRestaurantLoyalty: [RestaurantLoyaltyBalance!]!
     myRestaurantLoyaltyBalance(restaurantId: ID!): Int!
     myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
-    myNotifications(limit: Int, offset: Int): AppNotificationConnection!
+    """With restaurantId: that location's alerts plus account-level ones."""
+    myNotifications(limit: Int, offset: Int, restaurantId: ID): AppNotificationConnection!
     adminMessengerBot: AdminMessengerBot!
     adminMessengerBotRestaurants(
       search: String
@@ -4285,7 +4345,7 @@ export const typeDefs = `#graphql
       pageSize: Int
     ): AdminMessengerBotRestaurantConnection!
     restaurantMessengerBot(restaurantId: ID!): RestaurantMessengerBot!
-    unreadNotificationCount: Int!
+    unreadNotificationCount(restaurantId: ID): Int!
     myOwnerSupportTickets(status: String, limit: Int, offset: Int): SupportTicketConnection!
     myOwnerSupportTicket(id: ID!): SupportTicket
     myRestaurants(
@@ -4300,7 +4360,9 @@ export const typeDefs = `#graphql
       limit: Int
       offset: Int
     ): RestaurantConnection!
-    myOwnerOverview(date: String): OwnerOverview!
+    myOwnerOverview(date: String, restaurantId: ID): OwnerOverview!
+    """Plans and open invoices across every restaurant the partner can access."""
+    myBillingOverview: BillingOverview!
     myRestaurantLocationsMeta: MyRestaurantLocationsMeta!
     restaurantTeam(restaurantId: ID!): [User!]!
     restaurantManagerSeats(restaurantId: ID!): ManagerSeatsUsage!
@@ -4366,6 +4428,8 @@ export const typeDefs = `#graphql
     """Paid and open totals for subscriptions, Virtual 3D, and other services in a month."""
     adminInvoiceInsights(period: String): AdminInvoiceInsights!
     adminInvoice(id: ID!): Invoice!
+    """Open invoices whose last automatic charge failed, newest attempt first."""
+    adminFailedCharges(limit: Int): [Invoice!]!
     invoiceByPayToken(token: String!): Invoice!
     exportInvoicePdf(id: ID!): InvoiceExportPayload!
     exportInvoicePdfByToken(token: String!): InvoiceExportPayload!
@@ -4708,8 +4772,12 @@ export const typeDefs = `#graphql
     confirmInvoicePayment(token: String!, paymentIntentId: String!): Invoice!
     """Create (or resume) one PaymentIntent for all open unpaid invoices on a venue."""
     startOpenInvoicesPayment(restaurantId: ID!): OpenInvoicesPaymentSession!
+    """One charge for every open invoice across the signed-in partner's restaurants."""
+    startAllOpenInvoicesPayment: OpenInvoicesPaymentSession!
     """Mark every open invoice covered by the PaymentIntent as paid."""
     confirmOpenInvoicesPayment(restaurantId: ID!, paymentIntentId: String!): [Invoice!]!
+    """Mark every owned open invoice covered by a cross-restaurant Pay all as paid."""
+    confirmAllOpenInvoicesPayment(paymentIntentId: String!): [Invoice!]!
     createPlatformService(input: PlatformServiceInput!): PlatformService!
     updatePlatformService(id: ID!, input: PlatformServiceInput!): PlatformService!
     deletePlatformService(id: ID!): Boolean!
@@ -4867,6 +4935,9 @@ export const typeDefs = `#graphql
     """
     changePlan(restaurantId: ID!, plan: String!, immediate: Boolean): PlanChangePayload!
     confirmPlanChangePayment(restaurantId: ID!): SubscriptionType!
+    """SetupIntent to save the venue's default card (renewals, cover-fee invoices, add-ons)."""
+    startDefaultPaymentMethodSetup(restaurantId: ID!): DefaultPaymentMethodSetup!
+    confirmDefaultPaymentMethod(restaurantId: ID!, setupIntentId: String): SubscriptionType!
     cancelPendingPlanChange(restaurantId: ID!): SubscriptionType!
 
     registerPushToken(token: String!, platform: String!): Boolean!
@@ -4890,7 +4961,7 @@ export const typeDefs = `#graphql
       input: NotificationPreferencesInput!
     ): User!
     markNotificationsRead(ids: [ID!]): Boolean!
-    markAllNotificationsRead: Boolean!
+    markAllNotificationsRead(restaurantId: ID): Boolean!
 
     createRestaurantGroup(name: String!, restaurantIds: [ID!]!): RestaurantGroup!
     addRestaurantToGroup(groupId: ID!, restaurantId: ID!): RestaurantGroup!

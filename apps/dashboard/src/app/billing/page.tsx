@@ -81,8 +81,11 @@ import {
   CONFIRM_OPEN_INVOICES_PAYMENT,
 } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
+import { AllRestaurantsBilling } from '@/components/AllRestaurantsBilling';
 import { PartnerInvoiceDetail } from '@/components/PartnerInvoiceDetail';
 import { VirtualRoomAddonCard } from '@/components/VirtualRoomAddonCard';
+import { DefaultPaymentMethodCard } from '@/components/DefaultPaymentMethodCard';
+import { AutoChargeFailureAlert, hasAutoChargeFailure } from '@/components/AutoChargeFailureAlert';
 
 const { Text, Paragraph } = Typography;
 
@@ -375,6 +378,10 @@ type PartnerInvoice = {
   notes?: string | null;
   payUrl?: string | null;
   createdAt?: string | null;
+  autoChargeError?: string | null;
+  autoChargePaused?: boolean | null;
+  autoChargeRetriedByStripe?: boolean | null;
+  nextAutoChargeAt?: string | null;
   lines?: Array<{
     description: string;
     quantity: number;
@@ -792,7 +799,7 @@ export default function BillingPage() {
     skip: !user,
   });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId, setRestaurantId, restaurantSelectProps } =
+  const { activeRestaurantId, setRestaurantId, restaurantSelectProps, allRestaurants } =
     usePartnerRestaurant(restaurants);
   const activeRestaurant = restaurants.find(
     (r: { id: string; name?: string }) => r.id === activeRestaurantId,
@@ -873,6 +880,10 @@ export default function BillingPage() {
   const invoices = useMemo(
     () => (invoiceData?.restaurantInvoices?.items ?? []) as PartnerInvoice[],
     [invoiceData?.restaurantInvoices?.items],
+  );
+  const failedChargeInvoices = useMemo(
+    () => invoices.filter(hasAutoChargeFailure),
+    [invoices],
   );
   const visibleInvoices = showAllInvoices
     ? invoices
@@ -1433,6 +1444,7 @@ export default function BillingPage() {
       await Promise.all([refetchSub(), refetchInvoices(), refetchOpenInvoiceCount()]);
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not confirm payment');
+      throw err;
     }
   };
 
@@ -1446,7 +1458,17 @@ export default function BillingPage() {
     />
   );
 
-  return (
+  if (!restData && (user?.restaurantIds.length ?? 0) > 0) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  return allRestaurants ? (
+    <AllRestaurantsBilling />
+  ) : (
     <div component="BillingPage" style={{ display: 'contents' }}>
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
@@ -1535,6 +1557,14 @@ export default function BillingPage() {
                 />
               </Col>
             </Row>
+
+            {failedChargeInvoices[0] ? (
+              <AutoChargeFailureAlert
+                invoice={failedChargeInvoices[0]}
+                extraCount={failedChargeInvoices.length - 1}
+                canEditBilling={canEditBilling}
+              />
+            ) : null}
 
             {showPlanChangeDuePay ? (
               <Alert
@@ -1745,6 +1775,13 @@ export default function BillingPage() {
               </Row>
             </Card>
 
+            {activeRestaurantId ? (
+              <DefaultPaymentMethodCard
+                restaurantId={activeRestaurantId}
+                canEditBilling={canEditBilling}
+              />
+            ) : null}
+
             <Card
               id="invoices"
               title="Usage & invoices"
@@ -1856,13 +1893,26 @@ export default function BillingPage() {
                   }}
                 >
                   <Text strong>Invoices</Text>
-                  {invoices.length > 0 ? (
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                      {showAllInvoices
-                        ? `${invoices.length} total`
-                        : `Showing ${Math.min(INVOICE_LIST_PREVIEW, invoices.length)} of ${invoices.length}`}
-                    </Text>
-                  ) : null}
+                  <Space size={12} wrap>
+                    {invoices.length > 0 ? (
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        {showAllInvoices
+                          ? `${invoices.length} total`
+                          : `Showing ${Math.min(INVOICE_LIST_PREVIEW, invoices.length)} of ${invoices.length}`}
+                      </Text>
+                    ) : null}
+                    {canEditBilling && effectiveOpenInvoiceCount > 0 && invoiceOutstandingCents > 0 ? (
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<DollarOutlined />}
+                        loading={startingOpenInvoicesPay}
+                        onClick={() => void openOpenInvoicesPayment()}
+                      >
+                        Pay all invoices {formatCents(invoiceOutstandingCents)}
+                      </Button>
+                    ) : null}
+                  </Space>
                 </div>
                 {invoiceLoading && invoices.length === 0 ? (
                   <div style={{ display: 'grid', placeItems: 'center', minHeight: 120 }}>
@@ -2148,6 +2198,18 @@ export default function BillingPage() {
             <Card
               id="invoices"
               title="Invoices"
+              extra={
+                canEditBilling && effectiveOpenInvoiceCount > 0 && invoiceOutstandingCents > 0 ? (
+                  <Button
+                    type="primary"
+                    icon={<DollarOutlined />}
+                    loading={startingOpenInvoicesPay}
+                    onClick={() => void openOpenInvoicesPayment()}
+                  >
+                    Pay all invoices {formatCents(invoiceOutstandingCents)}
+                  </Button>
+                ) : null
+              }
               styles={{ body: { paddingTop: spacing.md } }}
             >
               <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
@@ -2390,8 +2452,8 @@ export default function BillingPage() {
               monthlyLabel={upgradePayment.monthlyLabel}
               trialDays={0}
               description={`Pay ${formatCents(upgradePayment.amountDueCents)} now (full monthly price). Recurring ${upgradePayment.monthlyLabel}/mo starts a new billing period today.`}
-              onSuccess={() => {
-                void (async () => {
+              onSuccess={() =>
+                (async () => {
                   if (!activeRestaurantId) return;
                   try {
                     await confirmPlanPayment({
@@ -2404,9 +2466,10 @@ export default function BillingPage() {
                     message.error(
                       err instanceof Error ? err.message : 'Could not confirm payment',
                     );
+                    throw err;
                   }
-                })();
-              }}
+                })()
+              }
             />
           ) : null}
         </Modal>
@@ -2438,9 +2501,7 @@ export default function BillingPage() {
                   ? `One charge of ${formatCents(openInvoicesPayment.totalCents)} covers all open invoices for this location.`
                   : `Pay ${formatCents(openInvoicesPayment.totalCents)} to settle this invoice.`
               }
-              onSuccess={() => {
-                void finishOpenInvoicesPayment();
-              }}
+              onSuccess={() => finishOpenInvoicesPayment()}
             />
           ) : null}
         </Modal>

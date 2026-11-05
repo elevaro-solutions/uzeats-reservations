@@ -35,8 +35,8 @@ export const MY_RESTAURANTS_OVERVIEW = gql`
 `;
 
 export const MY_OWNER_OVERVIEW = gql`
-  query MyOwnerOverview($date: String) {
-    myOwnerOverview(date: $date) {
+  query MyOwnerOverview($date: String, $restaurantId: ID) {
+    myOwnerOverview(date: $date, restaurantId: $restaurantId) {
       locationsTotal
       locationsActive
       locationsPending
@@ -87,6 +87,8 @@ export const MY_RESTAURANTS = gql`
       website
       menuUrl
       onlineOrderUrl
+      onlineOrderEnabled
+      onlineOrderLink
       address {
         line1
         line2
@@ -176,6 +178,7 @@ export const RESTAURANT_MENU_EDITOR = gql`
     restaurant(id: $id) {
       id
       name
+      slug
       description
       cuisine
       cuisines
@@ -186,6 +189,8 @@ export const RESTAURANT_MENU_EDITOR = gql`
       website
       menuUrl
       onlineOrderUrl
+      onlineOrderEnabled
+      onlineOrderLink
       address {
         line1
         line2
@@ -260,6 +265,7 @@ export const SETUP_GUIDE_SIGNALS = gql`
     mySubscription(restaurantId: $restaurantId) {
       id
       status
+      hasDefaultPaymentMethod
       features {
         accessRules
       }
@@ -613,7 +619,7 @@ export const ADMIN_PENDING_REQUEST_COUNTS = gql`
 `;
 
 export const RESTAURANT_OPEN_INVOICE_COUNT = gql`
-  query RestaurantOpenInvoiceCount($restaurantId: ID!) {
+  query RestaurantOpenInvoiceCount($restaurantId: ID) {
     restaurantOpenInvoiceCount(restaurantId: $restaurantId)
   }
 `;
@@ -709,6 +715,8 @@ const ADMIN_RESTAURANT_FIELDS = `
   website
   menuUrl
   onlineOrderUrl
+  onlineOrderEnabled
+  onlineOrderLink
   photos
   logoUrl
   ownerId
@@ -878,6 +886,8 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
         website
         menuUrl
         onlineOrderUrl
+        onlineOrderEnabled
+        onlineOrderLink
         photos
         logoUrl
       ownerId
@@ -2602,6 +2612,28 @@ export const ADMIN_INVOICE_INSIGHTS = gql`
   }
 `;
 
+export const ADMIN_FAILED_CHARGES = gql`
+  query AdminFailedCharges($limit: Int) {
+    adminFailedCharges(limit: $limit) {
+      id
+      number
+      restaurantId
+      restaurantName
+      status
+      totalCents
+      currency
+      dueDate
+      payUrl
+      autoChargeError
+      autoChargeAttemptedAt
+      autoChargeAttempts
+      autoChargePaused
+      autoChargeRetriedByStripe
+      nextAutoChargeAt
+    }
+  }
+`;
+
 export const ADMIN_INVOICES = gql`
   query AdminInvoices(
     $status: InvoiceStatus
@@ -3468,6 +3500,8 @@ export const RESTAURANT_PROFILE = gql`
       website
       menuUrl
       onlineOrderUrl
+      onlineOrderEnabled
+      onlineOrderLink
       address {
         line1
         line2
@@ -3529,6 +3563,8 @@ export const RESTAURANT_OWNER_EDITOR = gql`
       website
       menuUrl
       onlineOrderUrl
+      onlineOrderEnabled
+      onlineOrderLink
       address {
         line1
         line2
@@ -3574,6 +3610,8 @@ export const UPDATE_RESTAURANT = gql`
       website
       menuUrl
       onlineOrderUrl
+      onlineOrderEnabled
+      onlineOrderLink
       address {
         line1
         line2
@@ -3669,6 +3707,34 @@ export const UPDATE_SHIFT = gql`
   mutation UpdateShift($id: ID!, $input: ShiftInput!) {
     updateShift(id: $id, input: $input) {
       id name
+    }
+  }
+`;
+
+export const MY_BILLING_OVERVIEW = gql`
+  query MyBillingOverview {
+    myBillingOverview {
+      openInvoiceCount
+      outstandingCents
+      locations {
+        restaurantId
+        name
+        plan
+        subscriptionStatus
+        openInvoiceCount
+        outstandingCents
+      }
+      openInvoices {
+        id
+        number
+        restaurantId
+        restaurantName
+        status
+        totalCents
+        currency
+        dueDate
+        billingPeriod
+      }
     }
   }
 `;
@@ -3796,6 +3862,11 @@ export const RESTAURANT_INVOICES = gql`
         notes
         payUrl
         createdAt
+        autoChargeError
+        autoChargeAttemptedAt
+        autoChargePaused
+        autoChargeRetriedByStripe
+        nextAutoChargeAt
         lines {
           description
           quantity
@@ -3804,6 +3875,32 @@ export const RESTAURANT_INVOICES = gql`
           originalAmountCents
         }
       }
+    }
+  }
+`;
+
+export const START_ALL_OPEN_INVOICES_PAYMENT = gql`
+  mutation StartAllOpenInvoicesPayment {
+    startAllOpenInvoicesPayment {
+      totalCents
+      currency
+      clientSecret
+      paymentIntentId
+      alreadyPaid
+      isStub
+      invoices { id number status totalCents }
+    }
+  }
+`;
+
+export const CONFIRM_ALL_OPEN_INVOICES_PAYMENT = gql`
+  mutation ConfirmAllOpenInvoicesPayment($paymentIntentId: String!) {
+    confirmAllOpenInvoicesPayment(paymentIntentId: $paymentIntentId) {
+      id
+      number
+      status
+      paidAt
+      totalCents
     }
   }
 `;
@@ -3862,6 +3959,11 @@ export const RESTAURANT_INVOICE = gql`
       createdAt
       restaurantId
       restaurantName
+      autoChargeError
+      autoChargeAttemptedAt
+      autoChargePaused
+      autoChargeRetriedByStripe
+      nextAutoChargeAt
       lines {
         description
         quantity
@@ -4014,6 +4116,40 @@ export const CONFIRM_PLAN_CHANGE_PAYMENT = gql`
       id
       status
       amountDueCents
+    }
+  }
+`;
+
+export const DEFAULT_PAYMENT_METHOD = gql`
+  query DefaultPaymentMethod($restaurantId: ID!) {
+    mySubscription(restaurantId: $restaurantId) {
+      id
+      hasDefaultPaymentMethod
+      defaultCard {
+        brand
+        last4
+        expMonth
+        expYear
+      }
+    }
+  }
+`;
+
+export const START_DEFAULT_PAYMENT_METHOD_SETUP = gql`
+  mutation StartDefaultPaymentMethodSetup($restaurantId: ID!) {
+    startDefaultPaymentMethodSetup(restaurantId: $restaurantId) {
+      clientSecret
+      paymentMode
+    }
+  }
+`;
+
+export const CONFIRM_DEFAULT_PAYMENT_METHOD = gql`
+  mutation ConfirmDefaultPaymentMethod($restaurantId: ID!, $setupIntentId: String) {
+    confirmDefaultPaymentMethod(restaurantId: $restaurantId, setupIntentId: $setupIntentId) {
+      id
+      hasDefaultPaymentMethod
+      autoChargeInvoices
     }
   }
 `;
@@ -4209,7 +4345,7 @@ export const RESTAURANT_UNREPLIED_REVIEW_COUNT = gql`
 `;
 
 export const RESTAURANT_PENDING_RESERVATION_COUNT = gql`
-  query RestaurantPendingReservationCount($restaurantId: ID!) {
+  query RestaurantPendingReservationCount($restaurantId: ID) {
     restaurantPendingReservationCount(restaurantId: $restaurantId)
   }
 `;
@@ -4579,8 +4715,8 @@ export const MULTI_LOCATION_ANALYTICS = gql`
 // ---- Notifications & settings ----
 
 export const MY_NOTIFICATIONS = gql`
-  query MyNotifications($limit: Int, $offset: Int) {
-    myNotifications(limit: $limit, offset: $offset) {
+  query MyNotifications($limit: Int, $offset: Int, $restaurantId: ID) {
+    myNotifications(limit: $limit, offset: $offset, restaurantId: $restaurantId) {
       items {
         id
         type
@@ -4592,7 +4728,7 @@ export const MY_NOTIFICATIONS = gql`
       }
       total
     }
-    unreadNotificationCount
+    unreadNotificationCount(restaurantId: $restaurantId)
   }
 `;
 
@@ -4603,8 +4739,8 @@ export const MARK_NOTIFICATIONS_READ = gql`
 `;
 
 export const MARK_ALL_NOTIFICATIONS_READ = gql`
-  mutation MarkAllNotificationsRead {
-    markAllNotificationsRead
+  mutation MarkAllNotificationsRead($restaurantId: ID) {
+    markAllNotificationsRead(restaurantId: $restaurantId)
   }
 `;
 
@@ -5124,6 +5260,10 @@ export const FLOOR_PLAN_OPS = gql`
           diner { firstName lastName }
           tables { id name }
         }
+        upcoming {
+          id partySize slotStart slotEnd status guestNotes
+          diner { firstName lastName }
+        }
       }
       unassigned {
         id partySize slotStart slotEnd status guestNotes
@@ -5191,7 +5331,7 @@ export const UPDATE_WAITLIST_STATUS = gql`
 
 export const RESTAURANT_WAITLIST_FULL = gql`
   query RestaurantWaitlistFull(
-    $restaurantId: ID!
+    $restaurantId: ID
     $limit: Int
     $offset: Int
     $statuses: [WaitlistStatus!]
@@ -5208,11 +5348,12 @@ export const RESTAURANT_WAITLIST_FULL = gql`
     ) {
       total
       items {
-        id partySize preferredDate preferredTimeStart preferredTimeEnd status createdAt
+        id restaurantId partySize preferredDate preferredTimeStart preferredTimeEnd status createdAt
         dinerId guestName guestPhone source quotedWaitMinutes
         position partiesAhead estimatedWaitMinutes estimatedReadyAt
         waitingMinutes promisedWaitMinutes isOverdue
         reservationId notifiedAt notifiedSlot
+        restaurant { id name }
         diner { firstName lastName phone }
       }
     }

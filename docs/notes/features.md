@@ -261,6 +261,14 @@ See [features-billing.md](./features-billing.md) (platform invoices, fail-to-pay
 - `Restaurant.onlineOrderUrl` is a separate optional https link (DoorDash / Uber Eats / Toast / other). Diner web shows an **Order online** action tile, Details row, and Contact-to-reserve button only when it is set. Partners/admins edit it next to website and menu URL.
 - Why it matters: Do not reuse `website` for ordering platforms; diners still need the restaurant site as Website.
 
+### [2026-11-05] Order online has an on/off flag and a tracked link
+- `Restaurant.onlineOrderEnabled`: `false` = off; unset/null = on while `onlineOrderUrl` is valid. The API's `resolveOnlineOrderPatch` sets it to `true` for the first valid URL and back to `null` when the URL is cleared, and only lets owners, managers, and platform admins change it. Diner clients read `Restaurant.onlineOrderLink` (null when off), built by shared `resolveOnlineOrderLink` from `WEB_APP_URL`: `utm_source=<host>/restaurants/<slug>`, `utm_medium=reservations`, `utm_campaign=order_online`.
+- Why it matters: Don't link diners to raw `onlineOrderUrl`; it skips both the switch and the UTMs. `utm_source` changes when the slug changes.
+
+### [2026-11-05] Empty URL inputs must send null to clear
+- Mongoose 8 drops `undefined` keys from `$set`, so `updateRestaurant` with `menuUrl`/`onlineOrderUrl: undefined` kept the old link. The shared schema now maps `""`/`null` → `null` (clear) and leaves an omitted field untouched.
+- Why it matters: Partner Hub forms must send `null` (not `undefined`) for a cleared link. `website` still has the old behavior.
+
 ### [2026-10-20] Review photo upload sniffs bytes, not the picker MIME
 - `POST /api/uploads` used to reject on the `Content-Type` header before looking at the body. A JPEG saved from the browser is often labeled `application/octet-stream` (Android content resolver) or comes back from the iOS simulator gallery without `image/jpeg`. The alert listed JPEG/PNG/WebP/GIF/SVG while the file was a JPEG.
 - The diner app now posts the picker file by URI and sets `Content-Type` from magic bytes. iOS uses `preferredAssetRepresentationMode: compatible` so the gallery file is a JPEG. The route stores the sniffed type.

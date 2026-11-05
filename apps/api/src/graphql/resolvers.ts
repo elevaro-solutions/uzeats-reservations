@@ -164,6 +164,11 @@ import {
   messengerBotQueries,
 } from '../services/messengerBot/resolvers.js';
 import { buildOwnerOverview } from "../services/ownerOverview.js";
+import { buildInAppNotificationFilter } from "../services/notificationFilters.js";
+import {
+  buildBillingOverview,
+  countOpenInvoicesForRestaurants,
+} from "../services/billingOverview.js";
 import {
   applyGeoToFilter,
   availableSlotTimesForRestaurant,
@@ -183,6 +188,7 @@ import {
   recordSearch,
   searchRestaurantSuggestions,
 } from "../services/searchDiscovery.js";
+import { getHomeStats } from "../services/homeStats.js";
 import {
   getAvailability,
   getTurnTimeMinutes,
@@ -315,6 +321,12 @@ import {
 } from "../services/stripe.js";
 import { logAudit } from "../services/audit.js";
 import { createRestaurantSubscription } from "../services/restaurantSubscription.js";
+import {
+  confirmDefaultPaymentMethod,
+  describeVenueDefaultCard,
+  resolveVenueDefaultPaymentMethodId,
+  startDefaultPaymentMethodSetup,
+} from "../services/defaultPaymentMethod.js";
 import { deleteMyRestaurant as deleteMyRestaurantService } from "../services/deleteMyRestaurant.js";
 import { deleteMyAccount as deleteMyAccountService } from "../services/deleteMyAccount.js";
 import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from "../services/adminAssignPackage.js";
@@ -356,7 +368,7 @@ import {
 import { deleteQaIssue, exportQaIssues, listQaIssues, saveQaIssue } from "../services/qaIssues.js";
 import { partnerAdminReleaseNotes, readQaReleaseHistory } from "../services/qaReleaseHistory.js";
 import { placeNewTable } from "../services/tablePlacement.js";
-import { restaurantInputToDb } from "../lib/restaurantInput.js";
+import { resolveOnlineOrderPatch, restaurantInputToDb } from "../lib/restaurantInput.js";
 import {
   requireAuth,
   requireAdmin,
@@ -490,6 +502,8 @@ import {
   setInvoiceStatuses,
   startInvoicePayment,
   startOpenInvoicesPayment,
+  startOwnerOpenInvoicesPayment,
+  confirmOwnerOpenInvoicesPayment,
 } from "../services/invoices.js";
 import {
   extendBillingGrace,
@@ -653,6 +667,31 @@ export const resolvers = {
   SubscriptionType: {
     features: async (sub: { features?: Record<string, unknown> }) =>
       gateSubscriptionFeaturesForSms(sub.features ?? {}),
+    hasDefaultPaymentMethod: async (
+      sub: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      if (!ctx.user) return false;
+      return Boolean(await resolveVenueDefaultPaymentMethodId(sub.restaurantId));
+    },
+    defaultCard: async (
+      sub: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      if (!ctx.user) return null;
+      try {
+        await assertRestaurantAccess(
+          ctx.user._id.toString(),
+          sub.restaurantId,
+          ctx.user.role,
+        );
+      } catch {
+        return null;
+      }
+      return describeVenueDefaultCard(sub.restaurantId);
+    },
     billingEnforcement: async (
       sub: { restaurantId: string },
       _: unknown,
@@ -1265,6 +1304,8 @@ export const resolvers = {
       return getDiscoveryIndex(input);
     },
 
+    homeStats: () => getHomeStats(),
+
     searchSuggestions: async (_: unknown, args: { input: unknown }) => {
       const input = searchSuggestionsInputSchema.parse(args.input);
       return searchRestaurantSuggestions(input);
@@ -1386,6 +1427,7 @@ export const resolvers = {
           reservation: state.reservation
             ? mapReservation(state.reservation)
             : null,
+          upcoming: state.upcoming.map((r) => mapReservation(r)),
           seatedMinutes: state.seatedMinutes,
           turnMinutesRemaining: state.turnMinutesRemaining,
         })),
@@ -1644,7 +1686,7 @@ export const resolvers = {
     restaurantWaitlist: async (
       _: unknown,
       args: {
-        restaurantId: string;
+        restaurantId?: string | null;
         limit?: number;
         offset?: number;
         statuses?: string[] | null;
@@ -1654,11 +1696,6 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(
-        user._id.toString(),
-        args.restaurantId,
-        user.role,
-      );
       const { limit, offset } = normalizePagination(
         { limit: args.limit, offset: args.offset },
         { limit: 50, max: 100 },
@@ -1667,8 +1704,20 @@ export const resolvers = {
         args.statuses && args.statuses.length > 0
           ? args.statuses
           : ["waiting", "notified"];
+      let restaurantFilter: Record<string, unknown>;
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+        restaurantFilter = { restaurantId: args.restaurantId };
+      } else {
+        const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select("_id");
+        restaurantFilter = { restaurantId: { $in: owned.map((r) => r._id) } };
+      }
       const filter: Record<string, unknown> = {
-        restaurantId: args.restaurantId,
+        ...restaurantFilter,
         status: { $in: statuses },
       };
       if (args.preferredDate) {
@@ -1779,35 +1828,49 @@ export const resolvers = {
 
     restaurantPendingReservationCount: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(
-        user._id.toString(),
-        args.restaurantId,
-        user.role,
-      );
-      return Reservation.countDocuments({
-        restaurantId: args.restaurantId,
+      const pending = {
         status: "pending",
         slotStart: { $gte: new Date() },
         ...excludeIncompleteBookingPayment,
+      };
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+        return Reservation.countDocuments({
+          restaurantId: args.restaurantId,
+          ...pending,
+        });
+      }
+      const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select("_id");
+      return Reservation.countDocuments({
+        restaurantId: { $in: owned.map((r) => r._id) },
+        ...pending,
       });
     },
 
     restaurantOpenInvoiceCount: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(
-        user._id.toString(),
-        args.restaurantId,
-        user.role,
-      );
-      return countOpenInvoices(args.restaurantId);
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+        return countOpenInvoices(args.restaurantId);
+      }
+      const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select("_id");
+      return countOpenInvoicesForRestaurants(owned.map((r) => r._id));
     },
 
     myLoyalty: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -1857,16 +1920,19 @@ export const resolvers = {
 
     myNotifications: async (
       _: unknown,
-      args: { limit?: number | null; offset?: number | null },
+      args: {
+        limit?: number | null;
+        offset?: number | null;
+        restaurantId?: string | null;
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
       const offset = Math.max(args.offset ?? 0, 0);
-      const filter = {
-        userId: user._id,
-        channel: "in_app",
-      };
+      const filter = buildInAppNotificationFilter(user._id, {
+        restaurantId: args.restaurantId,
+      });
       const [docs, total] = await Promise.all([
         Notification.find(filter)
           .sort({ createdAt: -1 })
@@ -1890,15 +1956,16 @@ export const resolvers = {
 
     unreadNotificationCount: async (
       _: unknown,
-      __: unknown,
+      args: { restaurantId?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      return Notification.countDocuments({
-        userId: user._id,
-        channel: "in_app",
-        $or: [{ readAt: null }, { readAt: { $exists: false } }],
-      });
+      return Notification.countDocuments(
+        buildInAppNotificationFilter(user._id, {
+          restaurantId: args.restaurantId,
+          unreadOnly: true,
+        }),
+      );
     },
 
     myOwnerSupportTickets: async (
@@ -1967,15 +2034,27 @@ export const resolvers = {
 
     myOwnerOverview: async (
       _: unknown,
-      args: { date?: string },
+      args: { date?: string; restaurantId?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+      }
       const date =
         args.date && /^\d{4}-\d{2}-\d{2}$/.test(args.date)
           ? args.date
           : todayIsoInTimeZone(PLATFORM_RESERVATION_LIST_TIMEZONE);
-      return buildOwnerOverview(user, date);
+      return buildOwnerOverview(user, date, args.restaurantId ?? undefined);
+    },
+
+    myBillingOverview: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return buildBillingOverview(user);
     },
 
     myRestaurantLocationsMeta: async (
@@ -2548,6 +2627,16 @@ export const resolvers = {
     ) => {
       requireAdmin(ctx);
       return getAdminInvoiceInsights(args.period);
+    },
+
+    adminFailedCharges: async (
+      _: unknown,
+      args: { limit?: number | null },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      const { listFailedCharges } = await import("../services/invoices.js");
+      return listFailedCharges(args.limit ?? 100);
     },
 
     adminInvoice: async (
@@ -4274,9 +4363,17 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.id, user.role);
       const input = restaurantInputSchema.parse(args.input);
+      const current = await Restaurant.findById(args.id)
+        .select("onlineOrderUrl onlineOrderEnabled")
+        .lean();
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
-        { $set: restaurantInputToDb(input) },
+        {
+          $set: {
+            ...restaurantInputToDb(input),
+            ...resolveOnlineOrderPatch(current, input, user.role),
+          },
+        },
         { new: true },
       );
       if (!doc) throw new Error("Restaurant not found");
@@ -5556,6 +5653,13 @@ export const resolvers = {
       return startOpenInvoicesPayment(args.restaurantId);
     },
 
+    startAllOpenInvoicesPayment: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      assertCanManageBilling(user.role);
+      const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select("_id");
+      return startOwnerOpenInvoicesPayment(owned.map((r) => r._id.toString()));
+    },
+
     confirmOpenInvoicesPayment: async (
       _: unknown,
       args: { restaurantId: string; paymentIntentId: string },
@@ -5569,6 +5673,20 @@ export const resolvers = {
         user.role,
       );
       return confirmOpenInvoicesPayment(args.restaurantId, args.paymentIntentId);
+    },
+
+    confirmAllOpenInvoicesPayment: async (
+      _: unknown,
+      args: { paymentIntentId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      assertCanManageBilling(user.role);
+      const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select("_id");
+      return confirmOwnerOpenInvoicesPayment(
+        owned.map((r) => r._id.toString()),
+        args.paymentIntentId,
+      );
     },
 
     createPlatformService: async (
@@ -6462,6 +6580,41 @@ export const resolvers = {
       return mapSubscription(sub, { includeStripeIds: true });
     },
 
+    startDefaultPaymentMethodSetup: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      assertCanManageBilling(user.role);
+      return startDefaultPaymentMethodSetup(args.restaurantId);
+    },
+
+    confirmDefaultPaymentMethod: async (
+      _: unknown,
+      args: { restaurantId: string; setupIntentId?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      assertCanManageBilling(user.role);
+      const sub = await confirmDefaultPaymentMethod({
+        restaurantId: args.restaurantId,
+        setupIntentId: args.setupIntentId,
+        actorId: user._id.toString(),
+      });
+      return mapSubscription(sub, { includeStripeIds: true });
+    },
+
     cancelPendingPlanChange: async (
       _: unknown,
       args: { restaurantId: string },
@@ -6530,16 +6683,15 @@ export const resolvers = {
 
     markAllNotificationsRead: async (
       _: unknown,
-      __: unknown,
+      args: { restaurantId?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       await Notification.updateMany(
-        {
-          userId: user._id,
-          channel: "in_app",
-          $or: [{ readAt: null }, { readAt: { $exists: false } }],
-        },
+        buildInAppNotificationFilter(user._id, {
+          restaurantId: args.restaurantId,
+          unreadOnly: true,
+        }),
         { $set: { readAt: new Date() } },
       );
       return true;

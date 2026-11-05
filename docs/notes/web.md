@@ -278,3 +278,9 @@
 - Diner-paid fees: pass `dinerFeePreviewLabel` / `dinerFeeCentsForTable` / `selectedDinerFeeCents` from the page (built via `dinerVirtualRoomSelectionFeeTotalCents`). Hide when restaurant pays.
 - Special requests: drop “seating preferences” from the placeholder when Virtual Room is on; point diners to the 3D CTA instead. Promo/gift inputs live in a collapsed “Have a promo or gift card?” panel so the card stays short; auto-applied promos stay visible above.
 - Why it matters: Competing messages undercut the paid 3D table-selection path.
+
+## [2026-11-04] Home hero stats: two cache layers
+- `homeStats` (API) caches totals in Redis for 24h under `home-stats:v1`, with an in-process fallback when Redis is down. `fetchHomeStats` (web) revalidates hourly on top of that.
+- Do not raise the web revalidate to 24h as well: stacked TTLs let the hero show numbers up to ~48h old. To force a refresh, delete the Redis key, then wait for (or trigger) the hourly page revalidate.
+- Restaurants and cities use the same approved + publicly listed filter as discovery. Diners served sums `partySize` on `seated`/`completed` reservations. The rating is the mean of non-hidden reviews.
+- Why it matters: The hero used to show made-up numbers (removed in v0.92.0); zero values are hidden rather than shown.

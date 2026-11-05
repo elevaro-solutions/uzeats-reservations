@@ -2,74 +2,130 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { ALL_LOCATIONS_VALUE } from '@/lib/restaurants';
+import {
+  ACTIVE_RESTAURANT_STORAGE_KEY,
+  clearPendingRestaurantScope,
+  markPendingRestaurantScope,
+  readPendingRestaurantScope,
+  readStoredRestaurantScope,
+  resolveRestaurantScope,
+  writeStoredRestaurantScope,
+} from '@/lib/restaurantScope';
 
 const RESTAURANT_PARAM = 'restaurant';
 
-/** Syncs active restaurant with URL `?restaurant=` and Partner Hub header selector. */
-export function useActiveRestaurant(restaurantIds: string[] = []) {
+/** Syncs active restaurant with URL `?restaurant=` and the header selector. */
+export function useActiveRestaurant(
+  restaurantIds: string[] = [],
+  options?: { syncUrl?: boolean },
+) {
+  const syncUrl = options?.syncUrl ?? false;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [restaurantId, setRestaurantIdState] = useState<string>();
-
+  const [epoch, setEpoch] = useState(0);
   const restaurantIdsKey = restaurantIds.join(',');
 
-  const resolvedId = useMemo(() => {
-    const fromUrl = searchParams.get(RESTAURANT_PARAM);
-    const validFromUrl = fromUrl && restaurantIds.includes(fromUrl) ? fromUrl : undefined;
-    if (validFromUrl) return validFromUrl;
+  const scope = useMemo(() => {
+    const pending = readPendingRestaurantScope();
+    if (pending === ALL_LOCATIONS_VALUE && restaurantIds.length > 1) return { mode: 'all' as const };
+    if (pending && restaurantIds.includes(pending)) {
+      return { mode: 'one' as const, restaurantId: pending };
+    }
+    return resolveRestaurantScope({
+      restaurantIds,
+      urlRestaurant: searchParams.get(RESTAURANT_PARAM),
+      stored: readStoredRestaurantScope(),
+    });
+    // epoch re-reads pending scope and localStorage after the header selector changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurantIdsKey, searchParams, epoch, restaurantIds]);
 
-    const saved =
-      typeof window !== 'undefined' ? localStorage.getItem('activeRestaurantId') : null;
-    const validSaved = saved && restaurantIds.includes(saved) ? saved : undefined;
-    return validSaved ?? restaurantIds[0];
-  }, [restaurantIdsKey, searchParams, restaurantIds]);
-
-  useEffect(() => {
-    setRestaurantIdState(resolvedId);
-  }, [resolvedId]);
+  const allRestaurants = scope?.mode === 'all';
+  const restaurantId = scope?.mode === 'one' ? scope.restaurantId : undefined;
 
   const setRestaurantId = useCallback(
     (id: string) => {
-      if (!restaurantIds.includes(id)) return;
-      setRestaurantIdState(id);
-      localStorage.setItem('activeRestaurantId', id);
-      window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
-
       const params = new URLSearchParams(searchParams.toString());
-      if (restaurantIds.length > 1) params.set(RESTAURANT_PARAM, id);
-      else params.delete(RESTAURANT_PARAM);
+      params.delete('locations');
 
+      if (id === ALL_LOCATIONS_VALUE) {
+        if (restaurantIds.length <= 1) return;
+        markPendingRestaurantScope(ALL_LOCATIONS_VALUE);
+        writeStoredRestaurantScope(ALL_LOCATIONS_VALUE);
+        window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: ALL_LOCATIONS_VALUE }));
+        params.delete(RESTAURANT_PARAM);
+      } else {
+        if (!restaurantIds.includes(id)) return;
+        markPendingRestaurantScope(id);
+        writeStoredRestaurantScope(id);
+        window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
+        if (restaurantIds.length > 1) params.set(RESTAURANT_PARAM, id);
+        else params.delete(RESTAURANT_PARAM);
+      }
+
+      setEpoch((n) => n + 1);
       const qs = params.toString();
       const nextUrl = qs ? `${pathname}?${qs}` : pathname;
       const currentQs = searchParams.toString();
       const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
-      if (nextUrl !== currentUrl) {
-        router.replace(nextUrl, { scroll: false });
-      }
+      if (nextUrl !== currentUrl) router.replace(nextUrl, { scroll: false });
     },
     [pathname, restaurantIds, router, searchParams],
   );
 
   useEffect(() => {
-    if (!resolvedId || restaurantIds.length <= 1) return;
-    const fromUrl = searchParams.get(RESTAURANT_PARAM);
-    if (fromUrl === resolvedId) return;
-
+    if (!syncUrl || !scope || restaurantIds.length <= 1) return;
     const params = new URLSearchParams(searchParams.toString());
-    params.set(RESTAURANT_PARAM, resolvedId);
+    const pending = readPendingRestaurantScope();
+    const fromUrl = params.get(RESTAURANT_PARAM);
+    let changed = false;
+    if (params.has('locations')) {
+      params.delete('locations');
+      changed = true;
+    }
+
+    if (pending === ALL_LOCATIONS_VALUE) {
+      if (params.has(RESTAURANT_PARAM)) {
+        params.delete(RESTAURANT_PARAM);
+        changed = true;
+      } else {
+        clearPendingRestaurantScope();
+      }
+    } else if (pending && restaurantIds.includes(pending)) {
+      if (fromUrl !== pending) {
+        params.set(RESTAURANT_PARAM, pending);
+        changed = true;
+      } else {
+        clearPendingRestaurantScope();
+      }
+    } else if (fromUrl && restaurantIds.includes(fromUrl)) {
+      if (localStorage.getItem(ACTIVE_RESTAURANT_STORAGE_KEY) !== fromUrl) {
+        writeStoredRestaurantScope(fromUrl);
+      }
+    } else {
+      const stored = readStoredRestaurantScope();
+      if (stored && restaurantIds.includes(stored)) {
+        params.set(RESTAURANT_PARAM, stored);
+        changed = true;
+      } else if (params.has(RESTAURANT_PARAM)) {
+        params.delete(RESTAURANT_PARAM);
+        changed = true;
+        writeStoredRestaurantScope(ALL_LOCATIONS_VALUE);
+      }
+    }
+
+    if (!changed) return;
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [resolvedId, restaurantIds.length, pathname, router, searchParams]);
+  }, [syncUrl, scope, restaurantIds, restaurantIds.length, pathname, router, searchParams]);
 
   useEffect(() => {
-    const onChange = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
-      if (id) setRestaurantIdState(id);
-    };
+    const onChange = () => setEpoch((n) => n + 1);
     window.addEventListener('rt-restaurant-change', onChange);
     return () => window.removeEventListener('rt-restaurant-change', onChange);
   }, []);
 
-  return { restaurantId: restaurantId ?? resolvedId, setRestaurantId };
+  return { restaurantId, allRestaurants, setRestaurantId };
 }

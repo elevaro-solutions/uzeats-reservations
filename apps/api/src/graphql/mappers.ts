@@ -5,10 +5,13 @@ import {
   isActiveWaitlistWaitStatus,
   isWaitlistWaitOverdue,
   resolveLoyaltyTier,
+  resolveOnlineOrderLink,
   waitlistPromisedMinutes,
   waitlistWaitingMinutes,
 } from '@reservations/shared';
+import { env } from '../config/env.js';
 import { peekLoyaltyProgram } from '../services/loyaltyProgram.js';
+import { EMAIL_BRAND } from '../services/emailBranding.js';
 
 function id(doc: { _id: { toString(): string } }) {
   return doc._id.toString();
@@ -104,6 +107,16 @@ export function mapRestaurant(r: any) {
     website: r.website,
     menuUrl: r.menuUrl ?? null,
     onlineOrderUrl: r.onlineOrderUrl ?? null,
+    onlineOrderEnabled: r.onlineOrderEnabled !== false,
+    onlineOrderLink: resolveOnlineOrderLink(
+      {
+        onlineOrderUrl: r.onlineOrderUrl,
+        onlineOrderEnabled: r.onlineOrderEnabled,
+        slug: r.slug,
+        id: id(r),
+      },
+      env.WEB_APP_URL || EMAIL_BRAND.siteUrl,
+    ),
     logoUrl: r.logoUrl ?? null,
     photos: r.photos ?? [],
     status: r.status,

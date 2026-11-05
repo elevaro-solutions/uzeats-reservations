@@ -99,7 +99,7 @@ export default async function RestaurantPage({ params, searchParams }: PageProps
             amenities: restaurant.amenities,
             meals: restaurant.meals,
             menuUrl: restaurant.menuUrl,
-            onlineOrderUrl: restaurant.onlineOrderUrl,
+            onlineOrderLink: restaurant.onlineOrderLink,
             reservationsEnabled: restaurant.reservationsEnabled,
             openingHoursSpecification: openingHoursSpecificationFromShifts(
               restaurant.shifts ?? [],

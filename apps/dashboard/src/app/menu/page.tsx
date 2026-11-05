@@ -1,35 +1,68 @@
 'use client';
 
-import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type KeyboardEvent,
+  type MouseEvent,
+  type MutableRefObject,
+  type ReactNode,
+  type SetStateAction,
+} from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
-  Checkbox,
   Collapse,
+  Dropdown,
   Form,
   Input,
   InputNumber,
   Menu,
+  Modal,
+  Popconfirm,
+  Progress,
+  Segmented,
   Select,
   Space,
   Spin,
   Switch,
+  Tag,
+  Tooltip,
   Typography,
   Upload,
   message,
 } from 'antd';
 import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
   DeleteOutlined,
+  LinkOutlined,
+  LoadingOutlined,
+  MoreOutlined,
   NodeCollapseOutlined,
   NodeExpandOutlined,
+  PictureOutlined,
   PlusOutlined,
-  UploadOutlined,
+  SearchOutlined,
+  ShoppingCartOutlined,
+  StarFilled,
+  StarOutlined,
 } from '@ant-design/icons';
+import type { FormInstance } from 'antd';
 import type { RcFile } from 'antd/es/upload';
 import type { FormListFieldData } from 'antd/es/form/FormList';
-import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems, restaurantUpload } from '@reservations/shared';
+import {
+  FALLBACK_PUBLIC_MENU_ITEMS,
+  MAX_POPULAR_MENU_ITEMS,
+  canManageOnlineOrdering,
+  countPopularMenuItems,
+  normalizeOnlineOrderUrl,
+  restaurantUpload,
+} from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
@@ -40,8 +73,8 @@ import {
 } from '@/lib/graphql';
 import { buildRestaurantInput } from '@/lib/restaurantInput';
 import { uploadFile } from '@/lib/upload';
+import { OnlineOrderFields } from '@/components/OnlineOrderFields';
 import { RichTextArea } from '@/components/RichTextArea';
-
 const { Title, Text } = Typography;
 
 const DIETARY_OPTIONS = [
@@ -53,6 +86,10 @@ const DIETARY_OPTIONS = [
   { value: 'halal', label: 'Halal' },
   { value: 'kosher', label: 'Kosher' },
 ];
+
+const DIETARY_LABELS: Record<string, string> = Object.fromEntries(
+  DIETARY_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 type MenuItemForm = {
   name: string;
@@ -69,6 +106,16 @@ type MenuSectionForm = {
   items: MenuItemForm[];
 };
 
+type MenuEditorValues = {
+  sections: MenuSectionForm[];
+  onlineOrderUrl?: string;
+  onlineOrderEnabled?: boolean;
+};
+
+type MenuForm = ReturnType<typeof Form.useForm<MenuEditorValues>>[0];
+
+type ItemFilter = 'all' | 'popular' | 'unavailable';
+
 const EMPTY_ITEM: MenuItemForm = {
   name: '',
   description: '',
@@ -80,7 +127,7 @@ const EMPTY_ITEM: MenuItemForm = {
 };
 
 const EMPTY_SECTION: MenuSectionForm = {
-  name: 'New section',
+  name: 'New category',
   items: [{ ...EMPTY_ITEM }],
 };
 
@@ -125,10 +172,81 @@ function sectionsFromRestaurant(restaurant: {
   }));
 }
 
+/** Descriptions may be rich-text HTML; list rows show a one-line plain preview. */
+function plainText(value?: string) {
+  if (!value) return '';
+  return value
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/(p|li|h\d|blockquote)>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function formatPrice(price: unknown) {
+  return typeof price === 'number' ? `$${price.toFixed(2)}` : '';
+}
+
+function itemMatches(item: MenuItemForm | undefined, query: string, filter: ItemFilter) {
+  if (!item) return false;
+  if (filter === 'popular' && !item.popular) return false;
+  if (filter === 'unavailable' && item.available !== false) return false;
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    (item.name ?? '').toLowerCase().includes(q) ||
+    plainText(item.description).toLowerCase().includes(q) ||
+    (item.dietary ?? []).some((tag) => (DIETARY_LABELS[tag] ?? tag).toLowerCase().includes(q))
+  );
+}
+
+/** First dish or category that would fail save, including panels never opened. */
+function firstIncompleteField(sections: MenuSectionForm[]) {
+  for (let si = 0; si < sections.length; si += 1) {
+    const section = sections[si]!;
+    const sectionName = section.name?.trim();
+    if (!sectionName) {
+      return { path: ['sections', si, 'name'], sectionIndex: si, error: `Category ${si + 1} needs a name` };
+    }
+    const items = section.items ?? [];
+    for (let ii = 0; ii < items.length; ii += 1) {
+      const item = items[ii]!;
+      if (!item.name?.trim()) {
+        return {
+          path: ['sections', si, 'items', ii, 'name'],
+          sectionIndex: si,
+          itemIndex: ii,
+          error: `Dish ${ii + 1} in “${sectionName}” needs a name`,
+        };
+      }
+      if (typeof item.price !== 'number') {
+        return {
+          path: ['sections', si, 'items', ii, 'price'],
+          sectionIndex: si,
+          itemIndex: ii,
+          error: `“${item.name.trim()}” needs a price`,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+const stopHeaderToggle = {
+  onClick: (e: MouseEvent) => e.stopPropagation(),
+  onKeyDown: (e: KeyboardEvent) => e.stopPropagation(),
+};
+
 export default function MenuPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [form] = Form.useForm<{ sections: MenuSectionForm[] }>();
+  const [form] = Form.useForm<MenuEditorValues>();
   const { data: shellData, loading: shellLoading } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !user,
   });
@@ -148,16 +266,30 @@ export default function MenuPage() {
       : null;
   const [upsertMenu, { loading }] = useMutation(UPSERT_MENU);
   const [updateRestaurant, { loading: savingMenuUrl }] = useMutation(UPDATE_RESTAURANT);
+  const saving = loading || savingMenuUrl;
   const [menuUrl, setMenuUrl] = useState('');
   const [uploadingPath, setUploadingPath] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<ItemFilter>('all');
   /** Empty = all item accordions collapsed (default). */
   const [openKeys, setOpenKeys] = useState<OpenKeysBySection>({});
   /** Latest item keys per section, updated each render for expand-all. */
   const itemKeysRef = useRef<Record<string, string[]>>({});
   /** Form.List field name of the category shown in the side panel. */
   const [activeSectionName, setActiveSectionName] = useState<number>(0);
-  const watchedSections = Form.useWatch('sections', form) as MenuSectionForm[] | undefined;
+  /** `preserve` keeps dishes whose rows are filtered out or never expanded in the counts. */
+  const watchedSections = Form.useWatch('sections', { form, preserve: true }) as
+    | MenuSectionForm[]
+    | undefined;
   const popularCount = countPopularMenuItems(watchedSections);
+  const categoryCount = watchedSections?.length ?? 0;
+  const totalItems = (watchedSections ?? []).reduce((n, s) => n + (s?.items?.length ?? 0), 0);
+  const unavailableCount = (watchedSections ?? []).reduce(
+    (n, s) => n + (s?.items ?? []).filter((i) => i?.available === false).length,
+    0,
+  );
+  const searching = Boolean(query.trim()) || filter !== 'all';
   /** Item counts from nested Form.List (authoritative; useWatch can lag on nested lists). */
   const [itemCounts, setItemCounts] = useState<Record<number, number>>({});
   /** Restaurant id whose menu is currently in the form — skip re-hydrate on cache polls. */
@@ -174,28 +306,41 @@ export default function MenuPage() {
     resetEditorUiRef.current = true;
   }, [activeRestaurantId]);
 
-  useEffect(() => {
-    if (!activeRestaurantId || !restaurant || restaurant.id !== activeRestaurantId) return;
-    // Keep editor stable while a photo upload is in flight (Form.List remount would abort it).
-    if (uploadingPath) return;
-    if (hydratedIdRef.current === activeRestaurantId) return;
-
-    const nextSections = sectionsFromRestaurant(restaurant);
-    setMenuUrl(restaurant.menuUrl ?? '');
-    form.setFieldsValue({ sections: nextSections });
+  function applyMenu(source: NonNullable<typeof restaurant>) {
+    const nextSections = sectionsFromRestaurant(source);
+    setMenuUrl(source.menuUrl ?? '');
+    form.setFieldsValue({
+      sections: nextSections,
+      onlineOrderUrl: source.onlineOrderUrl ?? '',
+      onlineOrderEnabled: source.onlineOrderEnabled ?? true,
+    });
     setItemCounts(
       Object.fromEntries(nextSections.map((s, i) => [i, s.items.length])) as Record<
         number,
         number
       >,
     );
+    setDirty(false);
+  }
+
+  useEffect(() => {
+    if (!activeRestaurantId || !restaurant || restaurant.id !== activeRestaurantId) return;
+    // Keep editor stable while a photo upload is in flight (Form.List remount would abort it).
+    if (uploadingPath) return;
+    if (hydratedIdRef.current === activeRestaurantId) return;
+
+    applyMenu(restaurant);
     if (resetEditorUiRef.current) {
       setOpenKeys({});
       itemKeysRef.current = {};
       setActiveSectionName(0);
+      setQuery('');
+      setFilter('all');
       resetEditorUiRef.current = false;
     }
     hydratedIdRef.current = activeRestaurantId;
+    // applyMenu only touches stable setters and the form instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRestaurantId, restaurant, form, uploadingPath]);
 
   // Keep the side-tab selection in range after removals.
@@ -206,6 +351,16 @@ export default function MenuPage() {
       setActiveSectionName(len - 1);
     }
   }, [watchedSections?.length, activeSectionName]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
 
   async function uploadPhoto(file: RcFile, sectionIndex: number, itemIndex: number) {
     if (file.size > 5 * 1024 * 1024) {
@@ -220,6 +375,7 @@ export default function MenuPage() {
         target: restaurantUpload(activeRestaurantId ?? '', 'menu'),
       });
       form.setFieldValue(['sections', sectionIndex, 'items', itemIndex, 'photoUrl'], publicUrl);
+      setDirty(true);
       message.success('Photo uploaded');
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Upload failed');
@@ -227,6 +383,58 @@ export default function MenuPage() {
       setUploadingPath(null);
     }
   }
+
+  function revealField(path: (string | number)[], sectionIndex: number, itemIndex?: number) {
+    setActiveSectionName(sectionIndex);
+    setQuery('');
+    setFilter('all');
+    if (itemIndex != null) {
+      const key = itemKeysRef.current[String(sectionIndex)]?.[itemIndex];
+      if (key) {
+        setOpenKeys((prev) => {
+          const current = prev[String(sectionIndex)] ?? [];
+          return current.includes(key)
+            ? prev
+            : { ...prev, [String(sectionIndex)]: [...current, key] };
+        });
+      }
+    }
+    // Wait for the panel to mount its fields, then surface the inline error.
+    const looseForm = form as FormInstance;
+    window.setTimeout(() => {
+      looseForm.validateFields([path]).catch(() => undefined);
+      looseForm.scrollToField(path, { block: 'center', behavior: 'smooth' });
+    }, 50);
+  }
+
+  function discardChanges() {
+    if (!restaurant) return;
+    applyMenu(restaurant);
+    setOpenKeys({});
+    setActiveSectionName(0);
+    message.info('Changes discarded');
+  }
+
+  const selectProps = {
+    ...restaurantSelectProps,
+    onChange: (id: string) => {
+      if (!dirty) {
+        restaurantSelectProps.onChange(id);
+        return;
+      }
+      Modal.confirm({
+        title: 'Discard unsaved menu changes?',
+        content: 'Switching restaurants drops the edits you have not saved yet.',
+        okText: 'Discard and switch',
+        okButtonProps: { danger: true },
+        cancelText: 'Keep editing',
+        onOk: () => {
+          setDirty(false);
+          restaurantSelectProps.onChange(id);
+        },
+      });
+    },
+  };
 
   if (authLoading || (user && shellLoading && !shellData)) {
     return (
@@ -244,17 +452,29 @@ export default function MenuPage() {
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          alignItems: 'center',
+          alignItems: 'flex-end',
           justifyContent: 'space-between',
           gap: 12,
         }}
       >
-        <Title level={2} style={{ margin: 0 }}>
-          Menu editor
-        </Title>
+        <div>
+          <Title level={2} style={{ margin: 0 }}>
+            Menu editor
+          </Title>
+          <Text type="secondary">
+            Organize categories and dishes, and pick which ones diners see on your restaurant page.
+          </Text>
+        </div>
         <Space wrap>
-          <Select style={{ width: 240 }} {...restaurantSelectProps} />
-          <Button type="primary" htmlType="submit" form="menu-editor-form" loading={loading || savingMenuUrl} disabled={menuBusy || !restaurant}>
+          <Select style={{ width: 240 }} {...selectProps} />
+          {dirty ? <Tag color="gold">Unsaved changes</Tag> : null}
+          <Button
+            type="primary"
+            htmlType="submit"
+            form="menu-editor-form"
+            loading={saving}
+            disabled={menuBusy || !restaurant}
+          >
             Save menu
           </Button>
         </Space>
@@ -269,8 +489,29 @@ export default function MenuPage() {
         id="menu-editor-form"
         form={form}
         layout="vertical"
+        requiredMark={false}
+        onValuesChange={() => setDirty(true)}
+        onFinishFailed={({ errorFields }) => {
+          const first = errorFields[0];
+          if (!first) return;
+          const [, sectionIndex, , itemIndex] = first.name;
+          if (typeof sectionIndex === 'number') {
+            revealField(
+              first.name as (string | number)[],
+              sectionIndex,
+              typeof itemIndex === 'number' ? itemIndex : undefined,
+            );
+          }
+          message.error(first.errors[0] ?? 'Fix the highlighted fields before saving');
+        }}
         onFinish={async (values) => {
           if (!activeRestaurantId || !restaurant) return;
+          const incomplete = firstIncompleteField(values.sections ?? []);
+          if (incomplete) {
+            revealField(incomplete.path, incomplete.sectionIndex, incomplete.itemIndex);
+            message.error(incomplete.error);
+            return;
+          }
           try {
             const sections = (values.sections ?? []).map((s) => ({
               name: s.name.trim(),
@@ -296,12 +537,15 @@ export default function MenuPage() {
                   id: activeRestaurantId,
                   input: {
                     ...buildRestaurantInput(restaurant),
-                    menuUrl: menuUrl.trim() || undefined,
+                    menuUrl: menuUrl.trim() || null,
+                    onlineOrderUrl: normalizeOnlineOrderUrl(values.onlineOrderUrl),
+                    onlineOrderEnabled: values.onlineOrderEnabled !== false,
                   },
                 },
               }),
               upsertMenu({ variables: { restaurantId: activeRestaurantId, input: { sections } } }),
             ]);
+            setDirty(false);
             message.success('Menu saved');
             // Refresh Apollo cache only — re-applying form values remounts Form.List keys and collapses items.
             void refetch();
@@ -310,29 +554,92 @@ export default function MenuPage() {
           }
         }}
       >
-        <Card size="small" style={{ marginBottom: 16 }}>
-          <Form.Item
-            label="Full menu URL"
-            extra='Optional link for "View full menu" on your public page — PDF, website menu, or third-party menu host.'
-            style={{ marginBottom: 12 }}
-          >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 16,
+            marginBottom: 16,
+          }}
+        >
+          <Card size="small" title="Full menu link">
             <Input
+              prefix={<LinkOutlined style={{ color: 'var(--color-text-tertiary)' }} />}
               placeholder="https://yourrestaurant.com/menu"
               value={menuUrl}
-              onChange={(e) => setMenuUrl(e.target.value)}
+              allowClear
+              onChange={(e) => {
+                setMenuUrl(e.target.value);
+                setDirty(true);
+              }}
             />
-          </Form.Item>
-          <Text type="secondary">
-            Check Popular on {MAX_POPULAR_MENU_ITEMS} dishes or fewer — those are the only items
-            diners see on your restaurant page. {popularCount} of {MAX_POPULAR_MENU_ITEMS} selected.
-          </Text>
-        </Card>
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
+              Optional. Powers the “View full menu” button on your public page — a PDF, your
+              website menu, or a third-party menu host.
+            </Text>
+          </Card>
+          <Card
+            size="small"
+            title={
+              <Space size={6}>
+                <ShoppingCartOutlined />
+                Online ordering
+              </Space>
+            }
+          >
+            <OnlineOrderFields
+              label={null}
+              slug={restaurant?.slug}
+              restaurantId={restaurant?.id}
+              canToggle={canManageOnlineOrdering(user?.role ?? '')}
+            />
+          </Card>
+          <Card
+            size="small"
+            title={
+              <Space size={6}>
+                <StarFilled style={{ color: 'var(--color-accent)' }} />
+                Featured dishes
+              </Space>
+            }
+            extra={
+              <Text strong>
+                {popularCount} / {MAX_POPULAR_MENU_ITEMS}
+              </Text>
+            }
+          >
+            <Progress
+              percent={Math.round((popularCount / MAX_POPULAR_MENU_ITEMS) * 100)}
+              steps={MAX_POPULAR_MENU_ITEMS}
+              showInfo={false}
+              strokeColor="var(--color-accent)"
+              style={{ marginBottom: 8 }}
+            />
+            <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>
+              {popularCount === 0
+                ? `Star up to ${MAX_POPULAR_MENU_ITEMS} dishes to feature them on your restaurant page. Until you do, diners see your first ${FALLBACK_PUBLIC_MENU_ITEMS} dishes.`
+                : popularCount >= MAX_POPULAR_MENU_ITEMS
+                  ? 'Limit reached — unstar a dish to feature a different one.'
+                  : 'Only starred dishes appear on your restaurant page.'}
+            </Text>
+            <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
+              {categoryCount} {categoryCount === 1 ? 'category' : 'categories'} · {totalItems}{' '}
+              {totalItems === 1 ? 'dish' : 'dishes'}
+              {unavailableCount ? ` · ${unavailableCount} unavailable` : ''}
+            </Text>
+          </Card>
+        </div>
 
         <Form.List name="sections">
-          {(sections, { add: addSection, remove: removeSection }) => {
+          {(sections, { add: addSection, remove: removeSection, move: moveSection }) => {
             const activeSection =
               sections.find((s) => s.name === activeSectionName) ?? sections[0] ?? null;
             const activeKey = activeSection ? String(activeSection.name) : '';
+
+            const matchCounts = sections.map((section) => {
+              const items = watchedSections?.[section.name]?.items ?? [];
+              return items.filter((item) => itemMatches(item, query, filter)).length;
+            });
 
             const categoryMenuItems = sections.map((section, index) => {
               const sectionData = watchedSections?.[section.name];
@@ -342,6 +649,7 @@ export default function MenuPage() {
                 sectionData?.items?.length ??
                 form.getFieldValue(['sections', section.name, 'items'])?.length ??
                 0;
+              const matches = matchCounts[index] ?? 0;
               return {
                 key: String(section.name),
                 label: (
@@ -352,6 +660,7 @@ export default function MenuPage() {
                       justifyContent: 'space-between',
                       gap: 8,
                       width: '100%',
+                      opacity: searching && matches === 0 ? 0.45 : 1,
                     }}
                   >
                     <span
@@ -363,13 +672,83 @@ export default function MenuPage() {
                     >
                       {label}
                     </span>
-                    <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
-                      {itemCount}
-                    </Text>
+                    <Tag style={{ marginInlineEnd: 0, flexShrink: 0 }}>
+                      {searching ? `${matches}/${itemCount}` : itemCount}
+                    </Tag>
                   </div>
                 ),
               };
             });
+
+            function moveCategory(from: number, to: number) {
+              if (to < 0 || to >= sections.length) return;
+              moveSection(from, to);
+              setOpenKeys((prev) => ({
+                ...prev,
+                [String(from)]: prev[String(to)] ?? [],
+                [String(to)]: prev[String(from)] ?? [],
+              }));
+              setItemCounts((prev) => ({
+                ...prev,
+                [from]: prev[to] ?? 0,
+                [to]: prev[from] ?? 0,
+              }));
+              setActiveSectionName(to);
+            }
+
+            function deleteCategory(removing: number) {
+              const remaining = sections.filter((s) => s.name !== removing);
+              const prevSibling = [...remaining].reverse().find((s) => s.name < removing);
+              removeSection(removing);
+              setOpenKeys({});
+              setActiveSectionName(
+                remaining.length === 0 ? 0 : (prevSibling ?? remaining[0]!).name,
+              );
+            }
+
+            const otherMatches = sections
+              .map((section, index) => ({ section, index, count: matchCounts[index] ?? 0 }))
+              .filter(({ section, count }) => section.name !== activeSection?.name && count > 0);
+
+            const emptySearch = (
+              <div
+                style={{
+                  padding: '28px 16px',
+                  textAlign: 'center',
+                  border: '1px dashed var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                }}
+              >
+                <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                  No dishes in this category match your filters.
+                </Text>
+                {otherMatches.length ? (
+                  <Space wrap size={6} style={{ justifyContent: 'center' }}>
+                    <Text type="secondary">Found in</Text>
+                    {otherMatches.map(({ section, index, count }) => (
+                      <Button
+                        key={section.key}
+                        size="small"
+                        onClick={() => setActiveSectionName(section.name)}
+                      >
+                        {watchedSections?.[section.name]?.name?.trim() || `Category ${index + 1}`} (
+                        {count})
+                      </Button>
+                    ))}
+                  </Space>
+                ) : (
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setQuery('');
+                      setFilter('all');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            );
 
             return (
               <div
@@ -385,8 +764,9 @@ export default function MenuPage() {
                   title="Categories"
                   styles={{ body: { padding: '8px 0' } }}
                   style={{
-                    width: 240,
-                    flexShrink: 0,
+                    flex: '1 1 240px',
+                    maxWidth: 280,
+                    minWidth: 220,
                     position: 'sticky',
                     top: 16,
                   }}
@@ -397,15 +777,18 @@ export default function MenuPage() {
                       icon={<PlusOutlined />}
                       onClick={() => {
                         const nextIndex = sections.length;
-                        addSection({ ...EMPTY_SECTION });
+                        addSection({ ...EMPTY_SECTION, items: [{ ...EMPTY_ITEM }] });
                         setItemCounts((prev) => ({
                           ...prev,
                           [nextIndex]: EMPTY_SECTION.items.length,
                         }));
                         setActiveSectionName(nextIndex);
+                        setQuery('');
+                        setFilter('all');
                       }}
-                      aria-label="Add category"
-                    />
+                    >
+                      Add
+                    </Button>
                   }
                 >
                   <Menu
@@ -422,42 +805,40 @@ export default function MenuPage() {
                   ) : null}
                 </Card>
 
-                <div style={{ flex: 1, minWidth: 280 }}>
-                  <Space wrap style={{ marginBottom: 12 }}>
-                    <Button
-                      icon={<NodeExpandOutlined />}
-                      onClick={() => {
-                        if (!activeSection) return;
-                        const keys = itemKeysRef.current[String(activeSection.name)] ?? [];
-                        setOpenKeys((prev) => ({
-                          ...prev,
-                          [String(activeSection.name)]: [...keys],
-                        }));
-                      }}
-                      disabled={!activeSection}
-                    >
-                      Expand items
-                    </Button>
-                    <Button
-                      icon={<NodeCollapseOutlined />}
-                      onClick={() => {
-                        if (!activeSection) return;
-                        setOpenKeys((prev) => ({
-                          ...prev,
-                          [String(activeSection.name)]: [],
-                        }));
-                      }}
-                      disabled={!activeSection}
-                    >
-                      Collapse items
-                    </Button>
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                      Switch categories in the sidebar — items start collapsed
-                    </Text>
-                  </Space>
+                <div style={{ flex: '999 1 420px', minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      alignItems: 'center',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Input
+                      allowClear
+                      prefix={<SearchOutlined style={{ color: 'var(--color-text-tertiary)' }} />}
+                      placeholder="Search dishes, descriptions, tags"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      style={{ flex: '1 1 240px', maxWidth: 360 }}
+                    />
+                    <Segmented<ItemFilter>
+                      value={filter}
+                      onChange={setFilter}
+                      options={[
+                        { value: 'all', label: 'All' },
+                        { value: 'popular', label: `Popular (${popularCount})` },
+                        { value: 'unavailable', label: `Unavailable (${unavailableCount})` },
+                      ]}
+                    />
+                  </div>
 
-                  {sections.map((section) => {
+                  {sections.map((section, sectionIndex) => {
                     const isActive = activeSection?.name === section.name;
+                    const sectionLabel =
+                      watchedSections?.[section.name]?.name?.trim() || `Category ${sectionIndex + 1}`;
+                    const sectionItemCount = itemCounts[section.name] ?? 0;
                     return (
                       <div
                         key={section.key}
@@ -465,64 +846,78 @@ export default function MenuPage() {
                         aria-hidden={!isActive}
                       >
                         <Card
+                          styles={{ header: { paddingBlock: 12 } }}
                           title={
                             <Form.Item
                               name={[section.name, 'name']}
-                              rules={[{ required: true, message: 'Section name is required' }]}
+                              rules={[
+                                { required: true, whitespace: true, message: 'Category name is required' },
+                              ]}
                               style={{ marginBottom: 0, maxWidth: 360 }}
                             >
-                              <Input placeholder="Section name (e.g. Mains)" />
+                              <Input
+                                placeholder="Category name (e.g. Mains)"
+                                aria-label="Category name"
+                                style={{ fontWeight: 600, fontSize: 16 }}
+                              />
                             </Form.Item>
                           }
                           extra={
-                            <Space wrap size={4}>
-                              <SectionExpandControls
-                                sectionKey={String(section.name)}
-                                itemKeysRef={itemKeysRef}
-                                onExpand={(keys) =>
-                                  setOpenKeys((prev) => ({
-                                    ...prev,
-                                    [String(section.name)]: keys,
-                                  }))
-                                }
-                                onCollapse={() =>
-                                  setOpenKeys((prev) => ({
-                                    ...prev,
-                                    [String(section.name)]: [],
-                                  }))
-                                }
-                              />
-                              <Button
-                                type="text"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={() => {
-                                  const removing = section.name;
-                                  const remaining = sections.filter((s) => s.name !== removing);
-                                  const prevSibling = [...remaining]
-                                    .reverse()
-                                    .find((s) => s.name < removing);
-                                  removeSection(removing);
-                                  setActiveSectionName(
-                                    remaining.length === 0
-                                      ? 0
-                                      : (prevSibling ?? remaining[0]!).name,
-                                  );
-                                }}
-                                disabled={sections.length <= 1}
-                              >
-                                Remove section
-                              </Button>
-                            </Space>
+                            <Dropdown
+                              trigger={['click']}
+                              menu={{
+                                items: [
+                                  {
+                                    key: 'up',
+                                    icon: <ArrowUpOutlined />,
+                                    label: 'Move category up',
+                                    disabled: sectionIndex === 0 || Boolean(uploadingPath),
+                                  },
+                                  {
+                                    key: 'down',
+                                    icon: <ArrowDownOutlined />,
+                                    label: 'Move category down',
+                                    disabled:
+                                      sectionIndex === sections.length - 1 || Boolean(uploadingPath),
+                                  },
+                                  { type: 'divider' },
+                                  {
+                                    key: 'delete',
+                                    icon: <DeleteOutlined />,
+                                    label: 'Delete category',
+                                    danger: true,
+                                    disabled: sections.length <= 1 || Boolean(uploadingPath),
+                                  },
+                                ],
+                                onClick: ({ key }) => {
+                                  if (key === 'up') moveCategory(section.name, section.name - 1);
+                                  if (key === 'down') moveCategory(section.name, section.name + 1);
+                                  if (key === 'delete') {
+                                    Modal.confirm({
+                                      title: `Delete “${sectionLabel}”?`,
+                                      content: `This removes the category and its ${sectionItemCount} ${
+                                        sectionItemCount === 1 ? 'dish' : 'dishes'
+                                      } when you save.`,
+                                      okText: 'Delete category',
+                                      okButtonProps: { danger: true },
+                                      onOk: () => deleteCategory(section.name),
+                                    });
+                                  }
+                                },
+                              }}
+                            >
+                              <Button icon={<MoreOutlined />} aria-label="Category actions" />
+                            </Dropdown>
                           }
                         >
                           <Form.List name={[section.name, 'items']}>
-                            {(items, { add: addItem, remove: removeItem }) => (
+                            {(items, { add: addItem, remove: removeItem, move: moveItem }) => (
                               <SectionItemsPanel
                                 section={section}
                                 items={items}
                                 addItem={addItem}
                                 removeItem={removeItem}
+                                moveItem={moveItem}
                                 form={form}
                                 openKeys={openKeys}
                                 setOpenKeys={setOpenKeys}
@@ -531,6 +926,14 @@ export default function MenuPage() {
                                 uploadPhoto={uploadPhoto}
                                 setItemCounts={setItemCounts}
                                 popularCount={popularCount}
+                                query={query}
+                                filter={filter}
+                                onClearFilters={() => {
+                                  setQuery('');
+                                  setFilter('all');
+                                }}
+                                emptySearch={emptySearch}
+                                markDirty={() => setDirty(true)}
                               />
                             )}
                           </Form.List>
@@ -544,9 +947,62 @@ export default function MenuPage() {
           }}
         </Form.List>
 
-        <Button type="primary" htmlType="submit" loading={loading || savingMenuUrl} style={{ marginTop: 16 }}>
-          Save menu
-        </Button>
+        {dirty ? (
+          <div
+            style={{
+              position: 'sticky',
+              bottom: 16,
+              zIndex: 10,
+              display: 'flex',
+              justifyContent: 'center',
+              marginTop: 16,
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              role="status"
+              style={{
+                pointerEvents: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '8px 8px 8px 16px',
+                borderRadius: 999,
+                background: 'var(--color-brand-700)',
+                color: '#fff',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>You have unsaved changes</span>
+              <Button
+                size="small"
+                type="text"
+                style={{ color: '#fff' }}
+                onClick={() =>
+                  Modal.confirm({
+                    title: 'Discard unsaved changes?',
+                    content: 'Your menu goes back to the last saved version.',
+                    okText: 'Discard',
+                    okButtonProps: { danger: true },
+                    cancelText: 'Keep editing',
+                    onOk: discardChanges,
+                  })
+                }
+                disabled={saving || Boolean(uploadingPath)}
+              >
+                Discard
+              </Button>
+              <Button
+                size="small"
+                htmlType="submit"
+                loading={saving}
+                style={{ background: '#fff', color: 'var(--color-brand-700)', borderColor: '#fff' }}
+              >
+                Save menu
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Form>
       )}
     </Space></div>
@@ -558,6 +1014,7 @@ function SectionItemsPanel({
   items,
   addItem,
   removeItem,
+  moveItem,
   form,
   openKeys,
   setOpenKeys,
@@ -566,12 +1023,18 @@ function SectionItemsPanel({
   uploadPhoto,
   setItemCounts,
   popularCount,
+  query,
+  filter,
+  onClearFilters,
+  emptySearch,
+  markDirty,
 }: {
   section: FormListFieldData;
   items: FormListFieldData[];
   addItem: (defaultValue?: MenuItemForm) => void;
   removeItem: (index: number | number[]) => void;
-  form: ReturnType<typeof Form.useForm<{ sections: MenuSectionForm[] }>>[0];
+  moveItem: (from: number, to: number) => void;
+  form: MenuForm;
   openKeys: OpenKeysBySection;
   setOpenKeys: Dispatch<SetStateAction<OpenKeysBySection>>;
   itemKeysRef: MutableRefObject<Record<string, string[]>>;
@@ -579,9 +1042,32 @@ function SectionItemsPanel({
   uploadPhoto: (file: RcFile, sectionIndex: number, itemIndex: number) => Promise<void>;
   setItemCounts: Dispatch<SetStateAction<Record<number, number>>>;
   popularCount: number;
+  query: string;
+  filter: ItemFilter;
+  onClearFilters: () => void;
+  emptySearch: ReactNode;
+  markDirty: () => void;
 }) {
+  const sectionKey = String(section.name);
   const panelKeys = items.map((item) => String(item.key));
-  itemKeysRef.current[String(section.name)] = panelKeys;
+  itemKeysRef.current[sectionKey] = panelKeys;
+  const openForSection = openKeys[sectionKey] ?? [];
+  const allOpen = panelKeys.length > 0 && panelKeys.every((k) => openForSection.includes(k));
+  const filtering = Boolean(query.trim()) || filter !== 'all';
+  const visibleItems = items
+    .map((item, itemIndex) => ({ item, itemIndex }))
+    .filter(({ item }) =>
+      itemMatches(
+        form.getFieldValue(['sections', section.name, 'items', item.name]) as MenuItemForm | undefined,
+        query,
+        filter,
+      ),
+    );
+  /** Set when "Add dish" is clicked so the new panel opens with its name focused. */
+  const openNewRef = useRef(false);
+  const prevLengthRef = useRef(items.length);
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const lastKey = items.length ? String(items[items.length - 1]!.key) : null;
 
   useEffect(() => {
     setItemCounts((prev) =>
@@ -589,62 +1075,154 @@ function SectionItemsPanel({
     );
   }, [items.length, section.name, setItemCounts]);
 
+  useEffect(() => {
+    if (openNewRef.current && lastKey && items.length > prevLengthRef.current) {
+      setOpenKeys((prev) => ({
+        ...prev,
+        [sectionKey]: [...(prev[sectionKey] ?? []), lastKey],
+      }));
+      setFocusKey(lastKey);
+    }
+    openNewRef.current = false;
+    prevLengthRef.current = items.length;
+  }, [items.length, lastKey, sectionKey, setOpenKeys]);
+
   return (
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-      <Collapse
-        activeKey={openKeys[String(section.name)] ?? []}
-        onChange={(keys) =>
-          setOpenKeys((prev) => ({
-            ...prev,
-            [String(section.name)]: keys as string[],
-          }))
-        }
-        items={items.map((item, itemIndex) =>
-          buildItemPanel({
-            item,
-            itemIndex,
-            section,
-            form,
-            removeItem,
-            itemsLength: items.length,
-            uploadingPath,
-            uploadPhoto,
-            popularCount,
-          }),
-        )}
-      />
-      <Button type="dashed" icon={<PlusOutlined />} onClick={() => addItem({ ...EMPTY_ITEM })} block>
-        Add item
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}
+      >
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          {filtering
+            ? `${visibleItems.length} of ${items.length} ${items.length === 1 ? 'dish' : 'dishes'} shown`
+            : `${items.length} ${items.length === 1 ? 'dish' : 'dishes'} · click a dish to edit it`}
+        </Text>
+        <Button
+          type="text"
+          size="small"
+          icon={allOpen ? <NodeCollapseOutlined /> : <NodeExpandOutlined />}
+          onClick={() =>
+            setOpenKeys((prev) => ({ ...prev, [sectionKey]: allOpen ? [] : [...panelKeys] }))
+          }
+          disabled={!items.length}
+        >
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </Button>
+      </div>
+      {visibleItems.length ? (
+        <div className="rt-menu-dishes">
+          <Collapse
+            activeKey={openForSection}
+            onChange={(keys) =>
+              setOpenKeys((prev) => ({
+                ...prev,
+                [sectionKey]: keys as string[],
+              }))
+            }
+            styles={{ title: { minWidth: 0 } }}
+            items={visibleItems.map(({ item, itemIndex }) =>
+              buildItemPanel({
+                item,
+                itemIndex,
+                section,
+                form,
+                removeItem,
+                moveItem,
+                itemsLength: items.length,
+                canReorder: !filtering && !uploadingPath,
+                uploadingPath,
+                uploadPhoto,
+                popularCount,
+                autoFocusName: focusKey === String(item.key),
+                markDirty,
+              }),
+            )}
+          />
+        </div>
+      ) : (
+        emptySearch
+      )}
+      <Button
+        type="dashed"
+        icon={<PlusOutlined />}
+        onClick={() => {
+          onClearFilters();
+          openNewRef.current = true;
+          addItem({ ...EMPTY_ITEM });
+        }}
+        block
+      >
+        Add dish
       </Button>
     </Space>
   );
 }
 
-function SectionExpandControls({
-  sectionKey,
-  itemKeysRef,
-  onExpand,
-  onCollapse,
+function PopularToggle({
+  checked,
+  onChange,
+  atLimit,
 }: {
-  sectionKey: string;
-  itemKeysRef: MutableRefObject<Record<string, string[]>>;
-  onExpand: (keys: string[]) => void;
-  onCollapse: () => void;
+  checked?: boolean;
+  onChange?: (value: boolean) => void;
+  atLimit: boolean;
 }) {
+  const blocked = !checked && atLimit;
   return (
-    <div component="SectionExpandControls" style={{ display: 'contents' }}><>
+    <Tooltip
+      title={
+        checked
+          ? 'Featured on your restaurant page. Click to unfeature.'
+          : blocked
+            ? `You can feature up to ${MAX_POPULAR_MENU_ITEMS} dishes`
+            : 'Feature on your restaurant page'
+      }
+    >
       <Button
         type="text"
         size="small"
-        icon={<NodeExpandOutlined />}
-        onClick={() => onExpand([...(itemKeysRef.current[sectionKey] ?? [])])}
+        aria-pressed={Boolean(checked)}
+        disabled={blocked}
+        icon={
+          checked ? <StarFilled style={{ color: 'var(--color-accent)' }} /> : <StarOutlined />
+        }
+        onClick={() => onChange?.(!checked)}
+        aria-label="Popular"
+        style={checked ? { color: 'var(--color-text)' } : undefined}
       >
-        Expand category
+        <span className="rt-menu-dish__popular-label">Popular</span>
       </Button>
-      <Button type="text" size="small" icon={<NodeCollapseOutlined />} onClick={onCollapse}>
-        Collapse category
-      </Button>
-    </></div>
+    </Tooltip>
+  );
+}
+
+function ItemThumb({ url }: { url?: string }) {
+  return (
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        flexShrink: 0,
+        borderRadius: 'var(--radius-sm)',
+        overflow: 'hidden',
+        background: 'var(--color-brand-50)',
+        display: 'grid',
+        placeItems: 'center',
+        color: 'var(--color-brand-500)',
+      }}
+    >
+      {url ? (
+        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <PictureOutlined />
+      )}
+    </div>
   );
 }
 
@@ -654,164 +1232,274 @@ function buildItemPanel({
   section,
   form,
   removeItem,
+  moveItem,
   itemsLength,
+  canReorder,
   uploadingPath,
   uploadPhoto,
   popularCount,
+  autoFocusName,
+  markDirty,
 }: {
   item: FormListFieldData;
   itemIndex: number;
   section: FormListFieldData;
-  form: ReturnType<typeof Form.useForm<{ sections: MenuSectionForm[] }>>[0];
+  form: MenuForm;
   removeItem: (index: number | number[]) => void;
+  moveItem: (from: number, to: number) => void;
   itemsLength: number;
+  canReorder: boolean;
   uploadingPath: string | null;
   uploadPhoto: (file: RcFile, sectionIndex: number, itemIndex: number) => Promise<void>;
   popularCount: number;
+  autoFocusName: boolean;
+  markDirty: () => void;
 }) {
-  const isPopular = Boolean(
-    form.getFieldValue(['sections', section.name, 'items', item.name, 'popular']),
-  );
+  const itemPath: ['sections', number, 'items', number] = [
+    'sections',
+    section.name,
+    'items',
+    item.name,
+  ];
+  const photoPath: ['sections', number, 'items', number, 'photoUrl'] = [...itemPath, 'photoUrl'];
   return {
     key: String(item.key),
     label: (
       <Form.Item shouldUpdate noStyle>
         {() => {
-          const name =
-            form.getFieldValue(['sections', section.name, 'items', item.name, 'name']) ||
-            `Item ${itemIndex + 1}`;
-          const price = form.getFieldValue([
-            'sections',
-            section.name,
-            'items',
-            item.name,
-            'price',
-          ]);
-          const popular = Boolean(
-            form.getFieldValue(['sections', section.name, 'items', item.name, 'popular']),
-          );
+          const value = form.getFieldValue(itemPath) as MenuItemForm | undefined;
+          const name = value?.name?.trim();
+          const description = plainText(value?.description);
+          const unavailable = value?.available === false;
+          const dietary = value?.dietary ?? [];
           return (
-            <Text>
-              {name}
-              {typeof price === 'number' ? ` — $${price.toFixed(2)}` : ''}
-              {popular ? ' · Popular' : ''}
-            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              <div style={{ opacity: unavailable ? 0.5 : 1 }}>
+                <ItemThumb url={value?.photoUrl} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    flexWrap: 'wrap',
+                    minWidth: 0,
+                  }}
+                >
+                  <Text
+                    strong={Boolean(name)}
+                    type={name ? undefined : 'secondary'}
+                    italic={!name}
+                    delete={unavailable}
+                  >
+                    {name || `Untitled dish ${itemIndex + 1}`}
+                  </Text>
+                  {unavailable ? <Tag style={{ marginInlineEnd: 0 }}>Unavailable</Tag> : null}
+                  {dietary.slice(0, 3).map((tag) => (
+                    <Tag key={tag} color="green" style={{ marginInlineEnd: 0, fontSize: 11 }}>
+                      {DIETARY_LABELS[tag] ?? tag}
+                    </Tag>
+                  ))}
+                  {dietary.length > 3 ? (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      +{dietary.length - 3}
+                    </Text>
+                  ) : null}
+                </div>
+                {description ? (
+                  <Text
+                    type="secondary"
+                    ellipsis
+                    style={{ display: 'block', fontSize: 13, maxWidth: '100%' }}
+                  >
+                    {description}
+                  </Text>
+                ) : null}
+              </div>
+              <Text strong style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                {formatPrice(value?.price)}
+              </Text>
+            </div>
           );
         }}
       </Form.Item>
     ),
     extra: (
-      <Space size={4} onClick={(e) => e.stopPropagation()}>
+      <Space size={0} {...stopHeaderToggle}>
         <Form.Item name={[item.name, 'popular']} valuePropName="checked" noStyle>
-          <Checkbox disabled={!isPopular && popularCount >= MAX_POPULAR_MENU_ITEMS}>
-            Popular
-          </Checkbox>
+          <PopularToggle atLimit={popularCount >= MAX_POPULAR_MENU_ITEMS} />
         </Form.Item>
-        <Button
-          type="text"
-          danger
-          size="small"
-          icon={<DeleteOutlined />}
-          onClick={(e) => {
-            e.stopPropagation();
-            removeItem(item.name);
-          }}
+        <Tooltip title={canReorder ? 'Move up' : 'Clear search and filters to reorder'}>
+          <Button
+            type="text"
+            size="small"
+            icon={<ArrowUpOutlined />}
+            aria-label="Move dish up"
+            disabled={!canReorder || itemIndex === 0}
+            onClick={() => moveItem(item.name, item.name - 1)}
+          />
+        </Tooltip>
+        <Tooltip title={canReorder ? 'Move down' : 'Clear search and filters to reorder'}>
+          <Button
+            type="text"
+            size="small"
+            icon={<ArrowDownOutlined />}
+            aria-label="Move dish down"
+            disabled={!canReorder || itemIndex === itemsLength - 1}
+            onClick={() => moveItem(item.name, item.name + 1)}
+          />
+        </Tooltip>
+        <Popconfirm
+          title="Delete this dish?"
+          description="It's removed from your menu when you save."
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => removeItem(item.name)}
           disabled={itemsLength <= 1}
-        />
+        >
+          <Tooltip title={itemsLength <= 1 ? 'A category needs at least one dish' : 'Delete dish'}>
+            <Button
+              type="text"
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+              aria-label="Delete dish"
+              disabled={itemsLength <= 1}
+            />
+          </Tooltip>
+        </Popconfirm>
       </Space>
     ),
     children: (
-      <Space orientation="vertical" size={0} style={{ width: '100%' }}>
-        <Form.Item
-          name={[item.name, 'name']}
-          label="Name"
-          rules={[{ required: true, message: 'Item name is required' }]}
-        >
-          <Input placeholder="Dish name" />
-        </Form.Item>
-        <Form.Item name={[item.name, 'description']} label="Description">
-          <RichTextArea rows={2} placeholder="Short description" />
-        </Form.Item>
-        <Space wrap align="start" style={{ width: '100%' }}>
-          <Form.Item
-            name={[item.name, 'price']}
-            label="Price ($)"
-            rules={[{ required: true, message: 'Price is required' }]}
-          >
-            <InputNumber min={0} step={0.01} precision={2} style={{ width: 140 }} />
-          </Form.Item>
-          <Form.Item name={[item.name, 'available']} label="Available" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Space>
-        <Form.Item name={[item.name, 'dietary']} label="Dietary tags">
-          <Select
-            mode="tags"
-            placeholder="Select or type tags"
-            options={DIETARY_OPTIONS}
-            style={{ width: '100%' }}
-          />
-        </Form.Item>
-        <Form.Item name={[item.name, 'photoUrl']} label="Photo URL" hidden>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
+        <Form.Item name={[item.name, 'photoUrl']} hidden>
           <Input />
         </Form.Item>
         <Form.Item shouldUpdate noStyle>
           {() => {
-            const photoUrl = form.getFieldValue([
-              'sections',
-              section.name,
-              'items',
-              item.name,
-              'photoUrl',
-            ]);
-            const path = `${section.name}-${item.name}`;
+            const photoUrl = form.getFieldValue(photoPath) as string | undefined;
+            const uploading = uploadingPath === `${section.name}-${item.name}`;
             return (
-              <Space orientation="vertical" size={8} style={{ marginBottom: 16 }}>
-                {photoUrl ? (
-                  <img
-                    src={photoUrl}
-                    alt="Menu item"
+              <div style={{ width: 140, flexShrink: 0 }}>
+                <Text style={{ display: 'block', marginBottom: 8 }}>Photo</Text>
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  disabled={Boolean(uploadingPath)}
+                  beforeUpload={(file: RcFile) => {
+                    void uploadPhoto(file, section.name, item.name);
+                    return false;
+                  }}
+                >
+                  <button
+                    type="button"
+                    aria-label={photoUrl ? 'Replace photo' : 'Upload photo'}
                     style={{
-                      width: 120,
-                      height: 120,
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                    }}
-                  />
-                ) : null}
-                <Space>
-                  <Upload
-                    accept="image/*"
-                    showUploadList={false}
-                    beforeUpload={(file: RcFile) => {
-                      void uploadPhoto(file, section.name, item.name);
-                      return false;
+                      width: 140,
+                      height: 140,
+                      padding: 0,
+                      borderRadius: 'var(--radius-md)',
+                      border: photoUrl ? '1px solid var(--color-border)' : '1px dashed var(--color-border)',
+                      background: photoUrl
+                        ? `center / cover no-repeat url("${photoUrl}")`
+                        : 'var(--color-border-subtle)',
+                      cursor: uploadingPath ? 'progress' : 'pointer',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: 'var(--color-text-secondary)',
+                      position: 'relative',
+                      overflow: 'hidden',
                     }}
                   >
-                    <Button icon={<UploadOutlined />} loading={uploadingPath === path}>
-                      {photoUrl ? 'Replace photo' : 'Upload photo'}
-                    </Button>
-                  </Upload>
-                  {photoUrl ? (
-                    <Button
-                      type="link"
-                      danger
-                      onClick={() =>
-                        form.setFieldValue(
-                          ['sections', section.name, 'items', item.name, 'photoUrl'],
-                          undefined,
-                        )
-                      }
-                    >
-                      Remove photo
-                    </Button>
-                  ) : null}
-                </Space>
-              </Space>
+                    {uploading ? (
+                      <LoadingOutlined style={{ fontSize: 22 }} />
+                    ) : photoUrl ? (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          insetInline: 0,
+                          bottom: 0,
+                          padding: '4px 0',
+                          background: 'rgba(0, 0, 0, 0.55)',
+                          color: '#fff',
+                          fontSize: 12,
+                        }}
+                      >
+                        Replace
+                      </span>
+                    ) : (
+                      <span style={{ display: 'grid', gap: 4, justifyItems: 'center', fontSize: 13 }}>
+                        <PictureOutlined style={{ fontSize: 22 }} />
+                        Add photo
+                      </span>
+                    )}
+                  </button>
+                </Upload>
+                {photoUrl ? (
+                  <Button
+                    type="link"
+                    danger
+                    size="small"
+                    style={{ paddingInline: 0, marginTop: 4 }}
+                    onClick={() => {
+                      form.setFieldValue(photoPath, undefined);
+                      markDirty();
+                    }}
+                  >
+                    Remove photo
+                  </Button>
+                ) : (
+                  <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
+                    JPG or PNG, up to 5MB
+                  </Text>
+                )}
+              </div>
             );
           }}
         </Form.Item>
-      </Space>
+
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 16 }}>
+            <Form.Item
+              name={[item.name, 'name']}
+              label="Dish name"
+              rules={[{ required: true, whitespace: true, message: 'Dish name is required' }]}
+              style={{ flex: '1 1 220px' }}
+            >
+              <Input placeholder="e.g. Lamb plov" autoFocus={autoFocusName} />
+            </Form.Item>
+            <Form.Item
+              name={[item.name, 'price']}
+              label="Price"
+              rules={[{ required: true, message: 'Price is required' }]}
+              style={{ width: 150 }}
+            >
+              <InputNumber min={0} step={0.5} precision={2} prefix="$" style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+          <Form.Item name={[item.name, 'description']} label="Description">
+            <RichTextArea rows={2} placeholder="Ingredients, portion size, or what makes it special" />
+          </Form.Item>
+          <Form.Item name={[item.name, 'dietary']} label="Dietary tags">
+            <Select
+              mode="tags"
+              placeholder="Select or type tags"
+              options={DIETARY_OPTIONS}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+          <Space size={8} align="center">
+            <Form.Item name={[item.name, 'available']} valuePropName="checked" noStyle>
+              <Switch size="small" />
+            </Form.Item>
+            <Text>Available</Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              Turn off while a dish is temporarily off the menu.
+            </Text>
+          </Space>
+        </div>
+      </div>
     ),
   };
 }

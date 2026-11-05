@@ -59,11 +59,14 @@ import {
 } from '@/lib/graphql';
 import {
   ADD_RESTAURANT_HREF,
+  ALL_LOCATIONS_VALUE,
   MANY_LOCATIONS_THRESHOLD,
   buildRestaurantSelectOptions,
+  restaurantHref,
   restaurantSelectFilterOption,
-  validatedRestaurantId,
 } from '@/lib/restaurants';
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { COMBINED_NAV_HREFS, isAllModeAllowedPath } from '@/lib/restaurantScope';
 import { useSetupGuide } from '@/lib/useSetupGuide';
 import { SetupGuidePanel } from '@/components/SetupGuide';
 import {
@@ -108,8 +111,14 @@ function navLink(href: string, label: string, count?: number) {
   );
 }
 
-function menuItem(href: string, icon: React.ReactNode, label: string, count?: number) {
-  return { key: href, icon, label: navLink(href, label, count) };
+function menuItem(
+  href: string,
+  icon: React.ReactNode,
+  label: string,
+  count?: number,
+  linkHref?: string,
+) {
+  return { key: href, icon, label: navLink(linkHref ?? href, label, count) };
 }
 
 const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'host', 'admin', 'account_manager', 'super_admin']);
@@ -139,7 +148,6 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const isAuthShellRoute = AUTH_SHELL_PATHS.some((p) => pathname.startsWith(p));
   const navAudience = isAdmin || pathname.startsWith('/admin') ? 'admin' : 'partner';
   const { pinnedHrefs } = usePinnedNav(user?.id, navAudience);
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMobileNav, setIsMobileNav] = useState(false);
@@ -151,13 +159,24 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     skip: !user || isAdmin || !isPartner,
     fetchPolicy: 'cache-and-network',
   });
+  const restaurantIds = useMemo(
+    () => (restaurantsData?.myRestaurants ?? []).map((r: { id: string }) => r.id as string),
+    [restaurantsData],
+  );
+  const {
+    restaurantId,
+    allRestaurants,
+    setRestaurantId,
+  } = useActiveRestaurant(isPartner && !isAdmin ? restaurantIds : [], { syncUrl: true });
+  const badgeRestaurantId = allRestaurants ? undefined : restaurantId;
+  const notifRestaurantId = isPartner && !isAdmin ? badgeRestaurantId : undefined;
   const {
     data: notifData,
     loading: notifLoading,
     refetch: refetchNotifs,
   } = useQuery(MY_NOTIFICATIONS, {
     skip: !user || (user.role === 'diner' && !isImpersonating),
-    variables: { limit: 20 },
+    variables: { limit: 20, restaurantId: notifRestaurantId },
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
@@ -167,32 +186,32 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     skipPollAttempt: skipPollWhenHidden,
   });
   const { data: profileRequestData } = useQuery(MY_RESTAURANT_PROFILE_CHANGE_REQUEST, {
-    skip: !user || isAdmin || !restaurantId,
-    variables: { restaurantId },
+    skip: !user || isAdmin || !badgeRestaurantId,
+    variables: { restaurantId: badgeRestaurantId },
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
   const { data: unrepliedReviewData } = useQuery(RESTAURANT_UNREPLIED_REVIEW_COUNT, {
-    skip: !user || isAdmin || !restaurantId || !isPartner,
-    variables: { restaurantId },
+    skip: !user || isAdmin || !badgeRestaurantId || !isPartner,
+    variables: { restaurantId: badgeRestaurantId },
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
   const { data: pendingReservationData } = useQuery(RESTAURANT_PENDING_RESERVATION_COUNT, {
-    skip: !user || isAdmin || !restaurantId || !isPartner,
-    variables: { restaurantId },
+    skip: !user || isAdmin || !isPartner || (!allRestaurants && !restaurantId),
+    variables: { restaurantId: badgeRestaurantId },
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
   const { data: openInvoiceData } = useQuery(RESTAURANT_OPEN_INVOICE_COUNT, {
-    skip: !user || isAdmin || !restaurantId || !isPartner,
-    variables: { restaurantId },
+    skip: !user || isAdmin || !isPartner || (!allRestaurants && !restaurantId),
+    variables: { restaurantId: badgeRestaurantId },
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
   const { data: subscriptionShellData } = useQuery(MY_SUBSCRIPTION, {
-    skip: !user || isAdmin || !restaurantId || !isPartner,
-    variables: { restaurantId },
+    skip: !user || isAdmin || !badgeRestaurantId || !isPartner,
+    variables: { restaurantId: badgeRestaurantId },
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
@@ -214,10 +233,10 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     partnerAgreementCompliance?.status === 'current' &&
     partnerAgreementCompliance.acceptedVersion == null;
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
-    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
+    refetchQueries: ['MyNotifications', 'MyOwnerOverview'],
   });
   const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ, {
-    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
+    refetchQueries: ['MyNotifications', 'MyOwnerOverview'],
     awaitRefetchQueries: true,
   });
 
@@ -274,6 +293,13 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     router.replace(partnerLandingPath(user.role));
   }, [authLoading, user, pathname, isAuthShellRoute, router]);
 
+  useEffect(() => {
+    if (authLoading || !user || isAuthShellRoute || isAdmin) return;
+    if (!isPartner || !allRestaurants) return;
+    if (isAllModeAllowedPath(pathname)) return;
+    router.replace(partnerLandingPath(user.role));
+  }, [authLoading, user, isAuthShellRoute, isAdmin, isPartner, allRestaurants, pathname, router]);
+
   const billingEnforcement = subscriptionShellData?.mySubscription?.billingEnforcement as
     | { stage: FailToPayStage; daysPastDue?: number | null; outstandingCents?: number; paused?: boolean; publiclyListed?: boolean }
     | undefined;
@@ -281,7 +307,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Platform admins (and View as / impersonation) must keep full Partner Hub access for support.
     if (authLoading || !user || isAuthShellRoute || isAdmin || isImpersonating) return;
-    if (!isPartner) return;
+    if (!isPartner || allRestaurants) return;
     if (pathname.startsWith('/admin')) return;
     if (pathname === '/billing' || pathname.startsWith('/billing/')) return;
     if (pathname.startsWith('/agreements/')) return;
@@ -315,28 +341,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     searchParams,
     billingEnforcement?.stage,
     router,
+    allRestaurants,
   ]);
-
-  useEffect(() => {
-    if (!user || !isPartner) return;
-    if (isPlatformAdmin(user.role) && !isImpersonating) return;
-    const saved = localStorage.getItem('activeRestaurantId');
-    const list = restaurantsData?.myRestaurants ?? [];
-    const fromUrl = searchParams.get('restaurant');
-    const validFromUrl = fromUrl && list.some((r: { id: string }) => r.id === fromUrl) ? fromUrl : undefined;
-    const valid = list.some((r: { id: string }) => r.id === saved);
-    const next = validFromUrl ?? (valid ? saved! : list[0]?.id);
-    setRestaurantId(next);
-  }, [user, restaurantsData, isPartner, isImpersonating, searchParams]);
-
-  useEffect(() => {
-    const onChange = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail;
-      if (id) setRestaurantId(id);
-    };
-    window.addEventListener('rt-restaurant-change', onChange);
-    return () => window.removeEventListener('rt-restaurant-change', onChange);
-  }, []);
 
   useEffect(() => {
     if (!user || !isPartner) return;
@@ -397,8 +403,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }, [pathname, pinnedHrefs]);
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
-  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
-  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+  const activeRestaurantId = restaurantId;
   const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const dinerPageUrl = useMemo(() => {
     if (!activeRestaurant) return null;
@@ -463,11 +468,20 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           role: user?.role,
           pinnedHrefs,
         });
-    return groupPagesForMenu(pages).map((group) => ({
+    const visiblePages = allRestaurants
+      ? pages.filter((p) =>
+          (COMBINED_NAV_HREFS as readonly string[]).includes(p.href),
+        )
+      : pages;
+    const scopedHref = (href: string) =>
+      !allRestaurants && restaurantId && restaurantIds.length > 1
+        ? restaurantHref(href, restaurantId)
+        : href;
+    return groupPagesForMenu(visiblePages).map((group) => ({
       type: 'group' as const,
       label: group.label,
       children: group.children.map((p) =>
-        menuItem(p.href, p.icon, p.label, badgeByHref[p.href] || undefined),
+        menuItem(p.href, p.icon, p.label, badgeByHref[p.href] || undefined, scopedHref(p.href)),
       ),
     }));
   }, [
@@ -485,21 +499,10 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     openInvoicesAdmin,
     user?.role,
     pinnedHrefs,
+    allRestaurants,
+    restaurantId,
+    restaurantIds,
   ]);
-
-  const switchRestaurant = useCallback(
-    (id: string) => {
-      setRestaurantId(id);
-      localStorage.setItem('activeRestaurantId', id);
-      window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
-      const params = new URLSearchParams(searchParams.toString());
-      if (restaurants.length > 1) params.set('restaurant', id);
-      else params.delete('restaurant');
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [pathname, restaurants.length, router, searchParams],
-  );
 
   if (authLoading && !isAuthShellRoute) {
     return <SessionPreparing variant="partner" />;
@@ -509,7 +512,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  const restaurantSelectOptions = buildRestaurantSelectOptions(restaurants);
+  const restaurantSelectOptions = buildRestaurantSelectOptions(restaurants, {
+    includeAllLocations: restaurants.length > 1,
+  });
   const canAddRestaurant = Boolean(user && canCreateRestaurant(user.role));
   const goAddRestaurant = () => {
     setRestaurantSelectOpen(false);
@@ -641,7 +646,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
 
   const handleMarkAllRead = async () => {
     try {
-      await markAllRead();
+      await markAllRead({ variables: { restaurantId: notifRestaurantId } });
       await refetchNotifs();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to mark notifications as read');
@@ -948,8 +953,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                 <Select
                   placeholder="Select restaurant"
                   className="rt-dash-restaurant-select"
-                  value={activeRestaurantId}
-                  onChange={switchRestaurant}
+                  value={allRestaurants ? ALL_LOCATIONS_VALUE : activeRestaurantId}
+                  onChange={setRestaurantId}
                   options={restaurantSelectOptions}
                   showSearch={restaurants.length >= MANY_LOCATIONS_THRESHOLD}
                   filterOption={restaurantSelectFilterOption}
@@ -1169,7 +1174,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           name: r.name,
           city: r.city,
         }))}
-        onSelectRestaurant={switchRestaurant}
+        onSelectRestaurant={setRestaurantId}
+        combinedOnly={allRestaurants}
+        scopeRestaurantId={allRestaurants ? undefined : activeRestaurantId}
       />
     </div>
   );

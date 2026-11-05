@@ -5622,6 +5622,29 @@ body:has(.fr-page) .ant-layout {
   color: #fff;
 }
 
+.rt-restaurant-actions__btn--order {
+  flex: 1 0 100%;
+  justify-content: center;
+  height: 44px;
+  background: #fff;
+  color: var(--color-brand-700);
+  border: 1.5px solid var(--color-brand-600);
+}
+
+.rt-restaurant-actions__btn--order:hover {
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+
+.rt-restaurant-actions__btn--order .anticon {
+  font-size: 16px;
+}
+
+.rt-restaurant-actions__btn-hint {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
 .rt-restaurant-actions .rt-restaurant-actions__btn.ant-btn {
   border-radius: 999px;
   border-color: var(--color-border);
@@ -5635,7 +5658,7 @@ body:has(.fr-page) .ant-layout {
   background: var(--color-brand-50);
 }
 
-/* App-like equal action tiles (Call / Directions / Website / Order online / Message) */
+/* App-like equal action tiles (Call / Directions / Website / Message) */
 .rt-restaurant-actions__tile {
   flex: 1 1 0;
   min-width: 72px;

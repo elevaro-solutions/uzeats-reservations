@@ -17,9 +17,11 @@ import {
 import {
   assertPaymentIntentSucceeded,
   createInvoicePaymentIntent,
+  isStripeCardError,
   isStubPaymentIntent,
 } from './stripe.js';
 import { attachStripeInvoiceToLocal } from './invoices.js';
+import { logger } from '../lib/logger.js';
 
 function readBalance(sub: { addons?: unknown } | null | undefined) {
   const addons = sub?.addons as
@@ -149,15 +151,21 @@ async function chargeOrCreateIntent(input: {
   }
 
   if (input.paymentMethodId && input.customerId) {
-    const pi = await createInvoicePaymentIntent({
-      amountCents: input.amountCents,
-      customerId: input.customerId,
-      paymentMethodId: input.paymentMethodId,
-      offSession: true,
-      metadata: input.metadata,
-    });
-    if (pi.status === 'succeeded' || isStubPaymentIntent(pi.id)) {
-      return { paid: true as const, paymentIntentId: pi.id, clientSecret: null };
+    try {
+      const pi = await createInvoicePaymentIntent({
+        amountCents: input.amountCents,
+        customerId: input.customerId,
+        paymentMethodId: input.paymentMethodId,
+        offSession: true,
+        metadata: input.metadata,
+      });
+      if (pi.status === 'succeeded' || isStubPaymentIntent(pi.id)) {
+        return { paid: true as const, paymentIntentId: pi.id, clientSecret: null };
+      }
+    } catch (err) {
+      // Declined / needs 3DS: let the owner pay with the card form instead.
+      if (!isStripeCardError(err)) throw err;
+      logger.warn({ err, restaurantId: input.restaurantId }, 'sms off-session charge declined');
     }
   }
 

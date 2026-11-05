@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-11-05] QA checklist catalog is v0.101.0
+- `QA_CHECKLIST_RELEASE` is `0.101.0`. Catalog groups are Billing, Partner Hub, Floor, Online ordering, Menu, Diner web, Admin, and Integrations. v0.100.x agreement items stay on their own `QaReleaseChecklist` rows and catalog snapshots.
+- Why it matters: Sign-off for this gate is default card / auto-charge failures, All restaurants, Live floor tables, Order online switch, and Menu editor tools — not the agreement work.
+
 ## [2026-11-04] QA checklist catalog is v0.100.0
 - `QA_CHECKLIST_RELEASE` is `0.100.0`. Catalog groups are Agreements, Billing, Partner Hub, and Diner web. v0.99.0 QA dashboard / View as items stay on that release’s `QaReleaseChecklist` row and catalog snapshot.
 - `compareReleaseDesc` compares numeric parts, so `0.100.0` sorts above `0.99.0` in History and Dashboard.
@@ -333,6 +337,11 @@
 - Fix: `getOpenSubscriptionPayment` returns `{ missing: true }` on `resource_missing`; `mySubscription` clears `stripeSubscriptionId` / customer / preferred PM, marks cancelled, returns null. `createRestaurantSubscription` replaces cancelled or Stripe-missing locals instead of Conflict. `cancelStripeSubscription` treats missing as already cancelled.
 - Why it matters: Admin sandbox ↔ live flips leave unusable `sub_` / `cus_` ids; partners must be able to Start trial again under the active mode.
 
+## [2026-11-05] Superadmin package / paid-period writes with orphan Stripe subs
+- `adminAssignRestaurantPackage` called `updateStripeSubscription` unguarded, so production package changes failed with `PAYMENT_PROVIDER_ERROR` / `resource_missing` for restaurants still pointing at a sandbox (or deleted) `sub_`. `updateStripePaidPeriodStart` had the same gap.
+- Fix: both paths call `detachMissingStripeSubscription` (in `restaurantSubscription.ts`) and continue with the local write. Unlike `mySubscription`, it does not mark the sub cancelled, and it keeps `stripeCustomerId` / `preferredPaymentMethodId` when `stripeCustomerExists` says the customer is still live.
+- Still unguarded: `applyPendingPlanChangeIfDue` and the owner `changeRestaurantPlan` immediate path. Owners usually hit `mySubscription` first, which clears the orphan.
+
 ## [2026-09-29] Stripe sandbox ↔ production mode
 - `PlatformConfig.stripeMode` is `test` | `live` (unset → test outside production NODE_ENV, live in production). Super-admin only on `updatePlatformConfig`.
 - Secrets: prefer `STRIPE_SECRET_KEY_TEST` / `_LIVE` (+ webhook + `STRIPE_PUBLISHABLE_KEY_*`). Legacy `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` fall back only when the key prefix matches the requested mode.
@@ -439,6 +448,10 @@
 - Merchant bot: PlatformConfig token, `POST /webhooks/messenger-bot`, GraphQL `restaurantMessengerBot` / `adminMessengerBot` / link invite mutations. Max 3 links per user per restaurant (`MessengerLink`).
 - Why it matters: Replaces Elevaro notifier for Tablevera merchant Telegram.
 
+## [2026-11-05] messengerBot times must use the restaurant zone
+- `slotStart` is UTC. Any `Intl`/`toLocaleString` in `services/messengerBot` without `timeZone` renders in the server zone (UTC in prod), so Telegram cards drifted from Partner Hub (e.g. 7 PM EST booking showed as Nov 6, 12:00 AM). Card data carries `timeZone: restaurantTimeZone(restaurant)` and formats via `formatDateTimeInTimeZone`; restaurant queries must select `address location` for the zone to resolve.
+- Why it matters: The platform-registered time is the source of truth; local dev in the venue's zone hides this bug.
+
 ## [2026-09-25] Multi Telegram per dashboard user
 - Historical Elevaro limit was 2 chats per platform user. Current messengerBot allows up to 3 chats per user per restaurant.
 
@@ -538,3 +551,7 @@
 - `videoUploadsRouter` (250 MB, MP4/MOV/WebM) is registered ahead of `uploadsRouter` in `index.ts`. The `/api/uploads` mount's 10 MB `express.raw` parser would otherwise reject videos first.
 - `getPlatformConfig` races on a fresh DB (parallel first requests both `create`). It now catches 11000 and re-reads.
 - Why it matters: Keep the more specific upload route first. Any new singleton "find or create" needs the same duplicate-key fallback.
+
+## [2026-11-05] In-app notifications are scoped by `data.restaurantId`
+- `Notification` has no top-level restaurant field; `notifyRestaurantManagers` writes `data.restaurantId`. `data` is Mixed, so the id may be a string or an ObjectId. `buildInAppNotificationFilter` (`services/notificationFilters.ts`) matches both and also keeps alerts with no `data.restaurantId` (account-level). Used by `myNotifications`, `unreadNotificationCount`, `markAllNotificationsRead`, and `myOwnerOverview.unreadNotifications`.
+- Why it matters: A new partner alert about one location must put `restaurantId` in `data`, or it shows under every restaurant in Partner Hub.

@@ -13,6 +13,14 @@ External services Tablevera connects to and how they degrade without credentials
 **Webhook:** `POST /webhooks/stripe`  
 **Stub behavior:** Mutations succeed with fake IDs when `STRIPE_SECRET_KEY` is unset.
 
+**Failed charges:** Each venue has one default card (`Subscription.preferredPaymentMethodId`).
+
+- **Who retries:** Stripe retries renewals (Smart Retries). The daily job retries platform invoices on days 0, 1, 3, 5, and 7 after the due date, then weekly. It tries at most once per day and never on API startup.
+- **Hard declines:** a lost, stolen, or expired card pauses retries until the owner replaces the card. Replacing the card retries open charges right away.
+- **Notifications:** the owner gets `card_charge_failed` on the first failure and on a hard decline. Admins and account managers get `billing_admin_alert` on the first failure and when a venue is hidden, restricted, or terminated. Both always go by email and in-app, even if the owner muted billing updates.
+- **Other notices:** owners also get `card_expiring` and `trial_card_missing`.
+- **Webhook events:** see `dokku/DEPLOY.md`.
+
 ## Twilio
 
 | Use case | Product |

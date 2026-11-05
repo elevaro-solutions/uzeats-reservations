@@ -163,7 +163,18 @@ dokku ps:scale tablevera-dashboard web=1
 
 After first deploy, set up the Stripe webhook:
 - Endpoint: `https://api.tablevera.online/webhooks/stripe`
-- Events: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`
+- Events:
+  - Deposits: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`, `payment_intent.canceled`, `setup_intent.succeeded`, `charge.refunded`
+  - Subscriptions and invoices: `invoice.paid`, `invoice.payment_failed`, `invoice.payment_action_required`, `invoice.finalized`, `invoice.voided`, `invoice.updated`, `customer.subscription.updated`, `customer.subscription.deleted`
+  - Cards: `payment_method.automatically_updated`, `customer.source.expiring`
+
+### Stripe Dashboard billing settings
+
+Stripe owns retries for **subscription renewals**. The daily 04:00 UTC job owns retries for **platform invoices** (cover fees, 3D room, services). Both send their own owner emails, so turn Stripe's off.
+
+- Billing → Revenue recovery → **Retries**: Smart Retries on (recommended: up to 4 retries within 2 weeks). After all retries fail: **mark the subscription past due** (not cancel — the fail-to-pay ladder cancels at day 60).
+- Billing → Revenue recovery → **Emails**: turn off "failed payment" and "expiring card" customer emails (Tablevera sends `card_charge_failed` / `card_expiring`). Leave "3D Secure / confirm payment" emails on only if you want both.
+- Settings → **Card account updater** on, so `payment_method.automatically_updated` refreshes expiry dates.
 
 ## Rollback
 

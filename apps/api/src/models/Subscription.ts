@@ -28,6 +28,17 @@ const subscriptionSchema = new Schema(
     preferredPaymentMethodId: { type: String },
     /** When true and a preferred/default card exists, unpaid period invoices are auto-charged. */
     autoChargeInvoices: { type: Boolean, default: true },
+    /** Cached summary of `preferredPaymentMethodId` (expiry notices run without Stripe calls). */
+    defaultCard: {
+      brand: { type: String },
+      last4: { type: String },
+      expMonth: { type: Number },
+      expYear: { type: Number },
+    },
+    /** `YYYY-MM` of the card expiry already warned about. */
+    cardExpiryNoticeKey: { type: String },
+    /** Trial-ending "add a card" reminder already sent for this trial. */
+    trialCardReminderSentAt: { type: Date },
     currentPeriodStart: { type: Date },
     currentPeriodEnd: { type: Date },
     trialEndsAt: { type: Date },

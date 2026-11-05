@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
@@ -30,47 +30,79 @@ function isStubClientSecret(secret: string | null | undefined) {
   );
 }
 
+/** Stripe already captured this charge. Confirming it again is not a new payment. */
+function succeededPaymentIntentId(error: {
+  payment_intent?: { id?: string; status?: string } | string | null;
+} | null | undefined) {
+  const intent = error?.payment_intent;
+  if (!intent || typeof intent === 'string') return null;
+  if (intent.status === 'succeeded' && intent.id) return intent.id;
+  return null;
+}
+
 function PaymentInner({
   mode,
   onSuccess,
 }: {
   mode: SignupPaymentMode;
-  onSuccess: () => void;
+  onSuccess: (intentId?: string) => void | Promise<void>;
 }) {
   const stripe = useStripe();
   const elements = useElements();
+  const started = useRef(false);
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elementReady, setElementReady] = useState(false);
   const [elementFailed, setElementFailed] = useState(false);
 
   const handleSubmit = async () => {
-    if (!stripe || !elements || elementFailed) return;
+    if (started.current || !stripe || !elements || elementFailed) return;
+    started.current = true;
     setLoading(true);
     setError(null);
+    let holdLoading = false;
     try {
       const returnUrl = `${window.location.origin}/`;
-      const result =
-        mode === 'setup'
-          ? await stripe.confirmSetup({
-              elements,
-              redirect: 'if_required',
-              confirmParams: { return_url: returnUrl },
-            })
-          : await stripe.confirmPayment({
-              elements,
-              redirect: 'if_required',
-              confirmParams: { return_url: returnUrl },
-            });
-      if (result.error) {
+      if (mode === 'setup') {
+        const result = await stripe.confirmSetup({
+          elements,
+          redirect: 'if_required',
+          confirmParams: { return_url: returnUrl },
+        });
+        if (result.error) {
+          started.current = false;
+          setError(result.error.message ?? 'Payment failed. Please try again.');
+          return;
+        }
+        holdLoading = true;
+        setNotice('Card received. Saving it to this restaurant…');
+        await onSuccess(result.setupIntent?.id);
+        return;
+      }
+      const result = await stripe.confirmPayment({
+        elements,
+        redirect: 'if_required',
+        confirmParams: { return_url: returnUrl },
+      });
+      const paidId = result.error
+        ? succeededPaymentIntentId(result.error)
+        : result.paymentIntent?.id;
+      if (result.error && !paidId) {
+        started.current = false;
         setError(result.error.message ?? 'Payment failed. Please try again.');
         return;
       }
-      onSuccess();
+      holdLoading = true;
+      setNotice('Payment received. Updating your invoices…');
+      await onSuccess(paidId ?? undefined);
     } catch (err) {
+      started.current = false;
+      holdLoading = false;
+      setNotice(null);
       setError(err instanceof Error ? err.message : 'Payment failed');
     } finally {
-      setLoading(false);
+      if (!holdLoading) setLoading(false);
     }
   };
 
@@ -84,6 +116,7 @@ function PaymentInner({
           setError(event.error.message ?? 'Could not load the card form. Close this and try again.');
         }}
       />
+      {notice ? <Alert type="success" title={notice} showIcon /> : null}
       {error ? (
         <Alert type="error" title={error} showIcon closable onClose={() => setError(null)} />
       ) : null}
@@ -93,11 +126,17 @@ function PaymentInner({
         size="large"
         block
         loading={loading}
-        disabled={!stripe || !elements || elementFailed}
+        disabled={!stripe || !elements || elementFailed || loading}
         onClick={() => void handleSubmit()}
         style={{ background: BRAND_COLOR, borderColor: BRAND_COLOR }}
       >
-        {mode === 'setup' ? 'Save card and continue' : 'Pay and continue'}
+        {notice
+          ? mode === 'setup'
+            ? 'Saving card…'
+            : 'Updating invoices…'
+          : mode === 'setup'
+            ? 'Save card and continue'
+            : 'Pay and continue'}
       </Button>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
@@ -125,7 +164,8 @@ export function SignupPaymentForm({
   trialDays: number;
   chargingStartsOn?: string | null;
   description?: string;
-  onSuccess: () => void;
+  /** Receives the confirmed SetupIntent / PaymentIntent id (omitted in demo mode). */
+  onSuccess: (intentId?: string) => void | Promise<void>;
 }) {
   const { data, loading } = useQuery(STRIPE_CLIENT_CONFIG);
   const publishableKey =
@@ -157,7 +197,7 @@ export function SignupPaymentForm({
           type="primary"
           size="large"
           block
-          onClick={onSuccess}
+          onClick={() => onSuccess()}
           style={{ background: BRAND_COLOR, borderColor: BRAND_COLOR }}
         >
           Continue

@@ -56,6 +56,7 @@ export const RESTAURANT_DETAIL = gql`
       website
       menuUrl
       onlineOrderUrl
+      onlineOrderLink
       diningStyles
       discoveryOccasions
       categoryIds

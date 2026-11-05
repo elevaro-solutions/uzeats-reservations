@@ -103,3 +103,18 @@ Pay the undisputed amount on time. Admin credits change the remaining total; the
 - Public listing excludes `unlisted` / `restricted` / `terminated` even while status is `past_due`. Mutations recompute the snapshot live so they do not wait for the 04:00 UTC job.
 - Period invoice refresh keeps enforcement fee lines; paying one invoice only clears `past_due` when nothing else is outstanding.
 - Why it matters: `past_due` used to keep diner search and Partner Hub fully open. Do not treat listing entitlements as “any non-cancelled subscription.”
+
+## [2026-11-04] One venue default card feeds every auto-charge
+- `Subscription.preferredPaymentMethodId` is the single default card. `services/defaultPaymentMethod.ts` saves it via a card-only SetupIntent and also sets the Stripe customer `invoice_settings.default_payment_method` and the Stripe subscription `default_payment_method`.
+- Renewals use the Stripe defaults. Period invoices (cover fees) use preferred and fall back to the customer default. SMS packages and the 3D room charge off-session **only** when `preferredPaymentMethodId` is set; otherwise they open a card form.
+- Signup / add-restaurant Payment Element saves the card on the Stripe subscription but never set `preferredPaymentMethodId`. `resolveVenueDefaultPaymentMethodId` (used by `SubscriptionType.hasDefaultPaymentMethod`) backfills it from Stripe on first read.
+- Admin-created venues (`adminCreateRestaurant` with a trial plan) start with no card. The required setup-guide step `payment-method` is what collects it.
+- Why it matters: Do not check only `stripeSubscription.default_payment_method` for "has a card". Add-ons and invoice auto-charge read the local field.
+
+## [2026-11-04] Failed charges: who retries and who gets told
+- Renewal invoices synced from Stripe carry `Invoice.source = 'stripe_subscription'` (older rows: `notes` starts with "Synced from Stripe"). `autoChargeDueInvoices` skips them because Stripe Smart Retries own that schedule. Local invoices follow `isAutoChargeRetryDay` (days 0, 1, 3, 5, 7, then weekly) and are attempted at most once per UTC day.
+- `autoChargeHardDeclinePaymentMethodId` pauses retries for that card only. `confirmDefaultPaymentMethod` runs `retryOpenChargesAfterCardChange` (`force: true`, plus `payOpenSubscriptionInvoice`).
+- API startup runs `generateDuePeriodInvoices(..., { autoCharge: false })`. Charges, enforcement, and `runBillingAlertJobs` (trial reminder, card-expiry, out-of-band retry) only run from the 04:00 UTC queue job.
+- `markStripeInvoicePaidOutOfBand` returns a boolean. A false result sets `stripeOutOfBandPending` so a mirror we already collected is not charged again by Stripe.
+- `notifyUser` forces email + in-app for `BILLING_CRITICAL_TYPES`, regardless of the owner's `accountUpdates` preference.
+- Why it matters: Do not add a second retry path for Stripe renewals, and do not call auto-charge from request handlers without `restaurantId` — it scans every venue.

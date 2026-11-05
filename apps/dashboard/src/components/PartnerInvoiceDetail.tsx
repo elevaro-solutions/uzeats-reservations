@@ -19,6 +19,7 @@ import {
 } from '@reservations/shared';
 import { colors, radii, spacing } from '@reservations/ui';
 import { EXPORT_INVOICE_PDF } from '@/lib/graphql';
+import { AutoChargeFailureAlert } from '@/components/AutoChargeFailureAlert';
 
 const { Text } = Typography;
 
@@ -40,6 +41,10 @@ export type PartnerInvoiceDetailData = {
   createdAt?: string | null;
   restaurantId?: string | null;
   restaurantName?: string | null;
+  autoChargeError?: string | null;
+  autoChargePaused?: boolean | null;
+  autoChargeRetriedByStripe?: boolean | null;
+  nextAutoChargeAt?: string | null;
   lines?: Array<{
     description: string;
     quantity: number;
@@ -124,9 +129,12 @@ export function PartnerInvoiceDetail({
   loading,
   showOpenPageLink,
   restaurantQuery,
+  canEditBilling = true,
 }: {
   invoice: PartnerInvoiceDetailData | null;
   loading?: boolean;
+  /** Show the Replace card action on a failed automatic charge. */
+  canEditBilling?: boolean;
   showOpenPageLink?: boolean;
   /** Preserve active restaurant when linking to the full page. */
   restaurantQuery?: string | null;
@@ -174,6 +182,16 @@ export function PartnerInvoiceDetail({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+      <AutoChargeFailureAlert
+        invoice={invoice}
+        canEditBilling={canEditBilling}
+        cardHref={
+          restaurantQuery
+            ? `/billing?section=payment-method&restaurant=${encodeURIComponent(restaurantQuery)}`
+            : '/billing?section=payment-method'
+        }
+        showPay={false}
+      />
       {isPaid ? (
         <Alert
           type="success"

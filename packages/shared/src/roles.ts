@@ -112,6 +112,11 @@ export function canCreateRestaurant(role: string): boolean {
   return role !== 'manager' && role !== 'host' && role !== 'qa';
 }
 
+/** Owners, managers, and platform admins may turn the diner Order online button on or off. */
+export function canManageOnlineOrdering(role: string): boolean {
+  return role === 'restaurant_owner' || role === 'manager' || isPlatformAdmin(role);
+}
+
 /** DoorDash/Uber Eats MHTML import and menu-image fetch (dashboard, not diners/hosts). */
 export function canImportRestaurant(role: string): boolean {
   return role === 'restaurant_owner' || role === 'manager' || isPlatformAdmin(role);

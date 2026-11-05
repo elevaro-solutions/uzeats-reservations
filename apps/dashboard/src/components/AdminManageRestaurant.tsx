@@ -48,6 +48,7 @@ import CuisineSelect from '@/components/CuisineSelect';
 import { ManageDetailGroups, type ManageDetailGroup } from '@/components/ManageDetailGroups';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
 import { AdminPaidPeriodStartForm } from '@/components/AdminPaidPeriodStartForm';
+import { OnlineOrderFields } from '@/components/OnlineOrderFields';
 import { useFormDirty } from '@/lib/useFormDirty';
 import {
   ADMIN_ASSIGN_RESTAURANT_PACKAGE,
@@ -74,6 +75,7 @@ import {
   buildRestaurantBookingUrl,
   formatPlanPriceSuffix,
   isStandardMonthlyDuration,
+  normalizeOnlineOrderUrl,
   normalizeRestaurantSlug,
   resolveDepositPolicy,
   restaurantCuisinesForForm,
@@ -151,6 +153,8 @@ export type AdminRestaurantRecord = {
   website?: string | null;
   menuUrl?: string | null;
   onlineOrderUrl?: string | null;
+  onlineOrderEnabled?: boolean | null;
+  onlineOrderLink?: string | null;
   photos?: string[];
   logoUrl?: string | null;
   ownerId: string;
@@ -424,8 +428,9 @@ function buildRestaurantInput(values: Record<string, unknown>, photoList: string
     priceRange: values.priceRange,
     phone: values.phone || undefined,
     website: values.website || undefined,
-    menuUrl: values.menuUrl || undefined,
-    onlineOrderUrl: values.onlineOrderUrl || undefined,
+    menuUrl: values.menuUrl || null,
+    onlineOrderUrl: normalizeOnlineOrderUrl(values.onlineOrderUrl as string | undefined),
+    onlineOrderEnabled: values.onlineOrderEnabled !== false,
     logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
@@ -596,6 +601,7 @@ export function AdminManageRestaurant({
       website: restaurant.website ?? '',
       menuUrl: restaurant.menuUrl ?? '',
       onlineOrderUrl: restaurant.onlineOrderUrl ?? '',
+      onlineOrderEnabled: restaurant.onlineOrderEnabled ?? true,
       depositRequired: restaurant.depositRequired,
       depositAmountCents: restaurant.depositAmountCents
         ? restaurant.depositAmountCents / 100
@@ -975,14 +981,12 @@ export function AdminManageRestaurant({
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
-            <Form.Item
-              name="onlineOrderUrl"
-              label="Online order URL"
+            <OnlineOrderFields
+              slug={restaurant?.slug}
+              restaurantId={restaurant?.id}
+              canToggle
               tooltip={tips.onlineOrderUrl}
-              rules={[optionalHttpUrlRule]}
-            >
-              <Input placeholder="https://www.doordash.com/store/..." />
-            </Form.Item>
+            />
           </Col>
         </Row>
       ),

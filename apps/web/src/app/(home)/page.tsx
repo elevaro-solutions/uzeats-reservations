@@ -1,5 +1,6 @@
 import { JsonLd } from '@/components/JsonLd';
 import { fetchHomeSearchSeed } from '@/lib/homeSearchSeed';
+import { buildHeroStats, fetchHomeStats } from '@/lib/homeStats';
 import { buildRestaurantBookingPath } from '@reservations/shared';
 import {
   HOME_FAQ,
@@ -9,7 +10,8 @@ import {
 import HomePageClient from './HomePageClient';
 
 export default async function HomePage() {
-  const initialSearch = await fetchHomeSearchSeed();
+  const [initialSearch, homeStats] = await Promise.all([fetchHomeSearchSeed(), fetchHomeStats()]);
+  const heroStats = buildHeroStats(homeStats);
   const listItems =
     initialSearch?.items
       .filter((item) => item.slug || item.id)
@@ -37,7 +39,7 @@ export default async function HomePage() {
             : []),
         ]}
       />
-      <HomePageClient initialSearch={initialSearch} />
+      <HomePageClient initialSearch={initialSearch} heroStats={heroStats} />
     </>
   );
 }

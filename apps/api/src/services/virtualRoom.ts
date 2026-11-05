@@ -48,6 +48,7 @@ import {
 import {
   assertPaymentIntentSucceeded,
   createInvoicePaymentIntent,
+  isStripeCardError,
   isStubPaymentIntent,
 } from './stripe.js';
 import { ConflictError } from '../lib/errors.js';
@@ -391,14 +392,21 @@ export async function startVirtualRoomAddonPayment(restaurantId: string, now = n
   };
 
   if (sub.preferredPaymentMethodId && sub.stripeCustomerId) {
-    const pi = await createInvoicePaymentIntent({
-      amountCents: amountDueCents,
-      customerId: sub.stripeCustomerId,
-      paymentMethodId: sub.preferredPaymentMethodId,
-      offSession: true,
-      metadata,
-    });
-    if (pi.status === 'succeeded' || isStubPaymentIntent(pi.id)) {
+    let pi: Awaited<ReturnType<typeof createInvoicePaymentIntent>> | null = null;
+    try {
+      pi = await createInvoicePaymentIntent({
+        amountCents: amountDueCents,
+        customerId: sub.stripeCustomerId,
+        paymentMethodId: sub.preferredPaymentMethodId,
+        offSession: true,
+        metadata,
+      });
+    } catch (err) {
+      // Declined / needs 3DS: let the owner pay with the card form instead.
+      if (!isStripeCardError(err)) throw err;
+      logger.warn({ err, restaurantId }, '3D room off-session charge declined');
+    }
+    if (pi && (pi.status === 'succeeded' || isStubPaymentIntent(pi.id))) {
       const addon = await setVirtualRoomAddon(restaurantId, true, now, {
         paymentConfirmed: true,
         paymentIntentId: pi.id,

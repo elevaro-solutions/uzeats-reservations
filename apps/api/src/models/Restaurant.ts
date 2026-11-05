@@ -33,6 +33,8 @@ const restaurantSchema = new Schema(
     menuUrl: { type: String },
     /** DoorDash, Uber Eats, Toast, or other online ordering page. */
     onlineOrderUrl: { type: String },
+    /** `false` hides Order online for diners. Unset/null counts as on while a valid URL is stored. */
+    onlineOrderEnabled: { type: Boolean },
     logoUrl: { type: String },
     photos: [{ type: String }],
     status: {

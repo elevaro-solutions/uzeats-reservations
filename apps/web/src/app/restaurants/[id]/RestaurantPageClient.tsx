@@ -149,7 +149,7 @@ import { RestaurantTermsSection } from '@/components/restaurant/RestaurantTermsS
 import { RestaurantMessageModal } from '@/components/restaurant/RestaurantMessageModal';
 import { RestaurantHoursMeta } from '@/components/restaurant/RestaurantHoursMeta';
 import { RestaurantLogo } from '@/components/restaurant/RestaurantLogo';
-import { buildMapsSearchUrl, normalizeHttpUrl } from '@/lib/restaurantLinks';
+import { buildMapsSearchUrl } from '@/lib/restaurantLinks';
 import { RestaurantExperiencesSection } from '@/components/restaurant/RestaurantExperiencesSection';
 import { RestaurantPrivateDiningSection } from '@/components/restaurant/RestaurantPrivateDiningSection';
 import { ExperienceBookingModal } from '@/components/restaurant/ExperienceBookingModal';
@@ -1260,7 +1260,7 @@ export default function RestaurantPageClient({
   const bookingHoursLine = formatBookingHours(restaurant.shifts ?? [], timeZone);
   const restaurantFaq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
   const mapsUrl = buildMapsSearchUrl(restaurant.address, restaurant.location);
-  const orderOnlineHref = normalizeHttpUrl(restaurant.onlineOrderUrl);
+  const orderOnlineHref: string | null = restaurant.onlineOrderLink ?? null;
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
   // Stored reviewCount can come from seed/import data; list counts must match real reviews.
@@ -1360,7 +1360,7 @@ export default function RestaurantPageClient({
             location={restaurant.location}
             phone={restaurant.phone}
             website={restaurant.website}
-            onlineOrderUrl={restaurant.onlineOrderUrl}
+            onlineOrderLink={orderOnlineHref}
             onMessage={() => setMessageOpen(true)}
           />
         </div>
@@ -1467,6 +1467,7 @@ export default function RestaurantPageClient({
                 phone={restaurant.phone}
                 website={restaurant.website}
                 onlineOrderUrl={restaurant.onlineOrderUrl}
+                onlineOrderLink={orderOnlineHref}
                 cuisine={restaurant.cuisine}
                 priceRange={restaurant.priceRange}
                 diningStyles={restaurant.diningStyles}

@@ -263,8 +263,8 @@ export function VirtualRoomAddonCard({
             monthlyLabel={formatCents(checkout.amountDueCents)}
             trialDays={0}
             description={`Pay ${formatCents(checkout.amountDueCents)} now to enable Virtual 3D for this month. Access starts after payment succeeds.`}
-            onSuccess={() => {
-              void (async () => {
+            onSuccess={() =>
+              (async () => {
                 try {
                   if (checkout.paymentIntentId) {
                     await confirmPayment({
@@ -279,9 +279,10 @@ export function VirtualRoomAddonCard({
                   await refetch();
                 } catch (err: unknown) {
                   message.error(err instanceof Error ? err.message : 'Payment confirmation failed');
+                  throw err;
                 }
-              })();
-            }}
+              })()
+            }
           />
         </Modal>
       ) : null}

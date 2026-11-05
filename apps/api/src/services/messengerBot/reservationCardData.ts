@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { restaurantTimeZone } from '@reservations/shared';
 import { env } from '../../config/env.js';
 import { Reservation, Restaurant, Table, User } from '../../models/index.js';
 import type { ReservationCardData } from './reservationCard.js';
@@ -11,7 +12,7 @@ export async function loadReservationCard(
   if (!reservation) return null;
 
   const [restaurant, diner, tables] = await Promise.all([
-    Restaurant.findById(reservation.restaurantId).select('name').lean(),
+    Restaurant.findById(reservation.restaurantId).select('name address location').lean(),
     User.findById(reservation.dinerId).select('firstName lastName phone').lean(),
     reservation.tableIds?.length
       ? Table.find({ _id: { $in: reservation.tableIds } }).select('name').lean()
@@ -33,6 +34,7 @@ export async function loadReservationCard(
     restaurantId: String(reservation.restaurantId),
     status: String(reservation.status),
     restaurantName: restaurant?.name ?? null,
+    timeZone: restaurantTimeZone(restaurant ?? {}),
     guestName: guestName || null,
     guestPhone: diner?.phone ?? null,
     partySize: reservation.partySize,

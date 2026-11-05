@@ -40,6 +40,11 @@ const emailTemplateSchema = new Schema(
         'invoice_payment_reminder',
         'invoice_overdue',
         'invoice_enforcement',
+        'card_charge_failed',
+        'card_action_required',
+        'card_expiring',
+        'trial_card_missing',
+        'billing_admin_alert',
         'docs_access_otp',
         'partner_agreement_reminder',
         'terms_of_use_reminder',
@@ -465,6 +470,99 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nInvoice {{invoiceNumber}} · {{amount}} · {{daysPastDue}} days past due\nBilling: {{billingUrl}}',
+  },
+  {
+    key: 'card_charge_failed',
+    name: 'Automatic charge failed',
+    subject: 'We could not charge your card for {{restaurantName}}',
+    description:
+      'Sent the first time an automatic charge fails (invoice, renewal, or add-on), and again on a hard decline.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('{{headline}}'),
+      emailParagraph('{{body}}'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Amount', value: '{{amount}}' },
+        { label: 'Reason', value: '{{reason}}' },
+        { label: 'Next attempt', value: '{{nextAttempt}}' },
+      ]),
+      emailButtons([
+        { href: '{{cardUrl}}', label: 'Replace card' },
+        { href: '{{payUrl}}', label: 'Pay now', variant: 'outline' },
+      ]),
+      emailMuted('Replacing the card retries open charges right away.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nAmount: {{amount}}\nReason: {{reason}}\nNext attempt: {{nextAttempt}}\n\nReplace card: {{cardUrl}}\nPay now: {{payUrl}}',
+  },
+  {
+    key: 'card_action_required',
+    name: 'Payment needs authentication',
+    subject: 'Confirm your payment for {{restaurantName}}',
+    description: 'Sent when the bank asks the owner to authenticate an automatic charge (3D Secure).',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('{{headline}}'),
+      emailParagraph('{{body}}'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Amount', value: '{{amount}}' },
+      ]),
+      emailButton('{{payUrl}}', 'Confirm payment'),
+      emailLinkFallback('{{payUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nAmount: {{amount}}\nConfirm: {{payUrl}}',
+  },
+  {
+    key: 'card_expiring',
+    name: 'Default card expiring',
+    subject: 'Your card for {{restaurantName}} expires soon',
+    description: 'Sent once when the default card expires within about 30 days.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'The default card for {{restaurantName}} ({{card}}) expires at the end of {{expiry}}. Update it so renewals, cover-fee invoices, and add-ons keep charging automatically.',
+      ),
+      emailButton('{{cardUrl}}', 'Update card'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nThe default card for {{restaurantName}} ({{card}}) expires at the end of {{expiry}}. Update it: {{cardUrl}}',
+  },
+  {
+    key: 'trial_card_missing',
+    name: 'Trial ending — add a card',
+    subject: 'Your {{restaurantName}} trial ends {{trialEndsOn}} — add a card',
+    description: 'Sent about 3 days before a trial ends when no default card is on file.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'Your free trial for {{restaurantName}} ends on {{trialEndsOn}}. Add a default card so your subscription, cover fees, and add-ons keep working without interruption.',
+      ),
+      emailButton('{{cardUrl}}', 'Add card'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nYour free trial for {{restaurantName}} ends on {{trialEndsOn}}. Add a default card: {{cardUrl}}',
+  },
+  {
+    key: 'billing_admin_alert',
+    name: 'Billing alert (platform admins)',
+    subject: '[Billing] {{headline}}',
+    description:
+      'Sent to admins and account managers on the first failed charge and when a venue is hidden, restricted, or terminated for non-payment.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('{{headline}}'),
+      emailParagraph('{{body}}'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Amount', value: '{{amount}}' },
+      ]),
+      emailButton('{{adminUrl}}', 'Open failed charges'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nRestaurant: {{restaurantName}}\nAmount: {{amount}}\n{{adminUrl}}',
   },
   {
     key: 'docs_access_otp',

@@ -55,7 +55,7 @@ export function buildRestaurantSelectOptions(
     label: restaurantSelectLabel(r),
   }));
   if (opts?.includeAllLocations && restaurants.length > 1) {
-    return [{ value: ALL_LOCATIONS_VALUE, label: 'All locations' }, ...options];
+    return [{ value: ALL_LOCATIONS_VALUE, label: 'All restaurants' }, ...options];
   }
   return options;
 }

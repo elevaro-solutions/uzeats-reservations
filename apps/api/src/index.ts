@@ -274,6 +274,23 @@ async function main() {
           const { syncStripeInvoice } =
             await import("./services/stripeSync.js");
           await syncStripeInvoice(event.data.object as any);
+          if (event.type === "invoice.payment_failed") {
+            const { handleStripeInvoicePaymentFailed } =
+              await import("./services/billingAlerts.js");
+            await handleStripeInvoicePaymentFailed(event.data.object as any);
+          }
+        } else if (event.type === "invoice.payment_action_required") {
+          const { handleStripeInvoiceActionRequired } =
+            await import("./services/billingAlerts.js");
+          await handleStripeInvoiceActionRequired(event.data.object as any);
+        } else if (event.type === "payment_method.automatically_updated") {
+          const { handleStripePaymentMethodUpdated } =
+            await import("./services/billingAlerts.js");
+          await handleStripePaymentMethodUpdated(event.data.object as any);
+        } else if (event.type === "customer.source.expiring") {
+          const { handleStripeSourceExpiring } =
+            await import("./services/billingAlerts.js");
+          await handleStripeSourceExpiring(event.data.object as any);
         } else if (
           event.type === "customer.subscription.updated" ||
           event.type === "customer.subscription.deleted"

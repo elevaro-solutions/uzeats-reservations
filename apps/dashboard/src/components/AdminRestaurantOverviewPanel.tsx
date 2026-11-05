@@ -321,7 +321,10 @@ export function AdminRestaurantOverviewPanel({
                 </Descriptions.Item>
                 <Descriptions.Item label="Order online">
                   {restaurant.onlineOrderUrl ? (
-                    <ExternalLink href={restaurant.onlineOrderUrl} />
+                    <Space size={6} wrap>
+                      <ExternalLink href={restaurant.onlineOrderUrl} />
+                      {restaurant.onlineOrderEnabled === false ? <Tag>Off</Tag> : null}
+                    </Space>
                   ) : (
                     '—'
                   )}

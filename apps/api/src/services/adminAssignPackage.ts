@@ -2,8 +2,11 @@ import { addPlanDuration } from '@reservations/shared';
 import { Subscription, type SubscriptionDocument } from '../models/Subscription.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { getEffectivePlan } from './platformConfig.js';
-import { updateStripeSubscription } from './stripe.js';
-import { createRestaurantSubscription } from './restaurantSubscription.js';
+import { isStripeResourceMissing, updateStripeSubscription } from './stripe.js';
+import {
+  createRestaurantSubscription,
+  detachMissingStripeSubscription,
+} from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
 
 export function computeExtendedBillingPeriod(input: {
@@ -74,14 +77,21 @@ export async function adminAssignRestaurantPackage(input: {
 
   const sub = existing;
   const planChanged = sub.plan !== planDef.key;
+  let detachedStripeSubscriptionId: string | null = null;
   if (planChanged) {
     if (sub.stripeSubscriptionId) {
-      await updateStripeSubscription(sub.stripeSubscriptionId, planDef.monthlyPriceCents, {
-        prorationBehavior: 'none',
-        collectPayment: false,
-        durationUnit: planDef.durationUnit,
-        durationCount: planDef.durationCount,
-      });
+      try {
+        await updateStripeSubscription(sub.stripeSubscriptionId, planDef.monthlyPriceCents, {
+          prorationBehavior: 'none',
+          collectPayment: false,
+          durationUnit: planDef.durationUnit,
+          durationCount: planDef.durationCount,
+        });
+      } catch (err) {
+        if (!isStripeResourceMissing(err)) throw err;
+        detachedStripeSubscriptionId = sub.stripeSubscriptionId;
+        await detachMissingStripeSubscription(sub);
+      }
     }
     sub.plan = planDef.key;
     sub.monthlyPriceCents = planDef.monthlyPriceCents;
@@ -135,6 +145,7 @@ export async function adminAssignRestaurantPackage(input: {
       created: false,
       currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
       trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
+      detachedStripeSubscriptionId,
     },
   });
 

@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
-  Drawer,
   Empty,
   Segmented,
   Select,
@@ -26,8 +25,8 @@ import {
   AppstoreOutlined,
   EditOutlined,
   ExperimentOutlined,
+  LayoutOutlined,
   ReloadOutlined,
-  RollbackOutlined,
   RotateRightOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
@@ -35,7 +34,6 @@ import { colors } from '@reservations/ui';
 import type { VirtualRoomSceneData } from '@reservations/ui/virtual-room';
 import {
   formatTimeInTimeZone,
-  formatUsDateTime,
   resolveFloorAreaAppearance,
   restaurantTimeZone,
   type FloorPlanAreaAppearance,
@@ -57,12 +55,15 @@ import {
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { VirtualRoomAddonCard } from '@/components/VirtualRoomAddonCard';
+import { FloorTablesCards } from '@/components/FloorTablesCards';
+import { FloorTableDrawer } from '@/components/FloorTableDrawer';
 import {
-  canRefundDeposit,
-  formatDepositStatus,
-  formatUsd,
-  guestName as formatGuestName,
-} from '@/lib/reservationFormat';
+  FLOOR_OPS_STATUSES,
+  FLOOR_OPS_STATUS_COLORS,
+  floorOpsStatusColor,
+  floorOpsStatusLabel,
+} from '@/lib/floorOpsStatus';
+import { formatUsd, guestName as formatGuestName } from '@/lib/reservationFormat';
 import {
   DEFAULT_CELL_SIZE,
   MAX_CELL_SIZE,
@@ -94,27 +95,22 @@ const VirtualRoomViewer = dynamic(
 
 const { Title, Text, Paragraph } = Typography;
 
-const STATUS_COLORS: Record<string, string> = {
-  free: '#2e9e5b',
-  reserved: '#faad14',
-  seated: '#cf1322',
-  turning: '#fa8c16',
-};
-
-const OPS_3D_STATUS_LEGEND = Object.entries(STATUS_COLORS).map(([status, color]) => ({
-  color,
-  label: status.charAt(0).toUpperCase() + status.slice(1),
+const OPS_3D_STATUS_LEGEND = FLOOR_OPS_STATUSES.map((status) => ({
+  color: FLOOR_OPS_STATUS_COLORS[status],
+  label: floorOpsStatusLabel(status),
 }));
 
-type FloorOpsViewMode = 'list' | 'plan' | '3d';
+type FloorOpsViewMode = 'tables' | 'list' | 'plan' | '3d';
 
 const FLOOR_OPS_VIEW_STORAGE_KEY = 'rt-floor-ops-view';
 
 function readFloorOpsViewMode(): FloorOpsViewMode {
-  if (typeof window === 'undefined') return 'plan';
+  if (typeof window === 'undefined') return 'tables';
   const stored = localStorage.getItem(FLOOR_OPS_VIEW_STORAGE_KEY);
-  if (stored === 'list' || stored === 'plan' || stored === '3d') return stored;
-  return 'plan';
+  if (stored === 'tables' || stored === 'list' || stored === 'plan' || stored === '3d') {
+    return stored;
+  }
+  return 'tables';
 }
 
 type TableState = {
@@ -150,6 +146,15 @@ type TableState = {
     diner?: { firstName?: string; lastName?: string };
     tables?: { id: string; name: string }[];
   } | null;
+  upcoming?: {
+    id: string;
+    partySize: number;
+    slotStart: string;
+    slotEnd: string;
+    status: string;
+    guestNotes?: string;
+    diner?: { firstName?: string; lastName?: string };
+  }[];
 };
 
 function guestName(r?: TableState['reservation']) {
@@ -427,7 +432,7 @@ function FloorAreaCanvas({
           ))}
           {states.map((state) => {
             const t = state.table;
-            const bg = STATUS_COLORS[state.status] ?? STATUS_COLORS.free;
+            const bg = floorOpsStatusColor(state.status);
             const isTurning = state.status === 'turning';
             const isSelected = t.id === selectedTableId;
             const renderPreset = renderPresetFor(t.shape);
@@ -630,8 +635,8 @@ function FloorTablesList({
       key: 'status',
       width: 110,
       render: (_, state) => (
-        <Tag color={STATUS_COLORS[state.status]} style={{ textTransform: 'capitalize', margin: 0 }}>
-          {state.status}
+        <Tag color={floorOpsStatusColor(state.status)} style={{ margin: 0 }}>
+          {floorOpsStatusLabel(state.status)}
         </Tag>
       ),
     },
@@ -801,6 +806,7 @@ export default function FloorOpsPage() {
         ...row,
         table: { ...row.table },
         reservation: row.reservation ? { ...row.reservation } : null,
+        upcoming: [...(row.upcoming ?? [])],
       })),
       unassigned: [...(next.unassigned ?? [])],
       backgroundUrl: next.backgroundUrl ?? null,
@@ -825,14 +831,14 @@ export default function FloorOpsPage() {
   const opsTableColors = useMemo(() => {
     const colorsById: Record<string, string> = {};
     for (const state of tableStates) {
-      colorsById[state.table.id] = STATUS_COLORS[state.status] ?? STATUS_COLORS.free;
+      colorsById[state.table.id] = floorOpsStatusColor(state.status);
     }
     return colorsById;
   }, [tableStatusKey, tableStates]);
   const opsTableHoverDetails = useMemo(() => {
     const details: Record<string, string> = {};
     for (const state of tableStates) {
-      const statusLabel = state.status.charAt(0).toUpperCase() + state.status.slice(1);
+      const statusLabel = floorOpsStatusLabel(state.status);
       if (state.reservation) {
         const turn =
           state.turnMinutesRemaining != null && state.status !== 'free'
@@ -949,6 +955,10 @@ export default function FloorOpsPage() {
       return false;
     }
   };
+
+  const dragPartySize = dragReservationId
+    ? (unassigned.find((r) => r.id === dragReservationId)?.partySize ?? null)
+    : null;
 
   const onDropOnTable = async (tableId: string) => {
     if (!dragReservationId) return;
@@ -1084,8 +1094,9 @@ export default function FloorOpsPage() {
             value={viewMode}
             onChange={setFloorOpsViewMode}
             options={[
+              { label: 'Tables', value: 'tables', icon: <AppstoreOutlined /> },
               { label: 'List', value: 'list', icon: <UnorderedListOutlined /> },
-              { label: 'Floor plan', value: 'plan', icon: <AppstoreOutlined /> },
+              { label: 'Floor plan', value: 'plan', icon: <LayoutOutlined /> },
               { label: '3D', value: '3d', icon: <ExperimentOutlined /> },
             ]}
           />
@@ -1129,14 +1140,25 @@ export default function FloorOpsPage() {
 
       {viewMode !== '3d' ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {Object.entries(STATUS_COLORS).map(([status, color]) => (
+          {FLOOR_OPS_STATUSES.map((status) => (
             <Space key={status} size={4}>
-              <span style={{ width: 12, height: 12, borderRadius: 4, background: color, display: 'inline-block' }} />
-              <Text type="secondary" style={{ textTransform: 'capitalize' }}>
-                {status}
-              </Text>
+              <span
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 4,
+                  background: FLOOR_OPS_STATUS_COLORS[status],
+                  display: 'inline-block',
+                }}
+              />
+              <Text type="secondary">{floorOpsStatusLabel(status)}</Text>
             </Space>
           ))}
+          {viewMode === 'tables' ? (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              · One chair per seat; solid chairs are taken by the party
+            </Text>
+          ) : null}
         </div>
       ) : null}
 
@@ -1234,6 +1256,15 @@ export default function FloorOpsPage() {
               <Card>
                 <Empty description="No tables configured. Add tables in Tables & shifts." />
               </Card>
+            ) : viewMode === 'tables' ? (
+              <FloorTablesCards
+                areaPlans={areaPlans}
+                selectedTableId={selectedState?.table.id}
+                timeZone={timeZone}
+                dragPartySize={dragPartySize}
+                onSelect={setSelectedState}
+                onDropOnTable={onDropOnTable}
+              />
             ) : viewMode === 'list' ? (
               <FloorTablesList
                 areaPlans={areaPlans}
@@ -1282,134 +1313,52 @@ export default function FloorOpsPage() {
         </div>
       )}
 
-      <Drawer
-        title={selectedState ? `Table ${selectedState.table.name}` : 'Table'}
-        open={!!selectedState}
+      <FloorTableDrawer
+        state={selectedState}
+        timeZone={timeZone}
+        arrivals={unassigned}
+        showRotateHint={viewMode === 'plan'}
+        editTableHref={
+          selectedState && showAddonRail
+            ? `/floor?${new URLSearchParams({
+                ...(activeRestaurantId ? { restaurant: activeRestaurantId } : {}),
+                editTable: selectedState.table.id,
+              }).toString()}`
+            : undefined
+        }
+        layoutHref={
+          selectedState && showAddonRail
+            ? `/floor-plan?${new URLSearchParams({
+                ...(activeRestaurantId ? { restaurant: activeRestaurantId } : {}),
+                area: selectedState.table.floorArea?.trim() || 'Main',
+              }).toString()}`
+            : undefined
+        }
+        seating={seating}
+        updatingStatus={updatingStatus}
+        refunding={refunding}
         onClose={() => setSelectedState(null)}
-        size={360}
-      >
-        {selectedState && (
-          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-            <Tag color={STATUS_COLORS[selectedState.status]} style={{ textTransform: 'capitalize' }}>
-              {selectedState.status}
-            </Tag>
-            <Text type="secondary">{selectedState.table.floorArea}</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Drag the rotate icon on the table to turn it. Hold Shift to snap, or press R.
-            </Text>
-            {selectedState.table.photoUrl && (
-              <img
-                src={selectedState.table.photoUrl}
-                alt={selectedState.table.name}
-                style={{ width: '100%', borderRadius: 8, objectFit: 'cover', maxHeight: 160 }}
-              />
-            )}
-            {selectedState.reservation ? (
-              <>
-                <div>
-                  <Text strong>{guestName(selectedState.reservation)}</Text>
-                  <br />
-                  <Text type="secondary">
-                    Party of {selectedState.reservation.partySize} ·{' '}
-                    {formatUsDateTime(selectedState.reservation.slotStart, {
-                      timeZone,
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                  {(selectedState.reservation.depositAmountCents ?? 0) > 0 ? (
-                    <>
-                      <br />
-                      <Text type="secondary">
-                        Deposit {formatUsd(selectedState.reservation.depositAmountCents)} ·{' '}
-                        {formatDepositStatus(selectedState.reservation.depositStatus, {
-                          depositAmountCents: selectedState.reservation.depositAmountCents,
-                          depositRefundedCents: selectedState.reservation.depositRefundedCents,
-                        })}
-                      </Text>
-                    </>
-                  ) : null}
-                </div>
-                {selectedState.seatedMinutes != null && (
-                  <Text>Seated for {selectedState.seatedMinutes} min</Text>
-                )}
-                {selectedState.turnMinutesRemaining != null && selectedState.status !== 'free' && (
-                  <Text>Turn remaining: {formatTimer(selectedState.turnMinutesRemaining)}</Text>
-                )}
-                <Space wrap>
-                  {selectedState.reservation.status === 'confirmed' && (
-                    <Button
-                      type="primary"
-                      loading={seating}
-                      onClick={() =>
-                        handleSeatAtTable(selectedState.reservation!.id, selectedState.table.id)
-                      }
-                    >
-                      Seat here
-                    </Button>
-                  )}
-                  {selectedState.reservation.status === 'confirmed' && (
-                    <Button
-                      loading={updatingStatus}
-                      onClick={() => handleStatusChange(selectedState.reservation!.id, 'no_show')}
-                    >
-                      No-show
-                    </Button>
-                  )}
-                  {selectedState.reservation.status === 'seated' && (
-                    <Button
-                      type="primary"
-                      loading={updatingStatus}
-                      onClick={() => handleStatusChange(selectedState.reservation!.id, 'completed')}
-                    >
-                      Complete
-                    </Button>
-                  )}
-                  {canRefundDeposit(selectedState.reservation) && (
-                    <Button
-                      danger
-                      icon={<RollbackOutlined />}
-                      loading={refunding}
-                      onClick={() =>
-                        setRefundTarget({
-                          id: selectedState.reservation!.id,
-                          guestName: formatGuestName(selectedState.reservation!.diner),
-                          depositAmountCents: selectedState.reservation!.depositAmountCents,
-                          depositRefundedCents: selectedState.reservation!.depositRefundedCents,
-                          depositRefundableCents: selectedState.reservation!.depositRefundableCents,
-                          depositStatus: selectedState.reservation!.depositStatus,
-                        })
-                      }
-                    >
-                      {selectedState.reservation.depositStatus === 'authorized'
-                        ? 'Release deposit'
-                        : 'Refund deposit'}
-                    </Button>
-                  )}
-                  {['pending', 'confirmed'].includes(selectedState.reservation.status) && (
-                    <Button
-                      danger
-                      loading={updatingStatus}
-                      onClick={() =>
-                        setCancelTarget({
-                          id: selectedState.reservation!.id,
-                          guestName: formatGuestName(selectedState.reservation!.diner),
-                        })
-                      }
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </Space>
-              </>
-            ) : (
-              <Text type="secondary">No active reservation on this table</Text>
-            )}
-          </Space>
-        )}
-      </Drawer>
+        onSeat={(reservationId, tableId) => void handleSeatAtTable(reservationId, tableId)}
+        onStatusChange={(reservationId, status) => void handleStatusChange(reservationId, status)}
+        onRefund={(state) => {
+          const r = state.reservation;
+          if (!r) return;
+          setRefundTarget({
+            id: r.id,
+            guestName: formatGuestName(r.diner),
+            depositAmountCents: r.depositAmountCents,
+            depositRefundedCents: r.depositRefundedCents,
+            depositRefundableCents: r.depositRefundableCents,
+            depositStatus: r.depositStatus,
+          });
+        }}
+        onCancel={(state) => {
+          const r = state.reservation;
+          if (!r) return;
+          setCancelTarget({ id: r.id, guestName: formatGuestName(r.diner) });
+        }}
+        onNavigate={(href) => router.push(href)}
+      />
 
       <CancelReservationModal
         open={!!cancelTarget}

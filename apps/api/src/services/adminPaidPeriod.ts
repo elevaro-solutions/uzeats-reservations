@@ -4,6 +4,7 @@ import { Restaurant } from '../models/Restaurant.js';
 import { logAudit } from './audit.js';
 import { cancelStripeSubscription, updateStripePaidPeriodStart } from './stripe.js';
 import { getEffectivePlan } from './platformConfig.js';
+import { detachMissingStripeSubscription } from './restaurantSubscription.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 
 export function addOneCalendarMonth(from: Date): Date {
@@ -109,7 +110,12 @@ export async function adminSetSubscriptionPaidPeriodStart(input: {
         currentlyTrialing: wasTrialing,
       },
     );
-    if (stripeResult?.previousSubscriptionId && stripeResult.id !== sub.stripeSubscriptionId) {
+    if (stripeResult?.missing) {
+      await detachMissingStripeSubscription(sub);
+    } else if (
+      stripeResult?.previousSubscriptionId &&
+      stripeResult.id !== sub.stripeSubscriptionId
+    ) {
       replacedStripeSubscriptionId = stripeResult.previousSubscriptionId;
       sub.stripeSubscriptionId = stripeResult.id;
       // Persist the new id before canceling so a Stripe `deleted` webhook cannot

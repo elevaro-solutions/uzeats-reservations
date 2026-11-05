@@ -16,6 +16,7 @@ import dayjs from 'dayjs';
 import { EmptyState, colors, layout, radii, typography, pickRestaurantPhoto } from '@reservations/ui';
 import { DiscoveryRestaurantCard } from '@/components/DiscoveryRestaurantCard';
 import type { HomeSearchSeed } from '@/lib/homeSearchSeed';
+import type { HeroStat } from '@/lib/homeStats';
 import {
   AppstoreOutlined,
   CoffeeOutlined,
@@ -94,9 +95,10 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 type HomePageClientProps = {
   initialSearch?: HomeSearchSeed | null;
+  heroStats?: HeroStat[];
 };
 
-function HomePageContent({ initialSearch = null }: HomePageClientProps) {
+function HomePageContent({ initialSearch = null, heroStats = [] }: HomePageClientProps) {
   const router = useRouter();
   const { filters, replaceFilters } = useDiscoveryUrlSync();
   const [queryDraft, setQueryDraft] = useState(filters.query);
@@ -763,6 +765,54 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
             ))}
           </div>
 
+          {heroStats.length > 0 && (
+            <div
+              className="rt-fade-up rt-hero-stats"
+              style={{ marginTop: 30, animationDelay: '270ms' }}
+            >
+              {heroStats.map((s, i) => (
+                <div key={s.label} className="rt-hero-stat">
+                  {i > 0 && (
+                    <span
+                      aria-hidden
+                      className="rt-hero-stat-sep"
+                      style={{
+                        width: 1,
+                        height: 30,
+                        background: 'rgba(255,255,255,0.16)',
+                        display: 'inline-block',
+                      }}
+                    />
+                  )}
+                  <div style={{ textAlign: 'center' }}>
+                    <div
+                      style={{
+                        color: '#fff',
+                        fontSize: typography.fontSize.lg,
+                        fontWeight: typography.fontWeight.bold,
+                        lineHeight: 1.1,
+                        letterSpacing: typography.letterSpacing.tight,
+                      }}
+                    >
+                      {s.value}
+                    </div>
+                    <div
+                      style={{
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: typography.fontSize.xs,
+                        textTransform: 'uppercase',
+                        letterSpacing: typography.letterSpacing.wide,
+                        marginTop: 2,
+                      }}
+                    >
+                      {s.label}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <nav
             className="rt-fade-up rt-hero-hubs"
             aria-label="Explore Tablevera"
@@ -906,11 +956,11 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
   );
 }
 
-export default function HomePageClient({ initialSearch = null }: HomePageClientProps) {
+export default function HomePageClient({ initialSearch = null, heroStats = [] }: HomePageClientProps) {
   return (
     <div component="HomePage" style={{ display: 'contents' }}>
       <Suspense fallback={null}>
-        <HomePageContent initialSearch={initialSearch} />
+        <HomePageContent initialSearch={initialSearch} heroStats={heroStats} />
       </Suspense>
     </div>
   );

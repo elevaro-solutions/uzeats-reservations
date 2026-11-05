@@ -53,7 +53,7 @@ import {
 import { ADD_RESTAURANT_HREF, isInactiveRestaurant, restaurantHref } from '@/lib/restaurants';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
-const { Text, Paragraph, Title } = Typography;
+const { Text, Paragraph } = Typography;
 
 const ALERTS_PREVIEW_LIMIT = 3;
 const ALERTS_FETCH_LIMIT = 20;
@@ -149,27 +149,32 @@ export default function OverviewPage() {
   const [alertsModalOpen, setAlertsModalOpen] = useState(false);
 
   const isQa = Boolean(user && isQaRole(user.role));
-  // Omit date so API uses each location's restaurant-local "today"
-  const { data: overviewData, loading: overviewLoading } = useQuery(MY_OWNER_OVERVIEW, {
-    skip: !user || isQa,
-    fetchPolicy: 'cache-and-network',
-  });
   const overviewTodayLabel = useMemo(
     () => dayjs(todayIsoInTimeZone(PLATFORM_TIMEZONE)).format('MMM D, YYYY'),
     [],
   );
-  const { data: notifData, refetch: refetchNotifs } = useQuery(MY_NOTIFICATIONS, {
-    skip: !user,
-    variables: { limit: ALERTS_FETCH_LIMIT },
-  });
-  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
-    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: ALERTS_FETCH_LIMIT } }],
-  });
   const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId } = usePartnerRestaurant(restaurants);
+  const restaurantsLoaded = restData !== undefined;
+  const { activeRestaurantId, allRestaurants } = usePartnerRestaurant(restaurants);
+  const { data: notifData, refetch: refetchNotifs } = useQuery(MY_NOTIFICATIONS, {
+    skip: !user || !restaurantsLoaded,
+    variables: {
+      limit: ALERTS_FETCH_LIMIT,
+      restaurantId: allRestaurants ? undefined : activeRestaurantId || undefined,
+    },
+  });
+  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
+    refetchQueries: ['MyNotifications', 'MyOwnerOverview'],
+  });
+  const { data: overviewData, loading: overviewLoading } = useQuery(MY_OWNER_OVERVIEW, {
+    skip: !user || isQa || !restaurantsLoaded,
+    fetchPolicy: 'cache-and-network',
+    variables:
+      allRestaurants || !activeRestaurantId ? {} : { restaurantId: activeRestaurantId },
+  });
   const { data: subData } = useQuery(MY_SUBSCRIPTION, {
-    skip: !user || !activeRestaurantId,
+    skip: !user || !activeRestaurantId || allRestaurants,
     variables: { restaurantId: activeRestaurantId },
   });
 
@@ -191,7 +196,14 @@ export default function OverviewPage() {
   const canAdd = Boolean(user && canCreateRestaurant(user.role));
   const locationsTotal = overview?.locationsTotal ?? 0;
   const locationRows: OwnerLocationRow[] = overview?.locations ?? [];
-  const isMultiLocation = locationsTotal > 1;
+  const isMultiLocation = allRestaurants && locationsTotal > 1;
+  const scopeHref = (path: string) =>
+    !allRestaurants && activeRestaurantId && restaurants.length > 1
+      ? restaurantHref(path, activeRestaurantId)
+      : path;
+  const visibleShortcuts = (
+    allRestaurants ? shortcuts.filter((item) => item.href !== '/floor-ops' && item.href !== '/messages') : shortcuts
+  ).map((item) => ({ ...item, href: scopeHref(item.href) }));
 
   const openLocation = (id: string, path: string) => {
     selectRestaurant(id);
@@ -328,10 +340,10 @@ export default function OverviewPage() {
     <div component="OverviewPage" style={{ display: 'contents' }}>
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
-          title={isMultiLocation ? 'Multi-location overview' : 'Overview'}
+          title={allRestaurants ? 'All restaurants' : 'Overview'}
           subtitle={
-            isMultiLocation
-              ? `Summary across ${locationsTotal} locations for ${overviewTodayLabel}`
+            allRestaurants
+              ? `Combined service snapshot for ${locationsTotal} restaurants on ${overviewTodayLabel}`
               : "Today's service snapshot"
           }
           extra={
@@ -356,7 +368,7 @@ export default function OverviewPage() {
           </Col>
           <Col xs={12} md={8} lg={8}>
             <StatLinkCard
-              href="/reservations"
+              href={scopeHref('/reservations')}
               title="Today's reservations"
               value={overview?.todayReservations ?? 0}
               prefix={<CalendarOutlined />}
@@ -364,7 +376,7 @@ export default function OverviewPage() {
           </Col>
           <Col xs={12} md={8} lg={8}>
             <StatLinkCard
-              href="/reservations"
+              href={scopeHref('/reservations')}
               title="Today's covers"
               value={overview?.todayCovers ?? 0}
               prefix={<TeamOutlined />}
@@ -372,7 +384,7 @@ export default function OverviewPage() {
           </Col>
           <Col xs={12} md={8} lg={8}>
             <StatLinkCard
-              href="/waitlist"
+              href={scopeHref('/waitlist')}
               title="Open waitlist"
               value={overview?.openWaitlist ?? 0}
               prefix={<ClockCircleOutlined />}
@@ -387,14 +399,26 @@ export default function OverviewPage() {
             />
           </Col>
           <Col xs={12} md={8} lg={8}>
-            <StatLinkCard
-              href="/reviews"
-              title="Avg rating"
-              value={overview?.averageRating ?? 0}
-              precision={1}
-              prefix={<StarOutlined />}
-              suffix={overview?.reviewCount ? `(${overview.reviewCount})` : undefined}
-            />
+            {allRestaurants ? (
+              <Card style={{ height: '100%' }}>
+                <Statistic
+                  title="Avg rating"
+                  value={overview?.averageRating ?? 0}
+                  precision={1}
+                  prefix={<StarOutlined />}
+                  suffix={overview?.reviewCount ? `(${overview.reviewCount})` : undefined}
+                />
+              </Card>
+            ) : (
+              <StatLinkCard
+                href={scopeHref('/reviews')}
+                title="Avg rating"
+                value={overview?.averageRating ?? 0}
+                precision={1}
+                prefix={<StarOutlined />}
+                suffix={overview?.reviewCount ? `(${overview.reviewCount})` : undefined}
+              />
+            )}
           </Col>
         </Row>
 
@@ -527,10 +551,26 @@ export default function OverviewPage() {
             </Card>
           </Col>
 
-          {!isMultiLocation ? (
+          {allRestaurants ? (
+            <Col xs={24} md={8}>
+              <Card title="All restaurants selected" style={{ borderRadius: radii.lg, height: '100%' }}>
+                <Space orientation="vertical" size={spacing.sm} style={{ width: '100%' }}>
+                  <Text type="secondary">
+                    These totals include every restaurant on the account. Choose one from the
+                    header or from My restaurants before changing that restaurant.
+                  </Text>
+                  <Link href="/restaurants">
+                    <Button type="primary" size="small">
+                      My restaurants
+                    </Button>
+                  </Link>
+                </Space>
+              </Card>
+            </Col>
+          ) : (
             <Col xs={24} md={8}>
               <Card
-                title={activeRestaurant ? `Active: ${activeRestaurant.name}` : 'Active location'}
+                title={activeRestaurant ? activeRestaurant.name : 'Restaurant'}
                 style={{ borderRadius: radii.lg, height: '100%' }}
               >
                 {activeRestaurant ? (
@@ -560,59 +600,21 @@ export default function OverviewPage() {
                         ) : null}
                       </>
                     ) : (
-                      <Text type="secondary">No subscription loaded for this location.</Text>
+                      <Text type="secondary">No subscription loaded for this restaurant.</Text>
                     )}
                     <Space wrap>
-                      <Link href="/reservations">
+                      <Link href={scopeHref('/reservations')}>
                         <Button type="primary" size="small">
                           Reservations
                         </Button>
                       </Link>
-                      <Link href="/billing">
+                      <Link href={scopeHref('/billing')}>
                         <Button size="small">Billing</Button>
                       </Link>
                     </Space>
                   </Space>
                 ) : (
-                  <Text type="secondary">Select a restaurant from the header to focus service.</Text>
-                )}
-              </Card>
-            </Col>
-          ) : (
-            <Col xs={24} md={8}>
-              <Card title="Focused location" style={{ borderRadius: radii.lg, height: '100%' }}>
-                {activeRestaurant ? (
-                  <Space orientation="vertical" size={spacing.sm} style={{ width: '100%' }}>
-                    <Title level={5} style={{ margin: 0 }}>
-                      {activeRestaurant.name}
-                    </Title>
-                    <div>
-                      <Text type="secondary">Status </Text>
-                      <StatusTag status={activeRestaurant.status} />
-                    </div>
-                    {subscription ? (
-                      <Text type="secondary">
-                        {subscription.plan} · {String(subscription.status ?? '').replaceAll('_', ' ')}
-                      </Text>
-                    ) : null}
-                    <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                      Header selector controls which location service pages use.
-                    </Text>
-                    <Space wrap>
-                      <Button
-                        type="primary"
-                        size="small"
-                        onClick={() => openLocation(activeRestaurant.id, '/reservations')}
-                      >
-                        Open reservations
-                      </Button>
-                      <Link href="/billing">
-                        <Button size="small">Billing</Button>
-                      </Link>
-                    </Space>
-                  </Space>
-                ) : (
-                  <Text type="secondary">Select a restaurant from the header to focus service.</Text>
+                  <Text type="secondary">Select a restaurant from the header.</Text>
                 )}
               </Card>
             </Col>
@@ -624,7 +626,7 @@ export default function OverviewPage() {
         </Row>
 
         <Row gutter={[16, 16]} className="rt-stat-grid">
-          {shortcuts.map((item) => (
+          {visibleShortcuts.map((item) => (
             <Col xs={24} sm={12} lg={8} key={item.href}>
               <Link href={item.href} style={{ display: 'block', height: '100%' }}>
                 <Card

@@ -128,6 +128,48 @@ export function financeChargeAssessmentsDue(
   return 1 + Math.floor((daysPastDue - graceDays - 1) / 30);
 }
 
+/** Days after due (UTC) when the daily job retries a failed invoice auto-charge. */
+export const AUTO_CHARGE_RETRY_DAYS = [0, 1, 3, 5, 7] as const;
+
+/** Retry on the early schedule, then weekly (day 14, 21, …) until the invoice is paid. */
+export function isAutoChargeRetryDay(daysPastDue: number): boolean {
+  if (daysPastDue < 0) return false;
+  if ((AUTO_CHARGE_RETRY_DAYS as readonly number[]).includes(daysPastDue)) return true;
+  return daysPastDue > 7 && daysPastDue % 7 === 0;
+}
+
+/** Next retry day strictly after `daysPastDue`. */
+export function nextAutoChargeRetryDay(daysPastDue: number): number {
+  let day = Math.max(0, daysPastDue + 1);
+  while (!isAutoChargeRetryDay(day)) day += 1;
+  return day;
+}
+
+/** Decline codes that will not succeed on retry with the same card. */
+export const HARD_DECLINE_CODES = [
+  'lost_card',
+  'stolen_card',
+  'expired_card',
+  'pickup_card',
+  'restricted_card',
+  'incorrect_number',
+  'invalid_number',
+  'invalid_account',
+  'invalid_expiry_month',
+  'invalid_expiry_year',
+  'card_not_supported',
+  'currency_not_supported',
+  'new_account_information_available',
+  'revocation_of_authorization',
+  'revocation_of_all_authorizations',
+  'stop_payment_order',
+] as const;
+
+export function isHardDeclineCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  return (HARD_DECLINE_CODES as readonly string[]).includes(code.toLowerCase());
+}
+
 export const FAIL_TO_PAY_NOTICE_DAYS = [
   1, 3, 7, 8, 13, 14, 21, 29, 30, 45, 59, 60,
 ] as const;

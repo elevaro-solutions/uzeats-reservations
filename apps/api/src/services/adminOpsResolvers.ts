@@ -10,7 +10,7 @@ import {
   type DiscoveryTaxonomyKind,
   type UserRole,
 } from '@reservations/shared';
-import { restaurantInputToDb } from '../lib/restaurantInput.js';
+import { resolveOnlineOrderPatch, restaurantInputToDb } from '../lib/restaurantInput.js';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
@@ -861,7 +861,10 @@ export const adminOpsMutation = {
       if (!owner) throw new Error('Owner user not found');
     }
 
-    const $set: Record<string, unknown> = restaurantInputToDb(input);
+    const $set: Record<string, unknown> = {
+      ...restaurantInputToDb(input),
+      ...resolveOnlineOrderPatch(restaurant, input, admin.role),
+    };
     if (args.featured !== undefined) $set.featured = args.featured;
     if (args.featuredUntil !== undefined) {
       $set.featuredUntil = args.featuredUntil ? new Date(args.featuredUntil) : null;

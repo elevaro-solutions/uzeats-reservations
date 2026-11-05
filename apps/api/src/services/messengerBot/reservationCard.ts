@@ -1,3 +1,4 @@
+import { formatDateTimeInTimeZone, PLATFORM_TIMEZONE } from '@reservations/shared';
 import type { TelegramInlineButton, TelegramInlineKeyboard, TelegramTextEntity } from './telegramApi.js';
 import {
   BOT_ACTIONS,
@@ -13,6 +14,8 @@ export type ReservationCardData = {
   restaurantId: string;
   status: string;
   restaurantName?: string | null;
+  /** Restaurant IANA zone; slot times must render in it to match the platform. */
+  timeZone?: string | null;
   guestName?: string | null;
   guestPhone?: string | null;
   partySize: number;
@@ -108,15 +111,9 @@ class CardText {
   }
 }
 
-function formatSlot(date: Date): string {
+function formatSlot(date: Date, timeZone?: string | null): string {
   try {
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(date);
+    return formatDateTimeInTimeZone(date, timeZone || PLATFORM_TIMEZONE) || date.toISOString();
   } catch {
     return date.toISOString();
   }
@@ -150,7 +147,7 @@ export function renderReservationCardMessage(
   const head = [
     card.guestName?.trim() || 'Guest',
     `party of ${card.partySize}`,
-    formatSlot(card.slotStart),
+    formatSlot(card.slotStart, card.timeZone),
   ];
   const headLine = head.join(' · ');
   out.line(

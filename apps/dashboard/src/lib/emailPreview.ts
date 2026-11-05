@@ -108,6 +108,21 @@ export const EMAIL_TEMPLATE_VARIABLES: Record<string, string[]> = {
     'daysPastDue',
     'billingUrl',
   ],
+  card_charge_failed: [
+    'firstName',
+    'restaurantName',
+    'headline',
+    'body',
+    'amount',
+    'reason',
+    'nextAttempt',
+    'cardUrl',
+    'payUrl',
+  ],
+  card_action_required: ['firstName', 'restaurantName', 'headline', 'body', 'amount', 'payUrl'],
+  card_expiring: ['firstName', 'restaurantName', 'card', 'expiry', 'cardUrl'],
+  trial_card_missing: ['firstName', 'restaurantName', 'trialEndsOn', 'cardUrl'],
+  billing_admin_alert: ['firstName', 'restaurantName', 'headline', 'body', 'amount', 'adminUrl'],
   docs_access_otp: ['firstName', 'code'],
 };
 
@@ -157,6 +172,15 @@ export const SAMPLE_EMAIL_VARS: Record<string, string> = {
   note: '.',
   feeLabel: 'no-show',
   feeTitle: 'No-show fee charged',
+  headline: 'We could not charge your card for invoice INV-1042',
+  body: 'Insufficient funds. We will try again on Sep 18, 2026.',
+  nextAttempt: 'Sep 18, 2026',
+  cardUrl: 'https://dashboard.tablevera.online/billing?section=payment-method',
+  payUrl: 'https://tablevera.online/invoice/preview',
+  card: 'Visa •••• 4242',
+  expiry: 'October 2026',
+  trialEndsOn: 'Sep 18, 2026',
+  adminUrl: 'https://dashboard.tablevera.online/admin/billing?section=failed-charges',
 };
 
 export function renderTemplateString(

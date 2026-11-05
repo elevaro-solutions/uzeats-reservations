@@ -24,6 +24,7 @@ type RestaurantBase = {
   website?: string | null;
   menuUrl?: string | null;
   onlineOrderUrl?: string | null;
+  onlineOrderEnabled?: boolean | null;
   logoUrl?: string | null;
   depositRequired: boolean;
   depositAmountCents: number;
@@ -102,6 +103,7 @@ export function buildRestaurantInput(
     website: base.website ?? undefined,
     menuUrl: base.menuUrl ?? undefined,
     onlineOrderUrl: base.onlineOrderUrl ?? undefined,
+    onlineOrderEnabled: base.onlineOrderEnabled ?? undefined,
     logoUrl: logoUrl !== undefined ? logoUrl ?? null : base.logoUrl ?? null,
     depositRequired: base.depositRequired,
     depositAmountCents: base.depositAmountCents,

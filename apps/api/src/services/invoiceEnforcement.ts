@@ -627,6 +627,21 @@ async function terminateVenue(sub: SubscriptionDocument, actorId: string, now: D
   await cancelUpcomingReservations(sub.restaurantId.toString(), actorId);
 }
 
+const ESCALATION_ALERTS: Partial<Record<FailToPayStage, { headline: string; body: string }>> = {
+  unlisted: {
+    headline: 'Venue hidden from diner search for non-payment',
+    body: 'New online bookings are blocked until the balance is paid.',
+  },
+  restricted: {
+    headline: 'Venue restricted to Billing for non-payment',
+    body: 'Partner Hub is limited and new reservations are paused.',
+  },
+  terminated: {
+    headline: 'Venue subscription terminated for non-payment',
+    body: 'The subscription was cancelled and upcoming reservations were cancelled.',
+  },
+};
+
 export async function applyEnforcementForRestaurant(
   restaurantId: string,
   now = new Date(),
@@ -664,6 +679,22 @@ export async function applyEnforcementForRestaurant(
 
   await persistEnforcement(sub, snapshot, extras);
   await syncSubscriptionPastDueFlag(restaurantId, now);
+
+  const escalated = ESCALATION_ALERTS[snapshot.stage];
+  if (escalated && previousStage !== snapshot.stage) {
+    try {
+      const { notifyBillingAdmins } = await import('./billingAlerts.js');
+      await notifyBillingAdmins({
+        restaurantId,
+        headline: escalated.headline,
+        body: `${escalated.body} ${snapshot.daysPastDue ?? 0} days past due.`,
+        amountCents: snapshot.outstandingCents,
+        data: { stage: snapshot.stage },
+      });
+    } catch (err) {
+      logger.warn({ err, restaurantId }, 'enforcement admin alert failed');
+    }
+  }
 
   if (snapshot.daysPastDue != null && snapshot.daysPastDue >= 0 && snapshot.outstandingCents > 0) {
     const invoices = await unpaidInvoicesForRestaurant(restaurantId);

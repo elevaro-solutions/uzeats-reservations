@@ -16,7 +16,8 @@ type Props = {
   location?: { lat: number; lng: number } | null;
   phone?: string | null;
   website?: string | null;
-  onlineOrderUrl?: string | null;
+  /** Tracked ordering link from the API; null when the restaurant turned ordering off. */
+  onlineOrderLink?: string | null;
   onMessage: () => void;
 };
 
@@ -25,16 +26,27 @@ export function RestaurantActions({
   location,
   phone,
   website,
-  onlineOrderUrl,
+  onlineOrderLink,
   onMessage,
 }: Props) {
   const directionsUrl = buildDirectionsUrl(address, location);
   const tel = phone?.trim() ? `tel:${phone.replace(/[^\d+]/g, '')}` : null;
   const site = normalizeHttpUrl(website);
-  const orderOnline = normalizeHttpUrl(onlineOrderUrl);
 
   return (
     <div className="rt-restaurant-actions">
+      {onlineOrderLink ? (
+        <a
+          href={onlineOrderLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rt-restaurant-actions__btn rt-restaurant-actions__btn--order"
+        >
+          <ShoppingCartOutlined aria-hidden />
+          <span>Order online</span>
+          <span className="rt-restaurant-actions__btn-hint">· Takeout &amp; delivery</span>
+        </a>
+      ) : null}
       {tel ? (
         <a href={tel} className="rt-restaurant-actions__tile">
           <PhoneOutlined aria-hidden />
@@ -59,17 +71,6 @@ export function RestaurantActions({
         >
           <GlobalOutlined aria-hidden />
           <span>Website</span>
-        </a>
-      ) : null}
-      {orderOnline ? (
-        <a
-          href={orderOnline}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rt-restaurant-actions__tile"
-        >
-          <ShoppingCartOutlined aria-hidden />
-          <span>Order online</span>
         </a>
       ) : null}
       <Button

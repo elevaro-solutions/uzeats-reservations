@@ -85,6 +85,16 @@ export function notificationHref(n: Pick<AppNotification, 'type' | 'data'>): str
     case 'invoice_overdue':
     case 'invoice_enforcement':
       return withRestaurantParam('/billing', data);
+    case 'card_charge_failed':
+    case 'card_expiring':
+    case 'trial_card_missing':
+      return withRestaurantParam('/billing?section=payment-method', data);
+    case 'card_action_required':
+      return typeof data.url === 'string' && /^https?:\/\//.test(data.url)
+        ? data.url
+        : withRestaurantParam('/billing', data);
+    case 'billing_admin_alert':
+      return '/admin/billing?section=failed-charges';
     default:
       return '/notifications';
   }

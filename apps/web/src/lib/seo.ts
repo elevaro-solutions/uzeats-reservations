@@ -118,7 +118,8 @@ export function restaurantJsonLd(restaurant: {
   phone?: string | null;
   website?: string | null;
   menuUrl?: string | null;
-  onlineOrderUrl?: string | null;
+  /** Order online target with UTMs; null when ordering is off. */
+  onlineOrderLink?: string | null;
   address: {
     line1: string;
     line2?: string | null;
@@ -213,14 +214,14 @@ export function restaurantJsonLd(restaurant: {
           ],
         },
       },
-      ...(restaurant.onlineOrderUrl
+      ...(restaurant.onlineOrderLink
         ? [
             {
               '@type': 'OrderAction',
               name: 'Order online',
               target: {
                 '@type': 'EntryPoint',
-                urlTemplate: restaurant.onlineOrderUrl,
+                urlTemplate: restaurant.onlineOrderLink,
                 actionPlatform: [
                   'http://schema.org/DesktopWebPlatform',
                   'http://schema.org/MobileWebPlatform',

@@ -74,6 +74,18 @@ const invoiceSchema = new Schema(
     /** Last auto-charge attempt metadata. */
     autoChargeAttemptedAt: { type: Date },
     autoChargeError: { type: String },
+    autoChargeAttempts: { type: Number, default: 0 },
+    /** Card that hard-declined (lost/stolen/expired…); retries pause until the default card changes. */
+    autoChargeHardDeclinePaymentMethodId: { type: String },
+    /** First failed-charge alert sent to the owner and platform admins. */
+    autoChargeFailureNotifiedAt: { type: Date },
+    /**
+     * `stripe_subscription` = Stripe-owned renewal invoice (Stripe retries the card);
+     * absent = local platform invoice charged by the daily auto-charge job.
+     */
+    source: { type: String, enum: ['stripe_subscription'] },
+    /** Paid locally but Stripe mirror is not yet marked paid out of band (retry so Stripe stops charging). */
+    stripeOutOfBandPending: { type: Boolean, default: false },
     /** Monthly 1.5% assessments already applied. */
     financeChargeCount: { type: Number, default: 0 },
     lastFinanceChargeAt: { type: Date },

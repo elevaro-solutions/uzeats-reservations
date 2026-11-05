@@ -243,7 +243,7 @@ export default function NotificationsSettingsPage() {
         }
       />
 
-      <MessengerBotCard restaurantId={restaurantId} />
+      <MessengerBotCard restaurantId={restaurantId ?? null} />
 
       <Card className="rt-surface-card">
         <Space orientation="vertical" size="middle" style={{ width: '100%' }}>

@@ -37,6 +37,8 @@ import {
   DEFAULT_MIN_PARTY_SIZE,
   DEFAULT_PLATFORM_HOLIDAYS,
   MAX_PARTY_SIZE_SETTING,
+  canManageOnlineOrdering,
+  normalizeOnlineOrderUrl,
   platformHolidaySelectOptions,
   resolveDepositPolicy,
   restaurantCuisinesForForm,
@@ -44,6 +46,7 @@ import {
 } from '@reservations/shared';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
+import { OnlineOrderFields } from '@/components/OnlineOrderFields';
 import CuisineSelect from '@/components/CuisineSelect';
 import { ManageDetailGroups, type ManageDetailGroup } from '@/components/ManageDetailGroups';
 import { WidgetThemeEditor } from '@/components/WidgetThemeEditor';
@@ -244,6 +247,7 @@ export default function RestaurantProfilePage() {
       website: restaurant.website ?? '',
       menuUrl: restaurant.menuUrl ?? '',
       onlineOrderUrl: restaurant.onlineOrderUrl ?? '',
+      onlineOrderEnabled: restaurant.onlineOrderEnabled ?? true,
       useSmartAssign: settings?.useSmartAssign ?? false,
       allowGuestTableSelection: settings?.allowGuestTableSelection ?? false,
       minPartySize: settings?.minPartySize ?? undefined,
@@ -304,8 +308,9 @@ export default function RestaurantProfilePage() {
               loyaltyMinRedeemPoints: values.loyaltyMinRedeemPoints ?? 200,
               phone: values.phone || undefined,
               website: values.website || undefined,
-              menuUrl: values.menuUrl || undefined,
-              onlineOrderUrl: values.onlineOrderUrl || undefined,
+              menuUrl: values.menuUrl || null,
+              onlineOrderUrl: normalizeOnlineOrderUrl(values.onlineOrderUrl),
+              onlineOrderEnabled: values.onlineOrderEnabled !== false,
               photos,
               logoUrl: logoUrl ?? null,
             },
@@ -569,14 +574,12 @@ export default function RestaurantProfilePage() {
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
-            <Form.Item
-              name="onlineOrderUrl"
-              label="Online order URL"
+            <OnlineOrderFields
+              slug={restaurant?.slug}
+              restaurantId={restaurant?.id}
+              canToggle={canManageOnlineOrdering(user?.role ?? '')}
               tooltip={tips.onlineOrderUrl}
-              rules={[optionalHttpUrlRule]}
-            >
-              <Input placeholder="https://www.doordash.com/store/..." />
-            </Form.Item>
+            />
           </Col>
         </Row>
       ),

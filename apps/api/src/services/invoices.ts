@@ -5,8 +5,10 @@ import {
   formatPlanDuration,
   getPlanPriceDisplay,
   invoiceStatusFromDaysPastDue,
+  isAutoChargeRetryDay,
   isEnforcementFeeLineKind,
   isStandardMonthlyDuration,
+  nextAutoChargeRetryDay,
   normalizePlanDuration,
   planForBillingPeriod,
   resolveInvoiceDuration,
@@ -47,6 +49,7 @@ import {
   assertPaymentIntentSucceeded,
   createInvoicePaymentIntent as createStripeInvoicePaymentIntent,
   createStripeCustomer,
+  describeChargeFailure,
   getStripe,
   isStubPaymentIntent,
   markStripeInvoicePaidOutOfBand,
@@ -57,6 +60,7 @@ import {
   voidStripeInvoiceIfOpen,
 } from './stripe.js';
 import { User } from '../models/User.js';
+import { notifyBillingAdmins, notifyOwnerChargeFailed, runBillingAlertJobs } from './billingAlerts.js';
 import {
   applyEnforcementForRestaurant,
   assessDeclinedCardFee,
@@ -200,7 +204,7 @@ function invoicePayUrl(payToken: string) {
   return `${base.replace(/\/$/, '')}/invoice/${payToken}`;
 }
 
-export function mapInvoice(doc: any, restaurantName?: string) {
+export function mapInvoice(doc: any, restaurantName?: string, now = new Date()) {
   const originalTotalCents =
     doc.originalTotalCents != null ? doc.originalTotalCents : null;
   const totalCents = doc.totalCents ?? 0;
@@ -244,6 +248,12 @@ export function mapInvoice(doc: any, restaurantName?: string) {
     payUrl: payToken ? invoicePayUrl(payToken) : null,
     emailSentAt: doc.emailSentAt ?? null,
     emailSentTo: doc.emailSentTo ?? null,
+    autoChargeError: doc.autoChargeError ?? null,
+    autoChargeAttemptedAt: doc.autoChargeAttemptedAt ?? null,
+    autoChargeAttempts: doc.autoChargeAttempts ?? 0,
+    autoChargePaused: Boolean(doc.autoChargeHardDeclinePaymentMethodId),
+    autoChargeRetriedByStripe: isStripeOwnedInvoice(doc),
+    nextAutoChargeAt: doc.dueDate ? nextAutoChargeAt(doc, now) : null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -326,7 +336,7 @@ export async function attachStripeInvoiceToLocal(doc: {
   }
 }
 
-async function ensureSubscriptionStripeCustomer(sub: {
+export async function ensureSubscriptionStripeCustomer(sub: {
   _id: unknown;
   restaurantId: unknown;
   stripeCustomerId?: string | null;
@@ -898,23 +908,49 @@ export async function generateInvoicesForPeriod(period: string) {
   return { created, updated, skipped, emailed, period };
 }
 
-/** Current + previous calendar months (UTC). Idempotent; refreshes unpaid auto invoices. */
-export async function generateDuePeriodInvoices(now = new Date()) {
+/**
+ * Current + previous calendar months (UTC). Idempotent; refreshes unpaid auto invoices.
+ * `autoCharge: false` (API startup) only refreshes invoices — charges and notices run from the
+ * scheduled daily job so restarts never add charge attempts.
+ */
+export async function generateDuePeriodInvoices(
+  now = new Date(),
+  opts: { autoCharge?: boolean } = {},
+) {
   await syncVirtualRoomBilledMonths(now);
   const current = utcBillingPeriod(now);
   const previous = previousUtcBillingPeriod(now);
   const previousResult = await generateInvoicesForPeriod(previous);
   const currentResult =
     current === previous ? previousResult : await generateInvoicesForPeriod(current);
+  if (opts.autoCharge === false) {
+    return { previous: previousResult, current: currentResult, autoCharge: null, enforcement: null, alerts: null };
+  }
   const charged = await autoChargeDueInvoices(now);
   const { runFailToPayEnforcementJob } = await import('./invoiceEnforcement.js');
   const enforcement = await runFailToPayEnforcementJob(now);
+  const alerts = await runBillingAlertJobs(now);
   return {
     previous: previousResult,
     current: currentResult,
     autoCharge: charged,
     enforcement,
+    alerts,
   };
+}
+
+/** Open invoices whose last automatic charge failed (admin Failed charges list). */
+export async function listFailedCharges(limit = 100, now = new Date()) {
+  const docs = await Invoice.find({
+    status: { $in: ['upcoming', 'pending', 'overdue'] },
+    autoChargeError: { $exists: true, $ne: null },
+  })
+    .sort({ autoChargeAttemptedAt: -1 })
+    .limit(Math.min(Math.max(limit, 1), 500));
+  const restaurantIds = [...new Set(docs.map((d) => String(d.restaurantId)))];
+  const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } }).select('name');
+  const names = new Map(restaurants.map((r) => [String(r._id), r.name]));
+  return docs.map((doc) => mapInvoice(doc, names.get(String(doc.restaurantId)), now));
 }
 
 /**
@@ -1440,9 +1476,7 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
   doc.stripePaymentIntentId = paymentIntentId;
   doc.autoChargeError = undefined;
   await doc.save();
-  if (doc.stripeInvoiceId) {
-    await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
-  }
+  await markLocalInvoicePaidInStripe(doc);
 
   try {
     await persistPreferredPaymentMethodFromInvoice({
@@ -1463,12 +1497,64 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
   return mapInvoice(doc, restaurant?.name);
 }
 
-/** Auto-charge unpaid due invoices using the restaurant's preferred / default card. */
-export async function autoChargeDueInvoices(now = new Date()) {
+/** Mark the Stripe mirror paid; on failure flag it so the daily job retries (Stripe must not charge it). */
+async function markLocalInvoicePaidInStripe(doc: InstanceType<typeof Invoice>) {
+  if (!doc.stripeInvoiceId) return;
+  const ok = await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
+  if (ok === (doc.stripeOutOfBandPending !== true)) return;
+  doc.stripeOutOfBandPending = !ok;
+  await doc.save();
+}
+
+const STRIPE_SYNCED_NOTE = /^Synced from Stripe/;
+
+/** Stripe renewal invoices are retried by Stripe (Smart Retries), not by the daily job. */
+function isStripeOwnedInvoice(doc: { source?: string | null; notes?: string | null }) {
+  return doc.source === 'stripe_subscription' || STRIPE_SYNCED_NOTE.test(doc.notes ?? '');
+}
+
+function sameUtcDay(a: Date, b: Date) {
+  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+}
+
+/** Next scheduled auto-charge retry for an open invoice, or null when none is planned. */
+export function nextAutoChargeAt(
+  doc: {
+    status?: string | null;
+    dueDate: Date;
+    autoChargeError?: string | null;
+    autoChargeHardDeclinePaymentMethodId?: string | null;
+    source?: string | null;
+    notes?: string | null;
+  },
+  now = new Date(),
+): Date | null {
+  if (!doc.autoChargeError || doc.autoChargeHardDeclinePaymentMethodId) return null;
+  if (doc.status === 'paid' || doc.status === 'canceled') return null;
+  if (isStripeOwnedInvoice(doc)) return null;
+  const days = Math.max(0, utcCalendarDaysBetween(doc.dueDate, now));
+  const next = nextAutoChargeRetryDay(days);
+  const due = doc.dueDate;
+  return new Date(
+    Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate() + next, 4, 0, 0),
+  );
+}
+
+/**
+ * Auto-charge unpaid due invoices using the restaurant's preferred / default card.
+ * Retries follow `isAutoChargeRetryDay` (days 0, 1, 3, 5, 7, then weekly), at most once per
+ * UTC day. A hard decline pauses retries until the default card changes. `force` (card just
+ * replaced) skips the schedule for one restaurant.
+ */
+export async function autoChargeDueInvoices(
+  now = new Date(),
+  opts: { restaurantId?: string; force?: boolean } = {},
+) {
   const due = await Invoice.find({
     status: { $in: ['pending', 'overdue', 'upcoming'] },
     totalCents: { $gt: 0 },
     dueDate: { $lte: now },
+    ...(opts.restaurantId ? { restaurantId: opts.restaurantId } : {}),
   }).limit(200);
 
   let attempted = 0;
@@ -1477,6 +1563,22 @@ export async function autoChargeDueInvoices(now = new Date()) {
   let skipped = 0;
 
   for (const doc of due) {
+    if (isStripeOwnedInvoice(doc)) {
+      skipped += 1;
+      continue;
+    }
+    if (!opts.force) {
+      const days = utcCalendarDaysBetween(doc.dueDate, now);
+      const firstAttempt = !doc.autoChargeAttemptedAt;
+      if (doc.autoChargeAttemptedAt && sameUtcDay(doc.autoChargeAttemptedAt, now)) {
+        skipped += 1;
+        continue;
+      }
+      if (!firstAttempt && !isAutoChargeRetryDay(days)) {
+        skipped += 1;
+        continue;
+      }
+    }
     const sub = await Subscription.findOne({
       restaurantId: doc.restaurantId,
       status: { $in: ['trialing', 'active', 'past_due'] },
@@ -1501,9 +1603,14 @@ export async function autoChargeDueInvoices(now = new Date()) {
       skipped += 1;
       continue;
     }
+    if (!opts.force && doc.autoChargeHardDeclinePaymentMethodId === paymentMethodId) {
+      skipped += 1;
+      continue;
+    }
 
     attempted += 1;
     doc.autoChargeAttemptedAt = new Date();
+    doc.autoChargeAttempts = (doc.autoChargeAttempts ?? 0) + 1;
     try {
       const intent = await createStripeInvoicePaymentIntent({
         amountCents: doc.totalCents,
@@ -1520,7 +1627,9 @@ export async function autoChargeDueInvoices(now = new Date()) {
       });
 
       if (intent.status !== 'succeeded' && !isStubPaymentIntent(intent.id)) {
-        throw new Error(`PaymentIntent status ${intent.status}`);
+        throw Object.assign(new Error(`PaymentIntent status ${intent.status}`), {
+          payment_intent: { status: intent.status },
+        });
       }
 
       doc.status = 'paid';
@@ -1528,10 +1637,9 @@ export async function autoChargeDueInvoices(now = new Date()) {
       doc.canceledAt = undefined;
       doc.stripePaymentIntentId = intent.id;
       doc.autoChargeError = undefined;
+      doc.autoChargeHardDeclinePaymentMethodId = undefined;
       await doc.save();
-      if (doc.stripeInvoiceId) {
-        await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
-      }
+      await markLocalInvoicePaidInStripe(doc);
 
       if (!sub.preferredPaymentMethodId) {
         sub.preferredPaymentMethodId = paymentMethodId;
@@ -1542,11 +1650,43 @@ export async function autoChargeDueInvoices(now = new Date()) {
       charged += 1;
     } catch (err) {
       failed += 1;
-      const message = err instanceof Error ? err.message : 'Auto-charge failed';
-      doc.autoChargeError = message.slice(0, 500);
+      const failure = describeChargeFailure(err);
+      doc.autoChargeError = failure.reason.slice(0, 500);
+      doc.autoChargeHardDeclinePaymentMethodId = failure.hardDecline ? paymentMethodId : undefined;
       if (doc.status === 'upcoming') doc.status = 'pending';
+      const firstFailure = !doc.autoChargeFailureNotifiedAt;
+      if (firstFailure || failure.hardDecline || failure.actionRequired) {
+        doc.autoChargeFailureNotifiedAt = now;
+      }
       await doc.save();
       await assessDeclinedCardFee(doc._id.toString(), err);
+      try {
+        if (firstFailure || failure.hardDecline || failure.actionRequired) {
+          const fresh = (await Invoice.findById(doc._id)) ?? doc;
+          await notifyOwnerChargeFailed({
+            restaurantId: doc.restaurantId.toString(),
+            amountCents: fresh.totalCents,
+            currency: fresh.currency,
+            chargeLabel: `invoice ${fresh.number}`,
+            failure,
+            nextAttemptAt: nextAutoChargeAt(fresh, now),
+            payUrl: fresh.payToken ? invoicePayUrl(fresh.payToken) : null,
+            invoiceId: fresh._id.toString(),
+          });
+        }
+        if (firstFailure) {
+          await notifyBillingAdmins({
+            restaurantId: doc.restaurantId.toString(),
+            headline: `Automatic charge failed for invoice ${doc.number}`,
+            body: `${failure.reason}${failure.hardDecline ? ' (hard decline — retries paused until the card is replaced)' : ''}. The owner was notified.`,
+            amountCents: doc.totalCents,
+            currency: doc.currency,
+            data: { invoiceId: doc._id.toString(), declineCode: failure.declineCode },
+          });
+        }
+      } catch (notifyErr) {
+        logger.warn({ err: notifyErr, invoiceId: doc._id.toString() }, 'charge failure alert failed');
+      }
       const subAfter = await Subscription.findOne({ restaurantId: doc.restaurantId });
       if (subAfter && (subAfter.status === 'trialing' || subAfter.status === 'active')) {
         subAfter.status = 'past_due';
@@ -1763,9 +1903,7 @@ export async function confirmOpenInvoicesPayment(
     doc.stripePaymentIntentId = paymentIntentId;
     doc.autoChargeError = undefined;
     await doc.save();
-    if (doc.stripeInvoiceId) {
-      await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
-    }
+    await markLocalInvoicePaidInStripe(doc);
   }
 
   try {
@@ -1785,6 +1923,211 @@ export async function confirmOpenInvoicesPayment(
 
   const restaurant = await Restaurant.findById(restaurantId).select('name');
   return docs.map((d) => mapInvoice(d, restaurant?.name));
+}
+
+function emptyOpenInvoicesSession() {
+  return {
+    invoices: [] as ReturnType<typeof mapInvoice>[],
+    totalCents: 0,
+    currency: 'usd',
+    clientSecret: null as string | null,
+    paymentIntentId: null as string | null,
+    alreadyPaid: true,
+    isStub: false,
+  };
+}
+
+/**
+ * One Stripe charge for every open invoice across the owner's restaurants.
+ * A single restaurant still uses the per-venue Pay all path.
+ */
+export async function startOwnerOpenInvoicesPayment(restaurantIds: string[]) {
+  const ids = [...new Set(restaurantIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) return emptyOpenInvoicesSession();
+
+  const docs = await Invoice.find({
+    restaurantId: { $in: ids },
+    status: { $in: [...OPEN_INVOICE_STATUSES] },
+    totalCents: { $gt: 0 },
+  }).sort({ dueDate: 1, createdAt: 1 });
+
+  if (docs.length === 0) return emptyOpenInvoicesSession();
+
+  const venueIds = [...new Set(docs.map((doc) => doc.restaurantId.toString()))];
+  if (venueIds.length === 1) return startOpenInvoicesPayment(venueIds[0]!);
+
+  const restaurants = await Restaurant.find({ _id: { $in: venueIds } }).select('name');
+  const nameById = new Map(restaurants.map((r) => [r._id.toString(), r.name]));
+  const mapAll = () => docs.map((doc) => mapInvoice(doc, nameById.get(doc.restaurantId.toString())));
+
+  const currencies = new Set(docs.map((doc) => (doc.currency || 'usd').toLowerCase()));
+  if (currencies.size > 1) {
+    throw new ValidationError('Open invoices use more than one currency. Pay each restaurant separately.');
+  }
+
+  const totalCents = docs.reduce((sum, doc) => sum + doc.totalCents, 0);
+  const currency = docs[0]?.currency || 'usd';
+  const sharedPi = docs[0]?.stripePaymentIntentId;
+  if (
+    sharedPi &&
+    docs.every((doc) => doc.stripePaymentIntentId === sharedPi) &&
+    !isStubPaymentIntent(sharedPi)
+  ) {
+    const existing = await retrievePaymentIntentForCheckout(sharedPi);
+    if (existing?.status === 'succeeded') {
+      const invoices = await confirmOwnerOpenInvoicesPayment(ids, sharedPi);
+      return {
+        invoices,
+        totalCents: invoices.reduce((sum, inv) => sum + inv.totalCents, 0),
+        currency,
+        clientSecret: null as string | null,
+        paymentIntentId: null as string | null,
+        alreadyPaid: true,
+        isStub: false,
+      };
+    }
+    if (existing?.clientSecret) {
+      return {
+        invoices: mapAll(),
+        totalCents,
+        currency,
+        clientSecret: existing.clientSecret,
+        paymentIntentId: sharedPi,
+        alreadyPaid: false,
+        isStub: false,
+      };
+    }
+  }
+
+  for (const doc of docs) {
+    if (doc.stripePaymentIntentId) {
+      doc.stripePaymentIntentId = undefined;
+      await doc.save();
+    }
+  }
+
+  const invoiceIds = docs.map((doc) => doc._id.toString());
+  const intent = await createStripeInvoicePaymentIntent({
+    amountCents: totalCents,
+    currency,
+    customerId: null,
+    metadata: {
+      batchPay: 'all',
+      invoiceCount: String(docs.length),
+      restaurantCount: String(venueIds.length),
+      invoiceIds: invoiceIds.join(',').slice(0, 500),
+      savePaymentMethod: '0',
+    },
+  });
+
+  for (const doc of docs) {
+    doc.stripePaymentIntentId = intent.id;
+    await doc.save();
+  }
+
+  return {
+    invoices: mapAll(),
+    totalCents,
+    currency,
+    clientSecret: intent.client_secret,
+    paymentIntentId: intent.id,
+    alreadyPaid: false,
+    isStub: Boolean(intent.isStub) || isStubPaymentIntent(intent.id),
+  };
+}
+
+async function eachLimited<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  if (items.length === 0) return;
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const item = items[next];
+        next += 1;
+        if (item !== undefined) await fn(item);
+      }
+    }),
+  );
+}
+
+export async function confirmOwnerOpenInvoicesPayment(
+  restaurantIds: string[],
+  paymentIntentId: string,
+) {
+  await assertPaymentIntentSucceeded(paymentIntentId);
+  const ids = [...new Set(restaurantIds.map((id) => id.trim()).filter(Boolean))];
+
+  const docs = await Invoice.find({
+    restaurantId: { $in: ids },
+    stripePaymentIntentId: paymentIntentId,
+    status: { $in: [...OPEN_INVOICE_STATUSES] },
+  });
+
+  const restaurants = await Restaurant.find({ _id: { $in: ids } }).select('name');
+  const nameById = new Map(restaurants.map((r) => [r._id.toString(), r.name]));
+
+  if (docs.length === 0) {
+    const alreadyPaid = await Invoice.find({
+      restaurantId: { $in: ids },
+      stripePaymentIntentId: paymentIntentId,
+      status: 'paid',
+    });
+    if (alreadyPaid.length > 0) {
+      return alreadyPaid.map((doc) => mapInvoice(doc, nameById.get(doc.restaurantId.toString())));
+    }
+    throw new ConflictError('No open invoices match this payment');
+  }
+
+  const paidAt = new Date();
+  await Invoice.updateMany(
+    { _id: { $in: docs.map((doc) => doc._id) } },
+    {
+      $set: {
+        status: 'paid',
+        paidAt,
+        stripePaymentIntentId: paymentIntentId,
+      },
+      $unset: { canceledAt: 1, autoChargeError: 1 },
+    },
+  );
+
+  const touched = new Set<string>();
+  for (const doc of docs) {
+    doc.status = 'paid';
+    doc.paidAt = paidAt;
+    doc.canceledAt = undefined;
+    doc.stripePaymentIntentId = paymentIntentId;
+    doc.autoChargeError = undefined;
+    touched.add(doc.restaurantId.toString());
+  }
+
+  await eachLimited(docs, 8, async (doc) => {
+    try {
+      await markLocalInvoicePaidInStripe(doc);
+    } catch (err) {
+      logger.warn(
+        { err, invoiceId: doc._id.toString(), paymentIntentId },
+        'failed to mark mirrored invoice paid after pay-all',
+      );
+    }
+  });
+
+  await eachLimited([...touched], 5, async (restaurantId) => {
+    try {
+      if (touched.size === 1) {
+        await persistPreferredPaymentMethodFromInvoice({ restaurantId, paymentIntentId });
+      }
+      await applyEnforcementForRestaurant(restaurantId);
+      await syncSubscriptionPastDueFlag(restaurantId);
+    } catch (err) {
+      logger.warn(
+        { err, restaurantId, paymentIntentId },
+        'failed to refresh billing after pay-all',
+      );
+    }
+  });
+
+  return docs.map((doc) => mapInvoice(doc, nameById.get(doc.restaurantId.toString())));
 }
 
 /**

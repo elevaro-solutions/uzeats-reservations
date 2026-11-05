@@ -5,6 +5,7 @@ import {
   todayIsoInTimeZone,
 } from '@reservations/shared';
 import { Notification, Reservation, Restaurant, Shift, Table, WaitlistEntry } from '../models/index.js';
+import { buildInAppNotificationFilter } from './notificationFilters.js';
 import { buildOwnerRestaurantFilter } from './restaurantFilters.js';
 
 export type OwnerLocationOverview = {
@@ -56,19 +57,24 @@ function emptyOverview(unreadNotifications = 0): OwnerOverviewStats {
 export async function buildOwnerOverview(
   user: { _id: Types.ObjectId; restaurantIds: Types.ObjectId[] },
   date?: string,
+  restaurantId?: string,
 ): Promise<OwnerOverviewStats> {
   const baseFilter = buildOwnerRestaurantFilter(user);
-  const restaurants = await Restaurant.find(baseFilter)
+  const filter = restaurantId
+    ? { $and: [baseFilter, { _id: restaurantId }] }
+    : baseFilter;
+  const restaurants = await Restaurant.find(filter)
     .select('_id name status cuisine address location averageRating reviewCount')
     .sort({ name: 1 })
     .lean();
 
+  const unreadFilter = buildInAppNotificationFilter(user._id, {
+    restaurantId,
+    unreadOnly: true,
+  });
+
   if (restaurants.length === 0) {
-    const unreadNotifications = await Notification.countDocuments({
-      userId: user._id,
-      channel: 'in_app',
-      $or: [{ readAt: null }, { readAt: { $exists: false } }],
-    });
+    const unreadNotifications = await Notification.countDocuments(unreadFilter);
     return emptyOverview(unreadNotifications);
   }
 
@@ -142,11 +148,7 @@ export async function buildOwnerOverview(
       { $match: { restaurantId: { $in: ids } } },
       { $group: { _id: '$restaurantId', count: { $sum: 1 } } },
     ]),
-    Notification.countDocuments({
-      userId: user._id,
-      channel: 'in_app',
-      $or: [{ readAt: null }, { readAt: { $exists: false } }],
-    }),
+    Notification.countDocuments(unreadFilter),
   ]);
 
   const todayById = new Map(todayRows.map((row) => [row._id.toString(), row]));

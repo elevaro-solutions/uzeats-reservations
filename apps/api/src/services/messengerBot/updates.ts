@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { restaurantTimeZone } from '@reservations/shared';
 import { MessengerLink, Reservation, Restaurant, User } from '../../models/index.js';
 import { logger } from '../../lib/logger.js';
 import { handleReservationButton } from './actions.js';
@@ -53,7 +54,7 @@ const NOT_LINKED_TEXT = [
 
 async function activeMemberships(
   userId: string,
-): Promise<Array<BotMember & { restaurantName: string }>> {
+): Promise<Array<BotMember & { restaurantName: string; timeZone: string }>> {
   const [cfg, memberships] = await Promise.all([
     getBotPlatformConfig(),
     botMembershipsForUser(userId),
@@ -62,12 +63,19 @@ async function activeMemberships(
   const restaurants = await Restaurant.find({
     _id: { $in: memberships.map((m) => new mongoose.Types.ObjectId(m.restaurantId)) },
   })
-    .select('name messengerBotAccess messengerBotEnabled')
+    .select('name address location messengerBotAccess messengerBotEnabled')
     .lean();
   const byId = new Map(restaurants.map((r) => [String(r._id), r]));
   return memberships
     .filter((m) => restaurantBotActive(cfg, byId.get(m.restaurantId)))
-    .map((m) => ({ ...m, restaurantName: byId.get(m.restaurantId)?.name ?? 'Restaurant' }));
+    .map((m) => {
+      const restaurant = byId.get(m.restaurantId);
+      return {
+        ...m,
+        restaurantName: restaurant?.name ?? 'Restaurant',
+        timeZone: restaurantTimeZone(restaurant ?? {}),
+      };
+    });
 }
 
 function describeMemberships(list: Array<BotMember & { restaurantName: string }>): string {
@@ -127,6 +135,7 @@ async function sendActiveReservations(
     for (const r of reservations) {
       const when = r.slotStart
         ? new Date(r.slotStart).toLocaleString('en-US', {
+            timeZone: m.timeZone,
             month: 'short',
             day: 'numeric',
             hour: 'numeric',

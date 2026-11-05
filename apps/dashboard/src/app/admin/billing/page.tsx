@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { PageHeader } from '@reservations/ui';
 import { HubLinkCards } from '@/components/HubLinkCards';
+import { AdminFailedChargesCard } from '@/components/AdminFailedChargesCard';
 import { useAuth } from '@/lib/auth';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { ADMIN_PAGES, hubChildPages } from '@/lib/dashboardNav';
@@ -32,6 +33,7 @@ export default function AdminBillingHubPage() {
         subtitle="Invoices, no-show fees, revenue, plans, loyalty, churn, and data exports"
       />
       <HubLinkCards links={links} />
+      <AdminFailedChargesCard />
     </div>
   );
 }

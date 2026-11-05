@@ -84,17 +84,10 @@ import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
-import {
-  ALL_LOCATIONS_VALUE,
-  buildRestaurantSelectOptions,
-  restaurantSelectFilterOption,
-} from '@/lib/restaurants';
 import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
-
-const LOCATIONS_PARAM = 'locations';
 
 const OCCASION_OPTIONS = [
   { value: 'none', label: 'None' },
@@ -264,30 +257,29 @@ function ReservationsPageContent() {
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId, setRestaurantId } = usePartnerRestaurant(restaurants);
-  const canShowAllLocations = restaurants.length > 1;
-  const allLocations =
-    canShowAllLocations && searchParams.get(LOCATIONS_PARAM) === ALL_LOCATIONS_VALUE;
-  const restaurantFilterOptions = useMemo(
-    () =>
-      buildRestaurantSelectOptions(restaurants, {
-        includeAllLocations: canShowAllLocations,
-      }),
-    [restaurants, canShowAllLocations],
-  );
+  const { activeRestaurantId, allRestaurants, setRestaurantId } = usePartnerRestaurant(restaurants);
 
   const activeRestaurant = useMemo(
     () =>
-      allLocations
+      allRestaurants
         ? undefined
         : restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
-    [restaurants, activeRestaurantId, allLocations],
+    [restaurants, activeRestaurantId, allRestaurants],
   );
+
+  const tableRestaurant = useMemo(() => {
+    if (editing?.restaurantId) {
+      return (
+        restaurants.find((r: { id: string }) => r.id === editing.restaurantId) ?? activeRestaurant
+      );
+    }
+    return activeRestaurant;
+  }, [editing?.restaurantId, restaurants, activeRestaurant]);
 
   const tables: TableOption[] = useMemo(
     () =>
-      ((activeRestaurant?.tables ?? []) as TableOption[]).filter((t) => t.active !== false),
-    [activeRestaurant],
+      ((tableRestaurant?.tables ?? []) as TableOption[]).filter((t) => t.active !== false),
+    [tableRestaurant],
   );
   const timeZone = useMemo(
     () => restaurantTimeZone(activeRestaurant ?? {}),
@@ -333,40 +325,11 @@ function ReservationsPageContent() {
     [pathname, router, searchParams],
   );
 
-  const onRestaurantFilterChange = useCallback(
-    (value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete('page');
-      if ((params.get('period') ?? 'upcoming') === 'upcoming') params.delete('period');
-      if (params.get('period') !== 'custom') {
-        params.delete('date');
-        params.delete('startDate');
-        params.delete('endDate');
-      } else {
-        params.delete('date');
-      }
-
-      if (value === ALL_LOCATIONS_VALUE) {
-        params.set(LOCATIONS_PARAM, ALL_LOCATIONS_VALUE);
-      } else {
-        params.delete(LOCATIONS_PARAM);
-        if (restaurants.length > 1) params.set('restaurant', value);
-        else params.delete('restaurant');
-        localStorage.setItem('activeRestaurantId', value);
-        window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: value }));
-      }
-
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [pathname, restaurants.length, router, searchParams],
-  );
-
   const queryStartDate = period === 'custom' ? customStartDate : undefined;
   const queryEndDate = period === 'custom' ? customEndDate : undefined;
   const queryPeriod = period === 'custom' ? undefined : period;
-  const queryRestaurantId = allLocations ? undefined : activeRestaurantId;
-  const listReady = allLocations ? restaurants.length > 0 : Boolean(activeRestaurantId);
+  const queryRestaurantId = allRestaurants ? undefined : activeRestaurantId;
+  const listReady = allRestaurants ? restaurants.length > 0 : Boolean(activeRestaurantId);
 
   const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
     skip: !listReady,
@@ -419,10 +382,11 @@ function ReservationsPageContent() {
     },
   });
 
+  const editRestaurantId = editing?.restaurantId ?? activeRestaurantId;
   const { data: editSlotsData } = useQuery(AVAILABILITY, {
-    skip: !activeRestaurantId || !editing || !editDateStr,
+    skip: !editRestaurantId || !editing || !editDateStr,
     variables: {
-      restaurantId: activeRestaurantId,
+      restaurantId: editRestaurantId,
       date: editDateStr,
       partySize: editPartySize,
     },
@@ -524,7 +488,11 @@ function ReservationsPageContent() {
       return;
     }
 
-    if (reservation.restaurantId && reservation.restaurantId !== activeRestaurantId) {
+    if (
+      !allRestaurants &&
+      reservation.restaurantId &&
+      reservation.restaurantId !== activeRestaurantId
+    ) {
       const known = restaurants.some((r: { id: string }) => r.id === reservation.restaurantId);
       if (!known) {
         if (restaurants.length === 0) return;
@@ -548,6 +516,7 @@ function ReservationsPageContent() {
     lookupError,
     lookupData,
     activeRestaurantId,
+    allRestaurants,
     restaurants,
     setRestaurantId,
     editParam,
@@ -767,7 +736,12 @@ function ReservationsPageContent() {
       key: 'message',
       icon: <MessageOutlined />,
       label: 'Message guest',
-      onClick: () => router.push(`/messages?reservationId=${r.id}`),
+      onClick: () =>
+        router.push(
+          r.restaurantId
+            ? `/messages?restaurant=${encodeURIComponent(r.restaurantId)}&reservationId=${r.id}`
+            : `/messages?reservationId=${r.id}`,
+        ),
     });
 
     items.push({
@@ -785,29 +759,20 @@ function ReservationsPageContent() {
     <div component="ReservationsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Reservations"
-        subtitle="Create, edit, and manage covers for your restaurant"
+        subtitle={
+          allRestaurants
+            ? 'Every restaurant. Select one from the header to add a reservation.'
+            : 'Create, edit, and manage covers for your restaurant'
+        }
         extra={
-          <Space wrap>
-            <Select
-              style={{ width: 260 }}
-              showSearch
-              optionFilterProp="label"
-              filterOption={restaurantSelectFilterOption}
-              options={restaurantFilterOptions}
-              value={allLocations ? ALL_LOCATIONS_VALUE : activeRestaurantId}
-              onChange={onRestaurantFilterChange}
-              placeholder="Restaurant"
-              aria-label="Restaurant"
-            />
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={openCreate}
-              disabled={!activeRestaurantId || allLocations}
-            >
-              New reservation
-            </Button>
-          </Space>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openCreate}
+            disabled={!activeRestaurantId || allRestaurants}
+          >
+            New reservation
+          </Button>
         }
       />
       <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
@@ -908,7 +873,7 @@ function ReservationsPageContent() {
             style: { cursor: 'pointer' },
           })}
           columns={[
-            ...(allLocations
+            ...(allRestaurants
               ? [
                   {
                     title: 'Location',

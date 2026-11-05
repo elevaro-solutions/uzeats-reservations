@@ -36,6 +36,7 @@ import {
   usPhoneRules,
 } from '@reservations/ui';
 import {
+  PLATFORM_TIMEZONE,
   formatWaitlistWaitingLabel,
   isActiveWaitlistWaitStatus,
   isWaitlistWaitOverdue,
@@ -64,6 +65,8 @@ const { Text } = Typography;
 
 type WaitlistEntry = {
   id: string;
+  restaurantId?: string;
+  restaurant?: { id: string; name?: string | null } | null;
   partySize: number;
   preferredDate?: string | null;
   preferredTimeStart?: string | null;
@@ -117,13 +120,18 @@ function WaitlistPageContent() {
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
   const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const { activeRestaurantId, allRestaurants } = usePartnerRestaurant(restaurants);
 
   const activeRestaurant = useMemo(
-    () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
-    [restaurants, activeRestaurantId],
+    () =>
+      allRestaurants
+        ? undefined
+        : restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
+    [restaurants, activeRestaurantId, allRestaurants],
   );
-  const restaurantTz = restaurantTimeZone(activeRestaurant ?? {});
+  const restaurantTz = allRestaurants
+    ? PLATFORM_TIMEZONE
+    : restaurantTimeZone(activeRestaurant ?? {});
   const todayIso = todayIsoInTimeZone(restaurantTz);
 
   const statuses = useMemo(() => {
@@ -136,9 +144,9 @@ function WaitlistPageContent() {
     queueFilter === 'history' && dateFilter === 'all' ? 'today' : dateFilter;
 
   const { data, loading, refetch } = useQuery(RESTAURANT_WAITLIST_FULL, {
-    skip: !activeRestaurantId,
+    skip: allRestaurants ? restaurants.length === 0 : !activeRestaurantId,
     variables: {
-      restaurantId: activeRestaurantId,
+      restaurantId: allRestaurants ? undefined : activeRestaurantId,
       limit,
       offset,
       statuses,
@@ -373,19 +381,20 @@ function WaitlistPageContent() {
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <PageHeader
           title="Waitlist"
-          subtitle="Track walk-ins and online parties waiting for a table"
+          subtitle={
+            allRestaurants
+              ? 'Every restaurant. Select one from the header to add a walk-in.'
+              : 'Track walk-ins and online parties waiting for a table'
+          }
           extra={
-            <Space wrap>
-              <Select style={{ width: 260 }} {...restaurantSelectProps} />
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={openAddModal}
-                disabled={!activeRestaurantId}
-              >
-                Add walk-in
-              </Button>
-            </Space>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openAddModal}
+              disabled={!activeRestaurantId || allRestaurants}
+            >
+              Add walk-in
+            </Button>
           }
         />
 
@@ -432,6 +441,18 @@ function WaitlistPageContent() {
             dataSource={(data?.restaurantWaitlist?.items ?? []) as WaitlistEntry[]}
             pagination={tablePagination(data?.restaurantWaitlist?.total ?? 0)}
             columns={[
+              ...(allRestaurants
+                ? [
+                    {
+                      title: 'Restaurant',
+                      key: 'restaurant',
+                      ellipsis: true,
+                      width: '16%',
+                      render: (_: unknown, entry: WaitlistEntry) =>
+                        entry.restaurant?.name ?? '—',
+                    },
+                  ]
+                : []),
               {
                 title: '#',
                 dataIndex: 'position',
@@ -538,7 +559,7 @@ function WaitlistPageContent() {
               tooltip="Search diner accounts by name, phone, or email. Guest-book visits are listed first."
             >
               <WaitlistGuestSelect
-                restaurantId={activeRestaurantId}
+                restaurantId={editingEntry?.restaurantId ?? activeRestaurantId}
                 value={selectedGuest}
                 disabled={adding}
                 onChange={(guest) => {

@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { addPlanDuration, toStripeRecurring } from '@reservations/shared';
+import { addPlanDuration, isHardDeclineCode, toStripeRecurring } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { PlatformConfig } from '../models/PlatformConfig.js';
 import { User } from '../models/User.js';
@@ -879,6 +879,19 @@ export async function stripeSubscriptionExists(subscriptionId: string): Promise<
   }
 }
 
+export async function stripeCustomerExists(customerId: string): Promise<boolean> {
+  if (!customerId || customerId.startsWith('cus_dev_')) return false;
+  const client = await getStripe();
+  if (!client) return false;
+  try {
+    const customer = await client.customers.retrieve(customerId);
+    return !customer.deleted;
+  } catch (err) {
+    if (isStripeResourceMissing(err)) return false;
+    throw err;
+  }
+}
+
 function isMissingPaymentMethodError(err: unknown) {
   if (err instanceof Stripe.errors.StripeInvalidRequestError && err.code === 'missing') {
     return true;
@@ -937,6 +950,109 @@ export async function attachLatestCardAsDefault(customerId: string, subscription
     await client.subscriptions.update(subscriptionId, {
       default_payment_method: paymentMethodId,
     });
+  }
+}
+
+/** Card-only SetupIntent for the venue's default off-session card (renewals, invoices, add-ons). */
+export async function createDefaultCardSetupIntent(input: {
+  customerId: string;
+  metadata: Record<string, string>;
+}) {
+  const client = await getStripe();
+  if (!client || input.customerId.startsWith('cus_dev_')) {
+    if (!client && env.NODE_ENV === 'production') throw new PaymentUnavailableError();
+    const id = `seti_dev_${Date.now()}`;
+    return { id, client_secret: `${id}_secret_dev`, isStub: true as const };
+  }
+  const intent = await client.setupIntents.create({
+    customer: input.customerId,
+    usage: 'off_session',
+    metadata: input.metadata,
+    payment_method_types: OFF_SESSION_FEE_PAYMENT_METHOD_TYPES,
+  });
+  return { ...intent, isStub: false as const };
+}
+
+/** Saved card from a succeeded SetupIntent; rejects intents that belong to another customer. */
+export async function retrieveSetupIntentPaymentMethod(input: {
+  setupIntentId: string;
+  customerId: string;
+}): Promise<string> {
+  if (input.setupIntentId.startsWith('seti_dev_')) {
+    if (env.NODE_ENV === 'production') throw new ValidationError('Invalid card setup');
+    return `pm_dev_${Date.now()}`;
+  }
+  const client = await getStripe();
+  if (!client) throw new PaymentUnavailableError();
+  const intent = await client.setupIntents.retrieve(input.setupIntentId);
+  const intentCustomer =
+    typeof intent.customer === 'string' ? intent.customer : intent.customer?.id ?? null;
+  if (intentCustomer !== input.customerId) {
+    throw new ValidationError('Card setup does not match this restaurant');
+  }
+  if (intent.status !== 'succeeded') {
+    throw new ValidationError('Card was not saved. Try again.');
+  }
+  const pm = intent.payment_method;
+  const paymentMethodId = typeof pm === 'string' ? pm : pm?.id ?? null;
+  if (!paymentMethodId) throw new ValidationError('Card was not saved. Try again.');
+  return paymentMethodId;
+}
+
+/** Make a card the default for the customer's invoices and the Stripe subscription renewal. */
+export async function setDefaultPaymentMethod(input: {
+  customerId: string;
+  paymentMethodId: string;
+  subscriptionId?: string | null;
+}) {
+  if (input.customerId.startsWith('cus_dev_') || input.paymentMethodId.startsWith('pm_dev_')) {
+    return;
+  }
+  const client = await getStripe();
+  if (!client) return;
+  try {
+    await client.paymentMethods.attach(input.paymentMethodId, { customer: input.customerId });
+  } catch (err) {
+    // Already attached is fine.
+    if (!(err instanceof Stripe.errors.StripeInvalidRequestError)) throw err;
+  }
+  await client.customers.update(input.customerId, {
+    invoice_settings: { default_payment_method: input.paymentMethodId },
+  });
+  if (input.subscriptionId && !input.subscriptionId.startsWith('sub_dev_')) {
+    try {
+      await client.subscriptions.update(input.subscriptionId, {
+        default_payment_method: input.paymentMethodId,
+      });
+    } catch (err) {
+      if (!isStripeResourceMissing(err)) throw err;
+    }
+  }
+}
+
+export type PaymentCardSummary = {
+  brand: string | null;
+  last4: string | null;
+  expMonth: number | null;
+  expYear: number | null;
+};
+
+export async function describePaymentCard(paymentMethodId: string): Promise<PaymentCardSummary> {
+  const empty = { brand: null, last4: null, expMonth: null, expYear: null };
+  if (paymentMethodId.startsWith('pm_dev_')) return empty;
+  const client = await getStripe();
+  if (!client) return empty;
+  try {
+    const pm = await client.paymentMethods.retrieve(paymentMethodId);
+    return {
+      brand: pm.card?.brand ?? pm.type ?? null,
+      last4: pm.card?.last4 ?? null,
+      expMonth: pm.card?.exp_month ?? null,
+      expYear: pm.card?.exp_year ?? null,
+    };
+  } catch (err) {
+    logger.warn({ err, paymentMethodId }, '[stripe] could not describe payment method');
+    return empty;
   }
 }
 
@@ -1119,6 +1235,8 @@ export type StripePaidPeriodResult = {
   status?: string;
   /** Set when the Stripe sub was replaced; persist the new id, then cancel this one. */
   previousSubscriptionId?: string;
+  /** Stripe has no subscription for this id under the active mode. */
+  missing?: boolean;
 };
 
 async function createStripeSubscriptionForTrial(
@@ -1170,7 +1288,13 @@ export async function updateStripePaidPeriodStart(
   if (future) {
     const trialEndUnix = Math.floor(paidPeriodStart.getTime() / 1000);
     params.trial_end = trialEndUnix;
-    const existing = await client.subscriptions.retrieve(subscriptionId);
+    let existing: Stripe.Subscription;
+    try {
+      existing = await client.subscriptions.retrieve(subscriptionId);
+    } catch (err) {
+      if (isStripeResourceMissing(err)) return { id: subscriptionId, missing: true };
+      throw err;
+    }
     if (stripeTrialEndAfterAnchor(trialEndUnix, existing.billing_cycle_anchor)) {
       try {
         const created = await createStripeSubscriptionForTrial(client, existing, trialEndUnix);
@@ -1191,6 +1315,7 @@ export async function updateStripePaidPeriodStart(
     const updated = await client.subscriptions.update(subscriptionId, params);
     return { id: updated.id, status: updated.status };
   } catch (err) {
+    if (isStripeResourceMissing(err)) return { id: subscriptionId, missing: true };
     const mapped = formatStripeError(err);
     throw mapped ?? err;
   }
@@ -1576,23 +1701,88 @@ export async function voidStripeInvoiceIfOpen(stripeInvoiceId: string) {
   }
 }
 
-export async function markStripeInvoicePaidOutOfBand(stripeInvoiceId: string) {
-  if (!stripeInvoiceId || isStubStripeInvoiceId(stripeInvoiceId)) return;
+/** Returns false when Stripe could not be updated (caller should retry so Stripe stops charging). */
+export async function markStripeInvoicePaidOutOfBand(stripeInvoiceId: string): Promise<boolean> {
+  if (!stripeInvoiceId || isStubStripeInvoiceId(stripeInvoiceId)) return true;
   const client = await getStripe();
-  if (!client) return;
+  if (!client) return true;
   try {
     const invoice = await client.invoices.retrieve(stripeInvoiceId);
     if (invoice.status === 'paid' || invoice.status === 'void' || invoice.status === 'uncollectible') {
-      return;
+      return true;
     }
     const id = requireInvoiceId(invoice);
     if (invoice.status !== 'open') {
       await client.invoices.finalizeInvoice(id, { auto_advance: false });
     }
     await client.invoices.pay(id, { paid_out_of_band: true });
+    return true;
   } catch (err) {
     logger.warn({ err, stripeInvoiceId }, '[stripe] mark mirrored invoice paid failed');
+    return false;
   }
+}
+
+export type ChargeFailure = {
+  /** Owner-facing reason, e.g. "Insufficient funds". */
+  reason: string;
+  declineCode: string | null;
+  /** Same card will not succeed on retry. */
+  hardDecline: boolean;
+  /** Bank wants the cardholder to authenticate (3D Secure). */
+  actionRequired: boolean;
+};
+
+const DECLINE_REASONS: Record<string, string> = {
+  insufficient_funds: 'Insufficient funds',
+  lost_card: 'The card was reported lost',
+  stolen_card: 'The card was reported stolen',
+  expired_card: 'The card has expired',
+  incorrect_number: 'The card number is incorrect',
+  invalid_number: 'The card number is invalid',
+  incorrect_cvc: 'The security code is incorrect',
+  processing_error: 'The bank had a processing error',
+  do_not_honor: 'The bank declined the charge',
+  generic_decline: 'The bank declined the charge',
+  card_velocity_exceeded: 'The card hit its spending limit',
+  withdrawal_count_limit_exceeded: 'The card hit its spending limit',
+  authentication_required: 'The bank needs you to confirm this payment',
+};
+
+/** Map a Stripe charge error (or non-succeeded PaymentIntent status) to an owner-facing failure. */
+export function describeChargeFailure(err: unknown): ChargeFailure {
+  const anyErr = err as {
+    code?: string;
+    decline_code?: string;
+    message?: string;
+    payment_intent?: { status?: string } | null;
+  };
+  const code = String(anyErr?.code ?? '').toLowerCase();
+  const declineCode = String(anyErr?.decline_code ?? '').toLowerCase() || null;
+  const message = String(anyErr?.message ?? '');
+  const actionRequired =
+    code === 'authentication_required' ||
+    declineCode === 'authentication_required' ||
+    anyErr?.payment_intent?.status === 'requires_action' ||
+    /requires_action/.test(message);
+  const key = declineCode ?? (code && code !== 'card_declined' ? code : '');
+  const reason = actionRequired
+    ? DECLINE_REASONS.authentication_required!
+    : (key && DECLINE_REASONS[key]) ||
+      (code === 'card_declined' ? 'The bank declined the charge' : message || 'The charge failed');
+  return {
+    reason,
+    declineCode: declineCode ?? (code || null),
+    hardDecline: !actionRequired && (isHardDeclineCode(declineCode) || isHardDeclineCode(code)),
+    actionRequired,
+  };
+}
+
+/** Stripe card decline / authentication error (safe to fall back to an on-session card form). */
+export function isStripeCardError(err: unknown): boolean {
+  if (err instanceof Stripe.errors.StripeCardError) return true;
+  const code = String((err as { code?: string })?.code ?? '');
+  return code === 'card_declined' || code === 'authentication_required' || code === 'expired_card';
 }
 
 export { getStripe };

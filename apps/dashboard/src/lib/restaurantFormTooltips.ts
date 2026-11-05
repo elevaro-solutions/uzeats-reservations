@@ -52,7 +52,7 @@ export const restaurantFieldTooltips = {
   phone: 'Restaurant contact phone number. US format, e.g. (212) 555-1234. Optional.',
   website: 'Full restaurant website URL including https://. Optional.',
   onlineOrderUrl:
-    'DoorDash, Uber Eats, Toast, or another ordering page. When set, diners see an Order online button on the public restaurant page.',
+    'DoorDash, Uber Eats, Toast, or another ordering page. A valid link turns on the Order online button on your public restaurant page. Tablevera adds utm_source, utm_medium, and utm_campaign so you can see these orders in your ordering analytics.',
   useSmartAssign: 'Automatically picks the best available table when a reservation is confirmed.',
   minPartySize:
     'Smallest party guests can book online. Leave empty to use the platform default (1). Access rules can still raise the minimum for specific times.',

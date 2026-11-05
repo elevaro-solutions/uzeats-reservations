@@ -384,6 +384,14 @@ async function sendPush(
   }
 }
 
+const BILLING_CRITICAL_TYPES = new Set([
+  'card_charge_failed',
+  'card_action_required',
+  'card_expiring',
+  'trial_card_missing',
+  'billing_admin_alert',
+]);
+
 export async function notifyUser(
   userId: string,
   payload: {
@@ -431,6 +439,10 @@ export async function notifyUser(
     // Unmapped product types: use defaults (includes in-app) so inbox never silently drops.
     logger.warn({ type: payload.type }, '[notify] unmapped notification type; using defaults');
     channelPrefs = { ...DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES };
+  }
+  if (BILLING_CRITICAL_TYPES.has(payload.type)) {
+    // Failed charges and card problems cannot be muted: email + inbox always go out.
+    channelPrefs = { ...channelPrefs, email: true, platform: true };
   }
 
   const channels: Array<'email' | 'telegram' | 'push' | 'sms' | 'in_app'> = [];

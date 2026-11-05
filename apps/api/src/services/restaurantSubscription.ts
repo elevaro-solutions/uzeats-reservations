@@ -4,6 +4,8 @@ import { getEffectivePlan } from './platformConfig.js';
 import {
   createStripeCustomer,
   createStripeSubscription,
+  getActiveStripeMode,
+  stripeCustomerExists,
   stripeSubscriptionExists,
   type StripeSubscriptionPayment,
 } from './stripe.js';
@@ -20,6 +22,34 @@ async function existingBlocksCreate(existing: SubscriptionDocument): Promise<boo
   const stripeId = existing.stripeSubscriptionId;
   if (!stripeId || String(stripeId).startsWith('sub_dev_')) return false;
   return stripeSubscriptionExists(stripeId);
+}
+
+/**
+ * Drop a `sub_` id that Stripe no longer has (sandbox ↔ live switch, or deleted in Dashboard).
+ * The customer and saved card are kept when the customer still exists in the active mode.
+ * Caller saves the document.
+ */
+export async function detachMissingStripeSubscription(sub: SubscriptionDocument): Promise<void> {
+  const previousStripeSubscriptionId = sub.stripeSubscriptionId;
+  const customerId = sub.stripeCustomerId ? String(sub.stripeCustomerId) : '';
+  const customerMissing =
+    Boolean(customerId) &&
+    !customerId.startsWith('cus_dev_') &&
+    !(await stripeCustomerExists(customerId));
+  sub.set('stripeSubscriptionId', undefined);
+  if (customerMissing) {
+    sub.set('stripeCustomerId', undefined);
+    sub.set('preferredPaymentMethodId', undefined);
+  }
+  logger.warn(
+    {
+      restaurantId: String(sub.restaurantId),
+      previousStripeSubscriptionId,
+      customerCleared: customerMissing,
+      stripeMode: getActiveStripeMode(),
+    },
+    'Detached missing Stripe subscription (mode switch or deleted)',
+  );
 }
 
 export async function createRestaurantSubscription(input: {

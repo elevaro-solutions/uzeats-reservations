@@ -184,6 +184,7 @@ export default function UnpaidInvoicesPage() {
       router.replace(backHref);
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not confirm payment');
+      throw err;
     }
   };
 
@@ -378,9 +379,7 @@ export default function UnpaidInvoicesPage() {
                   ? `One charge of ${formatCents(payment.totalCents)} covers all open invoices for this location.`
                   : `Pay ${formatCents(payment.totalCents)} to settle this invoice.`
               }
-              onSuccess={() => {
-                void finishPayAll();
-              }}
+              onSuccess={() => finishPayAll()}
             />
           ) : null}
         </Modal>

@@ -6,6 +6,61 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.101.0] — 2026-11-05
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: default payment card and setup step, failed auto-charge alerts and retries, Admin Failed charges, All restaurants view, Pay all across restaurants, Live floor Tables view and drawer, Online ordering switch and tracked link, Menu editor search / reorder / unsaved bar, diner home stats, alert scoping, Telegram timezone, and stale Stripe subscription on package change
+- Partner Hub setup guide → **Set up payments** has a required **Add a default payment card** step (owners / billing managers). It is done once a debit or credit card is saved as the venue default, and applies to admin-created restaurants on a free trial too
+- Partner Hub Billing **Default payment method** card shows the saved card (brand, last 4, expiry) and lets owners add or replace it through Stripe. That card is auto-charged for subscription renewals, monthly cover-fee invoices, and paid extras (SMS credits, 3D room)
+- Diner web home hero shows live totals under the search box: bookable restaurants, cities, diners served (guests on seated or completed reservations), and average review rating. Totals refresh once every 24 hours; any total that is still zero is hidden, and the row is hidden if stats can't load
+- Partner Hub owners and managers with more than one restaurant sign in to **All restaurants**: Overview, My restaurants, Reservations, Waitlist, and Billing show every location together. The rest of the menu returns after a restaurant is selected from the header or from My restaurants. A `restaurant` id in the URL loads only that restaurant.
+- Partner Hub Billing **Pay all invoices** settles every open invoice for the selected restaurant, or every restaurant when All restaurants is selected, in one charge.
+- Owners get an email and in-app alert the first time an automatic charge fails (invoice, renewal, or add-on), with the bank's reason, the next retry date, and **Replace card** / **Pay now** links. A lost, stolen, or expired card triggers a second alert and pauses retries
+- Partner Hub Billing and invoice detail show a red **Automatic charge failed** banner with the reason and next retry (or "paused until you replace the card")
+- Admins and account managers get a billing alert on the first failed charge for an invoice or renewal, and when a venue is hidden from search, restricted, or terminated for non-payment
+- Partner Hub Admin → Billing **Failed charges** list: restaurant, invoice, amount, reason, attempts, last attempt, and next retry
+- Owners get a reminder about 3 days before a trial ends if no default card is on file, and a warning about 30 days before the default card expires
+- When the bank asks to confirm a renewal (3D Secure), the owner gets a **Confirm payment** link
+- Billing failure and card emails (`card_charge_failed`, `card_action_required`, `card_expiring`, `trial_card_missing`, `billing_admin_alert`) are editable in Admin → Email templates
+- Partner Hub Live floor has a new **Tables** view (now the default): each table is a tile with one chair per seat from its max capacity, tinted green (Available), amber (Reserved), red (Seated), or blue (Turning). Busy tables show the guest name, party size, and reservation time or turn time left; solid chairs show how many seats the party takes. Click a tile to open the table drawer, or drag an arriving guest onto it — tables that fit the party are outlined while dragging
+- Live floor table drawer shows the table card at the top, the current guest with large **Seat here** / **Complete** buttons and **No-show** / **Refund deposit** / **Cancel** below, and a ⋯ menu (top right) with **Edit table** and **Open in table layout** (hidden for hosts). Free tables list arriving guests with a **Seat here** button; parties too big for the table are greyed out
+- Live floor table drawer lists the table's **Upcoming today** reservations (time, guest, party, pending approval) with a link to each reservation and **Seat now** for early arrivals on a free table. Free table tiles show the next booking ("Next 7:30 PM · Party 4")
+- Tables & shifts opens the edit form for a table when linked with `?editTable=<id>`
+- Partner Hub Menu editor has an **Online ordering** card: paste a DoorDash / Uber Eats / Toast (or other) link, see whether the diner **Order online** button is Live or Off, and copy the tracked link. Restaurant profile and Admin Contact show the same switch and tracked link
+- Restaurant owners, managers, and admins can turn the diner **Order online** button off without deleting the link, and back on later. Adding a valid link turns it on automatically; hosts can't change the switch
+- Order online links on the diner page add `utm_source=<site>/restaurants/<slug>`, `utm_medium=reservations`, and `utm_campaign=order_online`, so restaurants can see Tablevera orders in their ordering platform's analytics. Other parts of the link are kept
+- Diner restaurant page shows a full-width **Order online · Takeout & delivery** button above Call / Directions / Website / Message when ordering is on
+- Menu editor: search dishes by name, description, or dietary tag, and filter to **Popular** or **Unavailable** dishes. Category counts show matches while filtering
+- Menu editor: move dishes and categories up or down, star dishes as Popular from the list, and see a **Featured dishes** meter (x / 10)
+- Menu editor shows an **Unsaved changes** bar with **Discard** and **Save menu**, and warns before leaving the page or switching restaurants with unsaved edits
+
+### Changed
+- Setup guide step **Choose a plan & add a card** is now **Choose a plan**. Adding a card is its own required step
+- Cards saved at partner signup or when adding a restaurant now count as the venue's default card for invoice and add-on auto-charges, not only Stripe subscription renewals
+- Failed invoice auto-charges retry on days 0, 1, 3, 5, and 7 after the due date, then weekly, at most once a day. They used to retry every day and on every API restart
+- Saving or replacing the default card retries open invoices and an unpaid Stripe renewal right away
+- Subscription renewals are retried only by Stripe; the daily billing job no longer charges renewal invoices a second time
+- Billing failure and card alerts always go by email and in-app, even when the owner turned off account-update notifications
+- Live floor status is labeled **Available** instead of "free" in every view, and **Turning** is blue instead of orange so it no longer looks like Reserved
+- Menu editor dish rows show a photo thumbnail, price, a one-line description, dietary tags, and an **Unavailable** tag. Opening a dish shows the photo next to the name, price, description, and tags
+- Menu editor uses one **Expand all / Collapse all** button per category, and category delete moved into a ⋯ menu with a confirmation. Deleting a dish asks for confirmation
+- Menu editor **Add dish** opens the new dish with its name field focused
+- Order online moved from an action tile to its own button on the diner restaurant page
+
+### Fixed
+- Clearing **Online order URL** or **Full menu URL** in Partner Hub now removes the link. Before, the old link stayed on the diner page after saving an empty field
+- Menu editor save checks every dish, including ones never opened, and jumps to the first dish or category that needs a name or price instead of failing on the server
+- Menu editor **Featured dishes** and category counts stay correct while dishes are filtered out or collapsed
+- Pay all invoices stays on “Payment received” after the card charge succeeds, then confirms once the invoices are marked paid. A second click no longer tries to charge that payment again.
+- Buying SMS credits or turning on the 3D room with a declined saved card now opens the card form instead of showing an error
+- If Stripe can't be told an invoice was already paid, the daily job keeps retrying so Stripe doesn't charge the card again
+- Partner Hub unread alert counts (header bell and Overview **Unread alerts**) and the alert lists now change when another restaurant is picked in the header. They show that restaurant's alerts plus account-level ones; **All restaurants** shows every alert. **Mark all read** only clears the restaurant being viewed
+- Telegram bot reservation cards and the **Active reservations** list now show the date and time in the restaurant's timezone (e.g. `Nov 5, 2026, 7:00 PM EST`), matching Partner Hub. Before, they used the server clock (UTC), so evening bookings could show the wrong hour and even the next day
+- Superadmin: changing a restaurant's package or paid period start on **Admin → Restaurants → Package** no longer fails with `No such subscription: 'sub_…'` when the restaurant's Stripe subscription was deleted or came from the other Stripe mode (sandbox vs live). The package is applied, and the stale Stripe link is dropped. The saved card is kept if the Stripe customer still exists
+
+### Docs
+- Default payment card, auto-charge retry ladder, All restaurants scope, Live floor tables, and Order online tracking notes
+
 ## [0.100.2] — 2026-11-04
 
 ### Added

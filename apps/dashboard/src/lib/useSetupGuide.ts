@@ -173,6 +173,8 @@ export function useSetupGuide({
           : undefined,
         accessRuleCount: partnerData?.accessRules?.length,
         subscriptionStatus: partnerData?.mySubscription?.status,
+        hasSubscription: partnerData ? Boolean(partnerData.mySubscription) : undefined,
+        hasDefaultPaymentMethod: partnerData?.mySubscription?.hasDefaultPaymentMethod,
         accessRulesIncluded: partnerData?.mySubscription?.features?.accessRules,
         depositsEnabled: partnerData?.platformFeatureFlags?.deposits,
         teamSeatsUsed: seats ? (seats.used ?? 0) + (seats.pending ?? 0) : undefined,
