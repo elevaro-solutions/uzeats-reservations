@@ -61,7 +61,7 @@ Events: deposit, SetupIntent, invoice, and subscription events — see `dokku/DE
 
 The docs build is static, so every page and JS chunk is gated by nginx (`apps/docs/nginx.conf.template`), not by React:
 
-- nginx `auth_request` calls `GET https://api.yourdomain.com/docs-access/verify` with the `tv_docs_access` cookie (cached 60s per cookie). 204 serves the file; 401 redirects pages to `/access/` and returns 401 for assets.
+- nginx `auth_request` calls `GET https://api.yourdomain.com/docs-access/verify` with the `tv_docs_access` cookie (successful checks cached 5s per cookie). 204 serves the file; 401 redirects pages to `/access/` and returns 401 for assets. Denials are not cached, so a revoked session stops working within about 5 seconds.
 - Only `/access/` (standalone sign-in page), `/img/`, and `robots.txt` are public. All responses send `X-Robots-Tag: noindex, nofollow`.
 - Set `DOCS_API_ORIGIN` on the docs app if the API is not `https://api.tablevera.online`. The cookie is scoped to the parent domain of the API's `DOCS_APP_URL` (`.tablevera.online` in production, `.tablevera.app` on staging), so docs and API must share that parent domain.
 

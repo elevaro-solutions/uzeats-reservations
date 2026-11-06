@@ -77,7 +77,7 @@ The docs site is a static build, so access is enforced by its nginx container, n
 
 1. A visitor enters a work email at `/access/`. Approved emails (from Partner Hub → Platform → **Docs access**) and platform admin accounts get a 6-digit code by email
 2. `verifyDocsAccessOtp` sets the HttpOnly `tv_docs_access` cookie (30 days, `.tablevera.online`)
-3. nginx calls `GET /docs-access/verify` for each page and asset (cached 60 seconds per cookie). The API answers 204 if the JWT is valid and the email is still approved, otherwise 401
+3. nginx calls `GET /docs-access/verify` for each page and asset (successful checks cached 5 seconds per cookie; denials not cached). The API answers 204 if the JWT is valid and the email is still approved, otherwise 401
 
 Each code allows 5 wrong guesses, counted before the code is compared so batched or aliased GraphQL guesses cannot get around the cap. Revoking an email blocks it within a minute.
 

@@ -5,13 +5,21 @@ import { logger } from '../lib/logger.js';
 const DOCS_OTP_TTL_SEC = 10 * 60;
 /** Wrong guesses allowed per issued code; the code is burned after this. */
 export const MAX_DOCS_OTP_ATTEMPTS = 5;
+/** Minimum gap between codes emailed to one address. */
+export const DOCS_OTP_MIN_INTERVAL_SEC = 60;
+/** Codes that may be issued to one address per hour. */
+export const DOCS_OTP_MAX_SENDS_PER_HOUR = 5;
+const HOUR_SEC = 60 * 60;
 const KEY_PREFIX = 'docs_otp:';
 const ATTEMPTS_PREFIX = 'docs_otp_attempts:';
+const SEND_LOCK_PREFIX = 'docs_otp_send_lock:';
+const SEND_COUNT_PREFIX = 'docs_otp_send_count:';
 
 let redis: Redis | null = null;
 
 /** In-memory fallback when ioredis is mocked in tests. */
 const memoryStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
+const memorySends = new Map<string, { nextAllowedAt: number; windowStart: number; count: number }>();
 
 function redisKey(email: string) {
   return `${KEY_PREFIX}${email}`;
@@ -32,6 +40,49 @@ function consumeFromMemory(email: string, code: string): boolean {
   if (stored.code !== code) return false;
   memoryStore.delete(email);
   return true;
+}
+
+function claimSendFromMemory(email: string, now: number): boolean {
+  const state = memorySends.get(email) ?? { nextAllowedAt: 0, windowStart: now, count: 0 };
+  if (now - state.windowStart >= HOUR_SEC * 1000) {
+    state.windowStart = now;
+    state.count = 0;
+  }
+  if (now < state.nextAllowedAt || state.count >= DOCS_OTP_MAX_SENDS_PER_HOUR) {
+    memorySends.set(email, state);
+    return false;
+  }
+  state.count += 1;
+  state.nextAllowedAt = now + DOCS_OTP_MIN_INTERVAL_SEC * 1000;
+  memorySends.set(email, state);
+  return true;
+}
+
+/**
+ * Reserve a send slot for this email. False when the last code was under a
+ * minute ago or five codes were already issued in the current hour.
+ * `now` is only honored in tests; production uses Redis TTLs.
+ */
+export async function claimDocsOtpSend(email: string, now = Date.now()): Promise<boolean> {
+  if (env.NODE_ENV === 'test') return claimSendFromMemory(email, now);
+
+  try {
+    const client = getRedis();
+    const locked = await client.set(
+      `${SEND_LOCK_PREFIX}${email}`,
+      '1',
+      'EX',
+      DOCS_OTP_MIN_INTERVAL_SEC,
+      'NX',
+    );
+    if (locked !== 'OK') return false;
+    const count = await client.incr(`${SEND_COUNT_PREFIX}${email}`);
+    if (count === 1) await client.expire(`${SEND_COUNT_PREFIX}${email}`, HOUR_SEC);
+    return count <= DOCS_OTP_MAX_SENDS_PER_HOUR;
+  } catch (err) {
+    logger.error({ err, email }, '[docsOtpStore] send throttle failed; using memory');
+    return claimSendFromMemory(email, now);
+  }
 }
 
 function getRedis(): Redis {

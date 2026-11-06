@@ -69,7 +69,9 @@ server {
         proxy_set_header Cookie "tv_docs_access=$cookie_tv_docs_access";
         proxy_cache docs_auth;
         proxy_cache_key $cookie_tv_docs_access;
-        proxy_cache_valid 204 60s;
+        # A page load checks this once per asset. Keep the burst cache short so a
+        # revoked session stops opening files within a few seconds. 401 is not cached.
+        proxy_cache_valid 204 5s;
         proxy_ignore_headers Cache-Control Expires Set-Cookie;
     }
 

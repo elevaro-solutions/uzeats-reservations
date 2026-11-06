@@ -58,6 +58,7 @@ export const typeDefs = `#graphql
   enum RestaurantSlugRequestStatus { pending approved denied }
   enum RestaurantProfileChangeRequestStatus { pending approved denied }
 
+  """Anonymous probe. Flags are always false so callers cannot learn whether an email is approved."""
   type DocsAccessEmailStatus {
     approved: Boolean!
     pending: Boolean!

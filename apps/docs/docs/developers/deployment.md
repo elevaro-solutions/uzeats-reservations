@@ -75,7 +75,7 @@ pnpm --filter @reservations/docs build
 
 The docs image serves `apps/docs/build/` with nginx (`apps/docs/nginx.conf.template`). nginx is the access gate, not the React app:
 
-- Every page and `/assets/*` chunk goes through `auth_request` to the API's `GET /docs-access/verify`, which checks the `tv_docs_access` cookie and that the email is still approved. Results are cached for 60 seconds per cookie
+- Every page and `/assets/*` chunk goes through `auth_request` to the API's `GET /docs-access/verify`, which checks the `tv_docs_access` cookie and that the email is still approved. Successful checks are cached for 5 seconds per cookie; denials are not cached
 - Signed-out visitors get a redirect to `/access/` (a standalone sign-in page); asset requests get 401
 - Only `/access/`, `/img/`, and `robots.txt` are public. Every response sends `X-Robots-Tag: noindex, nofollow`
 - Set `DOCS_API_ORIGIN` on the docs app when the API is not `https://api.tablevera.online`

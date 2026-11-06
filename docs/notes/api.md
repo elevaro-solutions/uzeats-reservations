@@ -1,5 +1,15 @@
 # API — Learnings & Observations
 
+## [2026-11-06] QA checklist catalog is v0.101.2
+- `QA_CHECKLIST_RELEASE` is `0.101.2`. Catalog group is Docs access (generic messages, send throttle, denied cooldown, 5s revoke). v0.101.1 nginx gate items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Testers burn their own send quota on the throttle task; use a dedicated test email or wait an hour before the next run.
+
+## [2026-11-06] Docs access status is not public
+- `checkDocsAccessEmail` always returns false flags. `requestDocsAccess` and public `requestDocsAccessOtp` use one acknowledgement each, whether the email is unknown, pending, denied, or approved. Admin send still says when the address has no access or is throttled.
+- OTP sends go through `claimDocsOtpSend` (60s gap, 5 per hour per email). A denied request stays denied until `updatedAt` is 24h old; the caller still gets the same acknowledgement.
+- nginx caches a successful docs `auth_request` for 5s. 401 is not cached.
+- Why it matters: Distinct success copy was an address oracle, and denied emails could be flipped back to pending on every submit.
+
 ## [2026-11-06] QA checklist catalog is v0.101.1
 - `QA_CHECKLIST_RELEASE` is `0.101.1`. Catalog groups are Docs access and Docs content. v0.101.0 billing / floor / menu items stay on that release’s `QaReleaseChecklist` row and catalog snapshot.
 - `docsCookieDomain()` is the parent of `DOCS_APP_URL` in production mode. It used to be hardcoded `.tablevera.online`, which staging browsers (`docs.tablevera.app`) reject, so the nginx gate would never see the cookie.

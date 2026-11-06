@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.101.2] — 2026-11-06
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: same docs sign-in message for every email, one-per-minute / five-per-hour code limit, 24-hour denied cooldown, revoke within 5 seconds, and admin send-code messages
+
+### Fixed
+- Docs sign-in no longer tells anonymous visitors whether an email is approved, pending, or denied. Verification codes are limited to one per minute and five per hour for each email. A denied access request can be submitted again only after 24 hours. A revoked docs session stops opening pages within about 5 seconds.
+
 ## [0.101.1] — 2026-11-06
 
 ### Added

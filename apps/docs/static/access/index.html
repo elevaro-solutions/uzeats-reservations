@@ -92,14 +92,16 @@
       <label for="docs-email">Work email</label>
       <input id="docs-email" type="email" required autocomplete="email" placeholder="you@company.com">
       <button type="submit">Continue</button>
+      <button type="button" class="secondary" id="request-from-email">Request access</button>
     </form>
 
     <form id="step-otp" hidden>
-      <p class="hint">Enter the 6-digit code sent to <strong id="otp-email"></strong>.</p>
+      <p class="hint">If <strong id="otp-email"></strong> is approved, a 6-digit code is on its way. It expires in 10 minutes.</p>
       <label for="docs-otp">Verification code</label>
       <input id="docs-otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" required placeholder="123456">
       <button type="submit">Sign in</button>
       <button type="button" class="secondary" id="resend-otp">Resend code</button>
+      <button type="button" class="secondary" id="request-from-otp">Request access</button>
       <button type="button" class="secondary" data-back>Use a different email</button>
     </form>
 
@@ -187,7 +189,10 @@
       }
 
       function setBusy(form, busy) {
-        Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) { b.disabled = busy; });
+        Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) {
+          if (!busy && b.dataset.cooldown === '1') return;
+          b.disabled = busy;
+        });
       }
 
       function run(form, task) {
@@ -198,6 +203,29 @@
         }).then(function () { setBusy(form, false); });
       }
 
+      var resendTimer = null;
+
+      function armResendCooldown() {
+        var btn = $('resend-otp');
+        var left = 60;
+        btn.dataset.cooldown = '1';
+        btn.disabled = true;
+        btn.textContent = 'Resend code (60s)';
+        if (resendTimer) clearInterval(resendTimer);
+        resendTimer = setInterval(function () {
+          left -= 1;
+          if (left <= 0) {
+            clearInterval(resendTimer);
+            resendTimer = null;
+            btn.dataset.cooldown = '';
+            btn.disabled = false;
+            btn.textContent = 'Resend code';
+            return;
+          }
+          btn.textContent = 'Resend code (' + left + 's)';
+        }, 1000);
+      }
+
       function sendOtp() {
         return graphql(
           'mutation RequestDocsAccessOtp($email: String!) { requestDocsAccessOtp(email: $email) { success message } }',
@@ -206,38 +234,38 @@
           var result = data.requestDocsAccessOtp;
           if (!result.success) throw new Error(result.message);
           setText('note', result.message);
+          armResendCooldown();
         });
+      }
+
+      function openRequest() {
+        var typed = $('docs-email').value.trim().toLowerCase();
+        if (typed) email = typed;
+        if (!email) {
+          setText('error', 'Enter your work email first.');
+          return;
+        }
+        $('request-email').textContent = email;
+        setText('note', '');
+        setText('error', '');
+        show('step-request');
       }
 
       $('step-email').addEventListener('submit', function (e) {
         e.preventDefault();
         email = $('docs-email').value.trim().toLowerCase();
         run(e.currentTarget, function () {
-          return graphql(
-            'query CheckDocsAccessEmail($email: String!) { checkDocsAccessEmail(email: $email) { approved pending denied } }',
-            { email: email }
-          ).then(function (data) {
-            var status = data.checkDocsAccessEmail;
-            try { localStorage.setItem(EMAIL_KEY, email); } catch (_) {}
-            if (status.approved) {
-              return sendOtp().then(function () {
-                $('otp-email').textContent = email;
-                $('docs-otp').value = '';
-                show('step-otp');
-              });
-            }
-            if (status.pending) {
-              $('done-message').textContent = 'Your access request is pending review. We will email you when approved.';
-              setText('note', '');
-              show('step-done');
-              return;
-            }
-            $('request-email').textContent = email;
-            setText('note', '');
-            show('step-request');
+          try { localStorage.setItem(EMAIL_KEY, email); } catch (_) {}
+          return sendOtp().then(function () {
+            $('otp-email').textContent = email;
+            $('docs-otp').value = '';
+            show('step-otp');
           });
         });
       });
+
+      $('request-from-email').addEventListener('click', openRequest);
+      $('request-from-otp').addEventListener('click', openRequest);
 
       $('docs-otp').addEventListener('input', function (e) {
         e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);

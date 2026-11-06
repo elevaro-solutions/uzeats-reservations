@@ -20,7 +20,7 @@ import { isPlatformAdmin } from "@reservations/shared";
 import { mapUser } from "../graphql/mappers.js";
 import type { DocsAccessRequestDocument } from "../models/DocsAccessRequest.js";
 import { ForbiddenError, ValidationError } from "../lib/errors.js";
-import { consumeDocsOtp, storeDocsOtp } from "./docsOtpStore.js";
+import { claimDocsOtpSend, consumeDocsOtp, storeDocsOtp } from "./docsOtpStore.js";
 import { logger } from "../lib/logger.js";
 import {
   emailDetailBox,
@@ -29,6 +29,18 @@ import {
 } from "./emailBranding.js";
 
 const DOCS_ACCESS_JWT_EXPIRES = "30d";
+/** Denied emails can be submitted again after this, once. */
+export const DOCS_ACCESS_REQUEST_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+export const DOCS_OTP_PUBLIC_MESSAGE =
+  "If this email has docs access, we sent a verification code. It expires in 10 minutes.";
+
+export const DOCS_REQUEST_PUBLIC_MESSAGE =
+  "If this email can request access, we recorded it. We will email you when there is an update.";
+
+function ackDocsRequest() {
+  return { success: true, message: DOCS_REQUEST_PUBLIC_MESSAGE };
+}
 
 interface DocsAccessJwtPayload {
   email: string;
@@ -104,16 +116,11 @@ function issueDocsSession(email: string, res: Response) {
 }
 
 export async function checkDocsAccessEmail(rawEmail: string) {
-  const email = emailSchema.parse(rawEmail);
-  const doc = await DocsAccessRequest.findOne({ email }).sort({
-    updatedAt: -1,
-  });
-  const approved = await isEmailApproved(email);
-  return {
-    approved,
-    pending: doc?.status === "pending",
-    denied: doc?.status === "denied" && !approved,
-  };
+  emailSchema.parse(rawEmail);
+  // Approval is not disclosed. The sign-in page sends a code or a request
+  // and always shows the same copy, so this probe cannot be used to list
+  // approved addresses.
+  return { approved: false, pending: false, denied: false };
 }
 
 export async function getDocsAccessSession(req: Request) {
@@ -137,24 +144,22 @@ export async function requestDocsAccess(rawInput: unknown) {
   const email = input.email;
 
   if (await isEmailApproved(email)) {
-    return {
-      success: true,
-      message:
-        "Your email already has access. Enter the verification code we email you to sign in.",
-    };
+    return ackDocsRequest();
   }
 
   const existing = await DocsAccessRequest.findOne({ email }).sort({
     updatedAt: -1,
   });
   if (existing?.status === "pending") {
-    return {
-      success: true,
-      message: "Your access request is already pending review.",
-    };
+    return ackDocsRequest();
   }
 
   if (existing?.status === "denied") {
+    const stamp = existing.get("updatedAt") as Date | undefined;
+    const updatedAtMs = stamp ? new Date(stamp).getTime() : 0;
+    if (Date.now() - updatedAtMs < DOCS_ACCESS_REQUEST_COOLDOWN_MS) {
+      return ackDocsRequest();
+    }
     await DocsAccessRequest.findByIdAndUpdate(existing._id, {
       firstName: input.firstName ?? existing.firstName,
       lastName: input.lastName ?? existing.lastName,
@@ -165,11 +170,7 @@ export async function requestDocsAccess(rawInput: unknown) {
       reviewedAt: undefined,
       notes: undefined,
     });
-    return {
-      success: true,
-      message:
-        "Access request submitted. We will notify you by email once reviewed.",
-    };
+    return ackDocsRequest();
   }
 
   await DocsAccessRequest.create({
@@ -181,11 +182,7 @@ export async function requestDocsAccess(rawInput: unknown) {
     status: "pending",
   });
 
-  return {
-    success: true,
-    message:
-      "Access request submitted. We will notify you by email once reviewed.",
-  };
+  return ackDocsRequest();
 }
 
 const DOCS_OTP_FALLBACK = {
@@ -212,14 +209,32 @@ function renderDocsOtpFallback(code: string) {
   };
 }
 
-export async function requestDocsAccessOtp(rawEmail: string) {
+export async function requestDocsAccessOtp(
+  rawEmail: string,
+  options?: { audience?: "public" | "admin" },
+) {
+  const audience = options?.audience ?? "public";
   const email = emailSchema.parse(rawEmail);
-  if (!(await isEmailApproved(email))) {
-    return {
-      success: false,
-      message:
-        "This email does not have docs access yet. Submit an access request below.",
-    };
+  const approved = await isEmailApproved(email);
+  if (!approved) {
+    if (audience === "admin") {
+      return {
+        success: false,
+        message: "This email does not have docs access yet.",
+      };
+    }
+    return { success: true, message: DOCS_OTP_PUBLIC_MESSAGE };
+  }
+
+  const allowed = await claimDocsOtpSend(email);
+  if (!allowed) {
+    if (audience === "admin") {
+      return {
+        success: false,
+        message: "Please wait before sending another code to this email.",
+      };
+    }
+    return { success: true, message: DOCS_OTP_PUBLIC_MESSAGE };
   }
 
   const code = useDevOtp() ? "123456" : generateOtpCode();
@@ -241,7 +256,7 @@ export async function requestDocsAccessOtp(rawEmail: string) {
 
   if (!isEmailDeliveryConfigured()) {
     throw new ValidationError(
-      "Email delivery is not configured — set SENDGRID_API_KEY on the API server.",
+      "Could not send a verification email right now. Try again shortly.",
     );
   }
 
@@ -265,14 +280,17 @@ export async function requestDocsAccessOtp(rawEmail: string) {
     });
   } catch (err) {
     logger.error({ err, email }, "[docsAccess] failed to send OTP email");
-    const detail = err instanceof Error ? err.message : "Unknown error";
-    throw new ValidationError(`Failed to send verification email: ${detail}`);
+    throw new ValidationError(
+      "Could not send a verification email right now. Try again shortly.",
+    );
   }
 
   return {
     success: true,
     message:
-      "Verification code sent. Check your inbox — it expires in 10 minutes.",
+      audience === "admin"
+        ? "Verification code sent. It expires in 10 minutes."
+        : DOCS_OTP_PUBLIC_MESSAGE,
   };
 }
 
@@ -286,13 +304,13 @@ export async function verifyDocsAccessOtp(
   if (!/^\d{4,8}$/.test(code)) {
     throw new ValidationError("Invalid verification code");
   }
-  if (!(await isEmailApproved(email))) {
-    throw new ForbiddenError("Access has been revoked for this email");
-  }
 
   const valid = await consumeDocsOtp(email, code);
   if (!valid) {
     throw new ValidationError("Invalid or expired verification code");
+  }
+  if (!(await isEmailApproved(email))) {
+    throw new ForbiddenError("Access has been revoked for this email");
   }
 
   return issueDocsSession(email, res);
@@ -425,5 +443,5 @@ export async function grantDocsAccess(
 }
 
 export async function adminSendDocsAccessOtp(email: string) {
-  return requestDocsAccessOtp(email);
+  return requestDocsAccessOtp(email, { audience: "admin" });
 }

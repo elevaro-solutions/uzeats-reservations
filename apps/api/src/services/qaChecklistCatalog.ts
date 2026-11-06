@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.101.1';
+export const QA_CHECKLIST_RELEASE = '0.101.2';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -14,68 +14,57 @@ export type QaChecklistCatalogItem = {
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
   {
-    id: 'rel-docs-access-redirect',
+    id: 'rel-docs-same-message',
     gate: 'required',
     group: 'Docs access',
-    label: 'Signed-out docs pages go to /access/ and return to the page after the code',
+    label: 'Docs sign-in shows the same message for approved, pending, denied, and unknown emails',
     steps: [
-      'In a private window, open a deep docs page (e.g. docs site /admins/billing-and-plans). Confirm you are sent to /access/?next=… and no docs content shows first.',
-      'Enter an approved email, request the code, and enter it. Confirm you land back on the page you first opened.',
-      'Reload and open other docs pages. Confirm you stay signed in (no second code).',
+      'Signed out, open the docs /access/ page. Enter an approved email and send a code. Note the message (“If <email> is approved, a 6-digit code is on its way…”).',
+      'Repeat with an unknown email, a pending email, and a denied email. Confirm the message is identical each time and only the approved email actually receives a code.',
+      'Submit an access request for an unknown email. Confirm the reply is the generic “If this email can request access, we recorded it…” and the request appears as pending in Partner Hub /admin/docs-access.',
     ],
   },
   {
-    id: 'rel-docs-files-401',
+    id: 'rel-docs-code-rate-limit',
     gate: 'required',
     group: 'Docs access',
-    label: 'Docs JS chunks and pages cannot be downloaded without a docs session',
+    label: 'Verification codes are limited to one per minute and five per hour per email',
     steps: [
-      'While signed in, open DevTools → Network on any docs page and copy the URL of one /assets/js/*.js file.',
-      'In a private window (or `curl -I <url>`), open that file. Confirm 401, not the file contents. Open a docs page URL with curl and confirm a 302 to /access/.',
-      'Confirm /access/, /img/ images, and /robots.txt still load signed out, and robots.txt says Disallow: /.',
+      'For an approved email, send a code. Confirm the button shows “Resend code (60s)” and counts down.',
+      'Resend right at 0s. Confirm a second email arrives. Use Resend within 60s from another tab (or the API) and confirm no extra email arrives.',
+      'Request codes until 5 have arrived within an hour. Confirm a 6th does not arrive (the page still shows the same message). Note the time so the next tester knows the email is throttled.',
     ],
   },
   {
-    id: 'rel-docs-otp-burn',
+    id: 'rel-docs-denied-cooldown',
     gate: 'required',
     group: 'Docs access',
-    label: 'A docs code stops working after 5 wrong guesses',
+    label: 'A denied access request can only be re-submitted after 24 hours',
     steps: [
-      'On /access/, request a code for an approved email.',
-      'Enter a wrong code 5 times. Then enter the correct code and confirm it is rejected.',
-      'Request a new code and confirm the new code works.',
+      'As Super Admin, deny a test email’s request in /admin/docs-access.',
+      'Signed out, submit an access request for that email again. Confirm the generic reply and that /admin/docs-access still shows it as denied (not pending).',
+      'If an older denied email (24h+) is available, submit it and confirm it returns to pending. Otherwise note “no 24h-old denial in env”.',
     ],
   },
   {
-    id: 'rel-docs-revoke',
+    id: 'rel-docs-revoke-5s',
     gate: 'required',
     group: 'Docs access',
-    label: 'Denying docs access in Partner Hub signs the person out of the docs site',
+    label: 'A revoked docs session stops opening pages within about 5 seconds',
     steps: [
-      'Sign in to the docs site with a test email that is approved.',
-      'As Super Admin, open Partner Hub /admin/docs-access and deny (revoke) that email.',
-      'Within about a minute, reload a docs page in the first window. Confirm it sends you to /access/ instead of showing content.',
+      'Sign in to the docs site with an approved test email.',
+      'In Partner Hub /admin/docs-access, revoke that email.',
+      'Wait about 5 seconds and reload a docs page. Confirm you are sent to /access/ (and a JS file under /assets/ returns 401).',
     ],
   },
   {
-    id: 'rel-docs-no-secrets',
-    gate: 'required',
-    group: 'Docs content',
-    label: 'Docs no longer show demo passwords, seed emails, or the production server address',
-    steps: [
-      'Signed in, search the docs (and open Getting started, Environment, Deployment, and the QA pages) for “password”, “owner@”, and an IP address.',
-      'Confirm no demo seed passwords or seed account emails appear and no production server IP is shown.',
-      'Confirm docs responses include the X-Robots-Tag noindex, nofollow header (DevTools → Network → a page response).',
-    ],
-  },
-  {
-    id: 'rel-docs-content-refresh',
+    id: 'rel-docs-admin-send',
     gate: 'recommended',
-    group: 'Docs content',
-    label: 'Docs pages cover v0.85–v0.101 features and point QA at Partner Hub',
+    group: 'Docs access',
+    label: 'Admin “send code” still explains no-access and throttled emails',
     steps: [
-      'Skim Admins, Managers, Diners, and Architecture pages. Confirm they mention host and QA roles, All restaurants, Live floor Tables view, Menu editor / Online ordering, default card and failed-charge retries, Pay all, legal agreements, and docs access.',
-      'Open the QA overview. Confirm it points to Partner Hub /admin/qa, and the v0.81.0 release page is marked archived.',
+      'In Partner Hub /admin/docs-access, use send code for an email without access. Confirm it says the email does not have docs access yet.',
+      'Send a code to an approved email twice within a minute. Confirm the second attempt says to wait before sending another code.',
     ],
   },
 ];
