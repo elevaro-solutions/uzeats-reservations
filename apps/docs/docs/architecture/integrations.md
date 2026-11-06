@@ -6,12 +6,13 @@ External services Tablevera connects to and how they degrade without credentials
 
 | Use case | API |
 |---|---|
-| Partner subscriptions | Checkout / Billing Portal |
-| Deposits | PaymentIntents (manual capture) |
-| Invoices | Stripe Invoice objects |
+| Partner subscriptions | Subscriptions on the venue's Stripe customer |
+| Deposits | SetupIntents (card guarantee) or PaymentIntents (prepaid) |
+| Invoices | Platform invoices mirrored as Stripe hosted invoices |
 
+**Modes:** sandbox and live keys side by side; **Admin → Config → Billing** picks the active mode.  
 **Webhook:** `POST /webhooks/stripe`  
-**Stub behavior:** Mutations succeed with fake IDs when `STRIPE_SECRET_KEY` is unset.
+**Stub behavior:** Mutations succeed with fake IDs (`pi_dev_*`, `seti_dev_*`) when no Stripe secret key is set.
 
 **Failed charges:** Each venue has one default card (`Subscription.preferredPaymentMethodId`).
 
@@ -85,6 +86,10 @@ Two bots:
 | Merchant messenger | Platform Config token + `/webhooks/messenger-bot` | Actionable reservation cards (Accept / Reject / Seat / …) |
 
 Merchant bot: connect token in Admin → Config → Messenger bot. Set `MESSENGER_BOT_WEBHOOK_BASE_URL` (https) for webhook mode; otherwise the API long-polls.
+
+## KIRI Engine
+
+Optional photo-real **Virtual 3D room** scans from a walkthrough video or 20–100 photos (`KIRI_ENGINE_API_KEY`). Finished models are copied to Spaces. Without the key, owners do not see scan uploads.
 
 ## Elevaro leads
 

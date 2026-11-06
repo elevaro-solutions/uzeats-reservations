@@ -13,6 +13,7 @@ const config: Config = {
 
   url: 'https://docs.tablevera.online',
   baseUrl: '/',
+  noIndex: true,
 
   customFields: {
     apiUrl: process.env.DOCS_API_URL ?? 'http://localhost:4000/graphql',

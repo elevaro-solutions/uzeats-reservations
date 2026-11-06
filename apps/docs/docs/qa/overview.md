@@ -6,39 +6,48 @@ description: How QA verifies a Tablevera release before sign-off.
 
 # Manual QA
 
-The live saved checklist is in Partner Hub at `/admin/qa` (dashboard). Only a **super admin** or a user with the **QA** role can open it. Checks, environment notes, and sign-off (name, role, date) are stored in the database. The release stays active until every required item is checked, P0 is confirmed clear, and someone signs off.
+The release gate lives in Partner Hub, not on this site. Only a **super admin** or a user with the **QA** role can open it.
 
-This section is the written list. Checkbox ticks on these docs pages are not saved.
+| Page | Use |
+|---|---|
+| `/admin/qa/dashboard` | Run counts, required progress, current-gate progress, recent sign-offs |
+| `/admin/qa` | **Active** release checklist. Each item has steps, an optional note, and completion time; sign-off stores name, role, and date |
+| `/admin/qa/history` | Every prior run with its tasks, notes, progress, and sign-off. Open one with `/admin/qa?release=…` |
+| `/admin/qa/issues` | File bugs and features (severity, status, page, environment, release, screenshots); export as PDF, Excel, or Word |
+| `/admin/qa/versions`, `/admin/qa/guide` | Release notes for every version, and how to test and report problems |
 
-## Pages
+Each release's tasks ship with that release. The written copy of every checklist is in the repo under `docs/qa/releases/` (the active one is named in `docs/qa/README.md`). Checkbox ticks on these docs pages are not saved.
+
+## Pages on this site
 
 | Page | Use |
 |---|---|
 | [Role & feature checklist](/qa/role-and-feature) | Evergreen smoke by role and feature |
-| [Release v0.81.0](/qa/release-0-81-0) | **Active** release delta. Stays the gate until every Required item is verified and someone signs off |
+| [Release v0.81.0](/qa/release-0-81-0) | Archived example of a release-delta page (superseded by `/admin/qa`) |
 
 ## Process
 
-1. Open the **active release** page (highest version that is not signed off).
-2. Run automation (`pnpm test`) and note the result on that page.
+1. Open `/admin/qa` for the **active release** (the latest shipped version that is not signed off).
+2. Run automation (`pnpm test`) and note the result on the run.
 3. Execute **release-delta** items first. These gate the release.
 4. Then run [role & feature smoke](/qa/role-and-feature) for surfaces the release touched (or a full smoke for a major release).
 5. **Sign off** only when:
-   - Every **Required** release-delta item passed
+   - Every **Required** item passed
    - Open **P0** bugs = 0
    - Signatory name and date are filled in
 
-The release stays **Active** until those conditions are met. After sign-off, leave the page as the audit record and add a new release page for the next version (copy the structure from the repo template `docs/qa/releases/_TEMPLATE.md`).
+Replacing the live checklist with a newer version keeps a snapshot, so unfinished prior-version work stays on History.
 
 ## Roles
 
 | Role | Surfaces |
 |---|---|
 | Diner | Diner web and diner mobile |
-| Owner | Partner Hub settings, billing, team, grow |
+| Owner | Partner Hub settings, billing, team, grow, agreements |
 | Manager | Reservations, floor, waitlist, guests, messages, reviews — no billing |
 | Host | Front of house only: reservations, waitlist, floor, guests, messages |
-| Admin / Super admin | Approvals, platform config, moderation |
+| Admin / Super admin | Approvals, platform config, moderation, agreements |
+| QA | `/admin/qa` checklist, history, and issues |
 | Automation | `pnpm test`, optional browser smoke `pnpm test:e2e:smoke` |
 
 ## Severity
@@ -51,10 +60,10 @@ The release stays **Active** until those conditions are met. After sign-off, lea
 
 ## Environments
 
-On every release page, record:
+On every run, record:
 
 - Staging or local URLs (web `3000`, dashboard `3001`, API `4000`)
-- Build or commit SHA
-- Accounts used
+- Build or commit SHA (shown under the Partner Hub sidebar)
+- Accounts used (by role, not password)
 
-Local demo seeds (after `pnpm seed`): `diner@tablevera.local`, `owner@tablevera.local`, `a@tablevera.local`, password `Password123!`.
+For local testing, `pnpm seed` creates a diner, owner, and super admin; their credentials are in `apps/api/src/seed.ts`. Never write passwords into QA notes, issues, or this site.

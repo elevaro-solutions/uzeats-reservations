@@ -21,26 +21,30 @@ Each restaurant has a detail page with:
 - Popular dishes (up to 10 items partners mark in the dashboard; full menu via optional URL)
 - Reviews and ratings (overall plus food/service/atmosphere when provided, with diner photos)
 - FAQ and terms
+- **Order online · Takeout & delivery** — full-width button above Call / Directions / Website / Message when the restaurant has ordering on
 - **Book now** — opens the reservation flow
 - **Contact** — send an inquiry to the restaurant
 - **Save** — bookmark for later (requires sign-in)
+- **Explore the dining room in 3D** / **Choose your table in 3D** — when the restaurant offers the Virtual 3D room
 
-Public URL: `https://tablevera.online/restaurants/{slug}` (legacy `/r/{slug}` links redirect here).
+Public URL: `https://tablevera.online/restaurants/{slug}` (legacy `/r/{slug}` links redirect here). An inactive restaurant keeps its page but does not accept reservations; a suspended one shows a closed booking card.
 
 ## Booking flow
 
-1. Choose **party size**, **date**, and **time** from available slots
-2. Optionally select an **occasion** (birthday, anniversary, business, etc.)
+1. Choose **party size**, **date**, and **time** from available slots. Party sizes follow the restaurant's online min and max; above the max, a **Large party** request goes to staff instead
+2. Optionally select an **occasion** (birthday, anniversary, business, etc.) and a table (list or 3D, when offered)
 3. Add **restaurant packages** (party add-ons configured by the partner)
-4. Enter guest details (pre-filled when signed in)
-5. Pay a **deposit** if the restaurant requires one
-6. Receive confirmation via email/SMS/push based on your notification prefs
+4. Enter guest details (pre-filled when signed in; a phone is asked for if the profile has none)
+5. **Save a card** (card guarantee: charged only for a no-show or late cancel) or **Pay now** (prepaid), if the restaurant requires one
+6. Get a 6-digit **confirmation number** and confirmation by email/SMS/push based on your notification prefs
 
-Availability is computed from shifts, table capacity, existing reservations, blackouts, and access rules.
+If the booking needs restaurant approval, the button reads **Send request** and the result is **Request sent / Awaiting approval**. A booking that needs a card or payment is not held until the Stripe form is finished; unfinished holds expire after 20 minutes.
+
+Availability is computed from shifts, table capacity, existing reservations, blackouts, holidays, and access rules.
 
 ## Waitlist
 
-If no slot is available, join the **waitlist**. When a cancellation opens a matching slot, you'll be notified and can convert to a confirmed booking.
+If no slot is available, join the **waitlist** with a preferred time window. When a cancellation opens a matching slot, you'll be notified and have 15 minutes to book before the next party is offered it. Joining twice for the same restaurant and date shows a warning with a link to your waitlist.
 
 ## Favorite availability alerts
 
@@ -52,7 +56,9 @@ Restaurants can embed the Tablevera widget on their own site. Bookings from the 
 
 ## Editing or cancelling
 
-Signed-in diners can modify party size, time, or special requests from their reservation detail page, subject to restaurant policy. Cancellation may forfeit deposits per restaurant terms and asks for a reason (preset + optional details) so the restaurant knows why you cancelled.
+Signed-in diners can modify party size, time, or special requests from their reservation detail page, subject to restaurant policy. Cancelling inside the restaurant's cancel window (24 hours by default) can trigger the no-show / late-cancel fee or forfeit a prepayment. Cancelling asks for a reason (preset + optional details) so the restaurant knows why.
+
+Reminder emails include **I'm running late**, which notifies the restaurant. In the mobile app, the 2-hour and 30-minute reminders open an **Are you running late?** prompt.
 
 When the **restaurant** cancels your booking, you receive email/SMS/push that includes their reason (for example Overbooked or Private event) and any custom message they added.
 

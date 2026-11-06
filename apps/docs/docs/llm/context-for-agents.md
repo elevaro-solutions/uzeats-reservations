@@ -13,15 +13,17 @@ Copy-paste block for LLM system prompts or `.cursor/rules` when working in this 
 - `apps/web` (3000) — Diner Next.js 16 + React 19 + Ant Design 6
 - `apps/dashboard` (3001) — Partner/admin Next.js
 - `apps/mobile` — Expo diner app
-- `apps/docs` (3002) — Docusaurus documentation
+- `apps/merchant-mobile` — Expo partner app
+- `apps/docs` (3002) — Docusaurus documentation (nginx-gated in production)
+- `apps/e2e` — Playwright smoke tests
 
 **Packages:**
 - `@reservations/shared` — types, Zod, roles, env registry (**build after edits**)
 - `@reservations/ui` — design tokens + shared components
 - `@reservations/widget` — embeddable booking script → `/widget.js`
 
-**Roles:** `diner` | `restaurant_owner` | `manager` | `admin` | `super_admin`  
-**Guards:** import from `@reservations/shared` — `isPlatformAdmin`, `canManageBilling`, `canEditUser`
+**Roles:** `diner` | `restaurant_owner` | `manager` | `host` | `admin` | `account_manager` | `super_admin` | `qa`  
+**Guards:** import from `@reservations/shared` — `isPlatformAdmin`, `canManageBilling`, `canEditUser`, `canAccessPartnerPath`
 
 **Architecture:** Resolvers → Services → Models. GraphQL schema in `apps/api/src/graphql/typeDefs.ts`. Business logic never in resolvers.
 
@@ -35,7 +37,7 @@ pnpm install && cp .env.example .env && pnpm db:up
 pnpm --filter @reservations/shared build && pnpm seed && pnpm dev
 ```
 
-**Demo logins:** `*@tablevera.local` / `Password123!`
+**Demo logins:** local seed accounts from `apps/api/src/seed.ts` (never production)
 
 **Rules:**
 - Smallest correct diff; no drive-by refactors
@@ -75,8 +77,8 @@ When using codebase search:
 When using browser tools:
 
 - Diner flows: http://localhost:3000
-- Partner flows: http://localhost:3001 (login as owner@tablevera.local)
-- Admin flows: http://localhost:3001/admin/* (login as a@tablevera.local)
+- Partner flows: http://localhost:3001 (seed owner)
+- Admin flows: http://localhost:3001/admin/* (seed super admin)
 
 ## Version
 

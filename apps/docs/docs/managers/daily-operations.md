@@ -10,6 +10,17 @@ The **Reservations** page is the primary operational view:
 - Mark guests as **seated**, **completed**, or **no-show** (Confirm is only offered for `pending` bookings; same-status updates are a no-op)
 - **Cancel** opens a confirmation modal: pick a required reason (Guest requested, Overbooked, Private event, Restaurant closure, Duplicate booking, or Other) and optionally add a message. The diner’s cancellation email and in-app/SMS copy include that reason; manager alerts do too when a guest cancels
 - Share booking links (`/restaurants/{slug}`) with guests
+- Search by the guest's 6-digit **confirmation number** (exact match ignores the date filter)
+
+### No-show fees
+
+With the default **card guarantee** deposit policy, the diner saves a card and nothing is charged at booking. Marking a **no-show** (or a diner cancelling inside the cancel window, 24 hours by default) charges the per-guest fee. The reservation detail shows the fee status (card on file, charged, failed, refunded) with **Charge / Retry no-show fee** and **Refund fee**. The automatic no-show job marks bookings but never charges; staff charge from the detail page. Insights → **No-show fees** lists collected fees.
+
+With **prepaid**, the amount is charged at booking and applied to the bill.
+
+### Large party requests
+
+Parties above the restaurant's online maximum can send a request (date, time window, approximate guests, occasion, message, phone). It stays pending with no table held until staff contact the guest.
 
 ### Reservation statuses
 
@@ -32,7 +43,25 @@ Open **Table layout** from **Settings** (or ⌘K). The editor lets you:
 
 Layout state is stored per restaurant and synced via GraphQL.
 
-**Live floor** is the service view of that layout: per-area grids, real-time status (available, reserved, seated), and drag-assigning arrivals onto tables.
+## Live floor
+
+**Live floor** is the service view. It has four views:
+
+| View | What it shows |
+|---|---|
+| **Tables** (default) | One tile per table with a chair per seat. Green = Available, amber = Reserved, red = Seated, blue = Turning. Busy tiles show the guest, party, and time or turn time left; free tiles show the next booking ("Next 7:30 PM · Party 4") |
+| **Floor plan** | The published table layout with live status |
+| **List** | Tables and status as a list |
+| **3D** | The Virtual Room with live colors (hosts can view it without the add-on) |
+
+Drag an arriving guest onto a tile to seat them; tables that fit the party are outlined while dragging. Click a tile to open the **table drawer**:
+
+- The current guest with **Seat here** / **Complete**, plus **No-show**, **Refund deposit**, and **Cancel**
+- On a free table, arriving guests with **Seat here** (parties too big are greyed out)
+- **Upcoming today** for that table, with **Seat now** for early arrivals
+- ⋯ menu: **Edit table** and **Open in table layout** (hidden for hosts)
+
+Tables & shifts opens a table's edit form when linked with `?editTable=<id>`.
 
 ## Waitlist
 
@@ -74,11 +103,21 @@ Under **Settings**:
 
 ## Menu management
 
-Upload menu sections and items. Images use presigned uploads to DigitalOcean Spaces (stubbed locally).
+The **Menu** editor holds categories and dishes. Dish rows show a photo thumbnail, price, a one-line description, dietary tags, and an **Unavailable** tag.
 
-Check **Popular** on up to 10 dishes. Those are the only items diners see on the public restaurant page (and in the mobile menu tab). Link a full menu URL if you want guests to open the complete menu.
+- **Search** by name, description, or dietary tag, and filter to **Popular** or **Unavailable**
+- Move dishes and categories up or down; **Expand all / Collapse all** per category
+- Star up to 10 dishes as **Popular** (the **Featured dishes** meter shows x / 10). Those are the only dishes diners see on the public restaurant page and in the mobile menu tab
+- An **Unsaved changes** bar offers **Discard** and **Save menu**, and the page warns before you leave or switch restaurants with unsaved edits
+- Save checks every dish and jumps to the first one that needs a name or price
 
-Partners can also **import** menu data from DoorDash/Uber Eats MHTML exports (admin import flow).
+Link a **Full menu URL** if you want guests to open the complete menu. Clearing the field removes the link. Partners can also **import** menu data from DoorDash/Uber Eats MHTML exports.
+
+### Online ordering
+
+The **Online ordering** card takes a DoorDash, Uber Eats, Toast, or other ordering link. When it is on, the diner page shows a full-width **Order online · Takeout & delivery** button. Owners, managers, and admins can switch the button off without deleting the link; hosts cannot. Adding a valid link turns it on.
+
+The diner button adds `utm_source=<site>/restaurants/<slug>`, `utm_medium=reservations`, and `utm_campaign=order_online` so the ordering platform's analytics can attribute Tablevera orders. Copy the tracked link from the card.
 
 ## Operational notifications
 
@@ -87,10 +126,12 @@ Configure which events ping you and on which channels:
 - New reservation
 - Guest spend alerts
 - Waitlist conversion
-- New messages
+- New messages and new reviews
 - Survey invitations
 
-Settings → **Notifications**.
+Settings → **Notifications**. The **Messenger bot** card links a Telegram chat (up to 3 per user per restaurant) for actionable reservation cards: Accept, Reject, Seat, Complete, No-show, and Cancel. Times on those cards use the restaurant's timezone.
+
+Billing alerts (failed card charges, expiring card, trial without a card) always go by email and in-app, even if account-update notifications are off.
 
 ## End of service
 

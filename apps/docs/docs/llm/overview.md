@@ -60,12 +60,7 @@ pnpm --filter @reservations/api test
 
 ## Demo credentials
 
-```
-diner@tablevera.local / Password123!
-owner@tablevera.local / Password123!
-a@tablevera.local / Password123!
-OTP dev code: 123456 (AUTH_DEV_OTP=true)
-```
+Local seed accounts (diner, owner, super admin) and their password are defined in `apps/api/src/seed.ts`; read them from the repo, never from this site. OTP dev code: `123456` when `AUTH_DEV_OTP=true` (ignored in production).
 
 ## Where human docs live
 
@@ -79,7 +74,7 @@ OTP dev code: 123456 (AUTH_DEV_OTP=true)
 
 ## Suggested agent workflow
 
-1. Identify affected app(s): api, web, dashboard, mobile, shared, ui, widget
+1. Identify affected app(s): api, web, dashboard, mobile, merchant-mobile, docs, shared, ui, widget
 2. Grep for existing patterns before adding new abstractions
 3. Implement + typecheck affected packages
 4. Run targeted tests if touching API business logic

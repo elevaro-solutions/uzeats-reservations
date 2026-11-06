@@ -1,5 +1,11 @@
 # API — Learnings & Observations
 
+## [2026-11-06] QA checklist catalog is v0.101.1
+- `QA_CHECKLIST_RELEASE` is `0.101.1`. Catalog groups are Docs access and Docs content. v0.101.0 billing / floor / menu items stay on that release’s `QaReleaseChecklist` row and catalog snapshot.
+- `docsCookieDomain()` is the parent of `DOCS_APP_URL` in production mode. It used to be hardcoded `.tablevera.online`, which staging browsers (`docs.tablevera.app`) reject, so the nginx gate would never see the cookie.
+- Each docs container must set `DOCS_API_ORIGIN` to its own API (staging `https://api.tablevera.app`). The image default is production, so an unset staging docs app would verify sessions against the wrong API and lock everyone out.
+- Why it matters: Sign-off for this gate is the nginx docs gate and OTP limits, not the previous billing work.
+
 ## [2026-11-05] QA checklist catalog is v0.101.0
 - `QA_CHECKLIST_RELEASE` is `0.101.0`. Catalog groups are Billing, Partner Hub, Floor, Online ordering, Menu, Diner web, Admin, and Integrations. v0.100.x agreement items stay on their own `QaReleaseChecklist` rows and catalog snapshots.
 - Why it matters: Sign-off for this gate is default card / auto-charge failures, All restaurants, Live floor tables, Order online switch, and Menu editor tools — not the agreement work.
@@ -555,3 +561,9 @@
 ## [2026-11-05] In-app notifications are scoped by `data.restaurantId`
 - `Notification` has no top-level restaurant field; `notifyRestaurantManagers` writes `data.restaurantId`. `data` is Mixed, so the id may be a string or an ObjectId. `buildInAppNotificationFilter` (`services/notificationFilters.ts`) matches both and also keeps alerts with no `data.restaurantId` (account-level). Used by `myNotifications`, `unreadNotificationCount`, `markAllNotificationsRead`, and `myOwnerOverview.unreadNotifications`.
 - Why it matters: A new partner alert about one location must put `restaurantId` in `data`, or it shows under every restaurant in Partner Hub.
+
+## [2026-11-06] Docs site is gated by nginx, not by React
+- `apps/docs` is a static Docusaurus build. Every page's text ships in `/assets/js/<hash>.js` chunks, so the old client-only `DocsAccessGate` hid nothing: an unauthenticated `curl` could download demo credentials and infra notes. nginx now runs `auth_request` against `GET /docs-access/verify` (cookie `tv_docs_access`, JWT + still-approved email) for every page and `/assets/*`.
+- Docusaurus awaits the route's chunks (`preload`) before rendering, so gating chunks breaks any React sign-in page. Sign-in is the standalone `apps/docs/static/access/index.html`; only `/access/`, `/img/`, and `robots.txt` are public.
+- Docs OTP: `consumeDocsOtp` increments `docs_otp_attempts:<email>` before comparing (cap 5 per issued code). Batched HTTP (`graphqlBatchMiddleware`) and aliased mutations otherwise allow many guesses per request. Docs-access ops are in `SENSITIVE_GRAPHQL`.
+- Why it matters: Never rely on a client-side check to protect a static site. Don't put new public files under `/assets/`; anything under it needs a docs session.

@@ -6,7 +6,7 @@ Primary domain: [https://tablevera.online](https://tablevera.online)
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
-**Documentation:** [apps/docs](./apps/docs) — Docusaurus site with guides for developers, diners, managers, admins, architecture, and LLM agents. Access is gated (request + OTP for approved emails). Run locally at http://localhost:3002 (`pnpm --filter @reservations/docs dev`).
+**Documentation:** [apps/docs](./apps/docs) — Docusaurus site with guides for developers, diners, managers, admins, architecture, and LLM agents. Access is gated (request + OTP for approved emails) by nginx on every page and file; sign-in is the standalone `/access/` page, and each docs app needs `DOCS_API_ORIGIN` set to its own API. Run locally at http://localhost:3002 (`pnpm --filter @reservations/docs dev`).
 
 ## Monorepo
 

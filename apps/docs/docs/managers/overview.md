@@ -6,18 +6,25 @@ The **partner dashboard** (local: http://localhost:3001) is where restaurant own
 
 | Role | Access |
 |---|---|
-| `restaurant_owner` | Full venue control including billing, plan changes, manager invites (Settings → Team; seats from package), and settings |
-| `manager` | Operate reservations, Live floor, and guest comms — **cannot** add restaurants, manage billing, or invite managers |
+| `restaurant_owner` | Full venue control including billing, plan changes, team invites (Settings → Team; seats from package), agreements, and settings |
+| `manager` | Operate reservations, Live floor, and guest comms — **cannot** add restaurants, manage billing, or invite staff |
+| `host` | Front of house only: reservations, waitlist, Live floor, guests, and messages. No billing, settings, or Grow |
 
-Platform roles (`admin`, `super_admin`) see additional admin sections — see [Platform admins](/admins/platform-overview).
+Managers and hosts each use one team seat from the package. Platform roles (`admin`, `account_manager`, `super_admin`, `qa`) see additional admin sections — see [Platform admins](/admins/platform-overview).
 
 ## Logging in
 
 - Email/password at `/login`
 - Google OAuth (when configured)
-- Demo owner: `owner@tablevera.local` / `Password123!`
+- **Tablevera Partner** app on the App Store and Google Play (owners, managers, hosts)
 
-Owners with **multiple restaurants** use the restaurant selector in the top navigation. Press **⌘K** / **Ctrl+K** to search pages, settings tools, and switch restaurants.
+A short "preparing" screen shows while the session and landing page load.
+
+### All restaurants
+
+Owners and managers with **more than one restaurant** land on **All restaurants**. Overview, My restaurants, Reservations, Waitlist, and Billing show every location together. The rest of the menu appears once you pick a restaurant from the header or from My restaurants. A `restaurant` id in the URL loads only that restaurant. Press **⌘K** / **Ctrl+K** to search pages, settings tools, and switch restaurants.
+
+Alerts follow the selected restaurant: the header bell and Overview **Unread alerts** show that restaurant's alerts plus account-level ones. **All restaurants** shows every alert, and **Mark all read** only clears what you are viewing.
 
 ## Dashboard layout
 
@@ -31,7 +38,7 @@ Daily work stays in the sidebar. Less frequent tools live under hubs (still find
 |---|---|
 | **Reservations** | List with status and date presets; dedicated booking detail; create phone/walk-in reservations |
 | **Waitlist** | Manage waiting parties and notify on openings |
-| **Live floor** | Live seating: per-area grids, assign and seat guests |
+| **Live floor** | Live seating: Tables (default), Floor plan, List, and 3D views; assign and seat guests |
 | **Guests** | Per-venue CRM list with VIP status and tags; Excel/PDF export. **Loyalty** opens from a card on this page |
 | **Reviews** | Guest ratings and comments; sidebar badge for unreplied reviews; new-review notifications |
 | **Messages** | Guest conversations tied to reservations |
@@ -58,17 +65,32 @@ These require `restaurant_owner` or platform admin:
 - Email template branding
 - Integrations and API keys
 
-## Onboarding checklist
+## Setup guide
 
-New partners see an onboarding checklist in the shell tracking setup steps:
+New partners get a floating **Setup guide** (also the full page at `/onboarding`) grouped into listing, service, payments, team, and go live. Steps tick off as you finish them; optional steps can be skipped. Required steps include:
 
-- Complete restaurant profile
+- Complete the restaurant profile, photos, and menu
 - Configure shifts and tables
-- Upload logo, photos, and menu
-- Connect Stripe for deposits/billing
-- Copy widget embed code
+- **Choose a plan**
+- **Add a default payment card** (owners / billing managers). Done once a debit or credit card is saved as the venue default. This card is auto-charged for renewals, monthly cover-fee invoices, and paid extras (SMS credits, 3D room)
+- **Sign the Partner Agreement** (owners, under Go live). Shows the days left when an updated version is waiting
 
 Progress is computed in `apps/dashboard/src/lib/onboarding.ts`.
+
+## Partner Agreement
+
+Owners sign the Restaurant Partner Agreement at signup by typing their full legal name or drawing a signature. Settings → Account → **Agreements** opens it any time to read, download the PDF, or download a signed copy.
+
+When Tablevera publishes a new version, owners see a banner and have 7 days to re-sign at `/agreements/sign`. Reminder emails go out 1–2 days before the window ends. After 7 days, Partner Hub sends owners to the signing page until they sign.
+
+## Restaurant visibility
+
+| Setting | Effect |
+|---|---|
+| **Visible / Not visible** | Not visible hides the restaurant from diner search and its public page |
+| **Active / Inactive** | Inactive keeps the public page but blocks new bookings |
+
+A restaurant with no active plan, or one hidden for non-payment, is also off diner search. See [Billing & plans](/admins/billing-and-plans) for the unpaid-invoice ladder.
 
 ## Getting help
 
@@ -76,6 +98,6 @@ Progress is computed in `apps/dashboard/src/lib/onboarding.ts`.
 - Platform admin **Tickets** queue for escalations
 - Documentation: [Daily operations](/managers/daily-operations)
 
-## Demo tips
+## Local demo
 
-Set `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` in dashboard env to show seed login hints on `/login`.
+For local development, `pnpm seed` creates a demo owner (see [Getting started](/developers/getting-started)).

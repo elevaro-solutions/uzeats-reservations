@@ -1,13 +1,14 @@
 # Architecture overview
 
-Tablevera is a **monolithic GraphQL API** backed by **MongoDB** and **Redis**, with three client applications sharing types through `@reservations/shared`.
+Tablevera is a **monolithic GraphQL API** backed by **MongoDB** and **Redis**, with diner web, Partner Hub, two Expo apps, and an embed widget sharing types through `@reservations/shared`.
 
 ```mermaid
 flowchart TB
   subgraph clients [Client apps]
     Web[apps/web<br/>Diner Next.js]
     Dash[apps/dashboard<br/>Partner Next.js]
-    Mobile[apps/mobile<br/>Expo]
+    Mobile[apps/mobile<br/>Expo diner]
+    Merchant[apps/merchant-mobile<br/>Expo partner]
     Widget[packages/widget<br/>Embed script]
   end
 
@@ -29,6 +30,7 @@ flowchart TB
   Web --> API
   Dash --> API
   Mobile --> API
+  Merchant --> API
   Widget --> API
   API --> Mongo
   API --> Redis
@@ -70,7 +72,7 @@ flowchart TB
 
 ## Deployment topology
 
-Production typically runs three Node processes (api, web, dashboard) plus managed MongoDB, Redis, and Spaces. See [Deployment](/developers/deployment).
+Production runs Dokku apps for api, web, dashboard, and docs (nginx-gated static site) plus managed MongoDB, Redis, and Spaces. See [Deployment](/developers/deployment).
 
 ## Versioning
 

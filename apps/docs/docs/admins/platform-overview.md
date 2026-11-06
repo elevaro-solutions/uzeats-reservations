@@ -18,12 +18,14 @@ Access requires role `admin`, `account_manager`, or `super_admin` in the partner
 | Wipe seed data | ❌ | ❌ | ✅ |
 | Assign admin / super admin | ❌ | ❌ | ✅ |
 | Modify super admin accounts | ❌ | ❌ | ✅ |
+| Edit legal agreements | ❌ | ❌ | ✅ |
+| Assign the QA role | ❌ | ❌ | ✅ |
 
-Demo super admin: `a@tablevera.local` / `Password123!`
+The **`qa`** role is for release testers. QA users land on the QA dashboard, can open the checklist and issues, and cannot create restaurants.
 
 ## Admin navigation
 
-The sidebar keeps support queues first, then accounts. Billing and platform tools open from hubs (still findable with ⌘K).
+The sidebar keeps support queues first, then accounts. Billing and platform tools open from hubs (still findable with ⌘K). Hub cards can be **pinned to the sidebar**; pins are saved per user. The app version under the sidebar opens the release notes.
 
 | Page | Purpose |
 |---|---|
@@ -36,16 +38,39 @@ The sidebar keeps support queues first, then accounts. Billing and platform tool
 | **Moderation** | Review flagged content |
 | **Guests** | Create and manage customer accounts |
 | **Restaurant accounts** | Owners and managers with venue assignment |
-| **Admins** | Platform admins and account managers |
-| **Billing** | Hub: invoices, revenue, churn, loyalty, plans, services, data exports |
-| **Platform** | Hub: config, discovery, blog, docs access, templates, SLA, audit, developer |
+| **Platform accounts** | Every platform role (admin, account manager, super admin, QA) |
+| **Billing** | Hub: invoices, failed charges, no-show fees, revenue, churn, loyalty, plans, services, data exports |
+| **Platform** | Hub grouped into Setup, Configuration, Content, Email, Monitoring, QA, and Advanced (config, discovery, blog, agreements, docs access, templates, SLA, audit, developer, QA tools) |
+
+## Legal agreements
+
+`/admin/agreements` (Platform → Content) is the super admin editor for the **Terms of Use** (diners) and the **Restaurant Partner Agreement** (owners). Saving new content publishes a new version:
+
+- Signers type their full legal name or draw a signature; each signature stores the version, time, IP address, and device
+- Owners get 7 days to re-sign a new Partner Agreement, with reminder emails 1–2 days before the window ends
+- **Preview signing page** opens the owner signing page with signing disabled
+- Agreements and signed copies download as branded A4 PDFs
+
+## QA tools
+
+Release testing lives under Platform → QA (QA-role users get a dedicated menu):
+
+| Page | Purpose |
+|---|---|
+| `/admin/qa/dashboard` | Run counts, required progress, recent sign-offs |
+| `/admin/qa` | The active release checklist. Steps, notes, and sign-off are saved in the database |
+| `/admin/qa/history` | Every prior run with its tasks, notes, and sign-off |
+| `/admin/qa/issues` | File and track bugs and features; export as PDF, Excel, or Word |
+| `/admin/qa/versions`, `/admin/qa/guide` | Release notes and how to test |
 
 ## Restaurant lifecycle
 
 1. Partner self-registers or admin creates a restaurant
 2. Status starts as `pending`
-3. Admin reviews and sets `approved`, `rejected`, or `suspended`
-4. Approved restaurants appear in diner search
+3. Admin reviews and sets `approved`, `rejected`, or `suspended` (Standing)
+4. Approved restaurants that are **Visible** and **Active** (Listing) appear in diner search
+
+See [Restaurants & users](/admins/restaurants-and-users) for Standing vs Listing.
 
 Admins can import restaurant data from DoorDash/Uber Eats MHTML files.
 

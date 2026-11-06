@@ -1,0 +1,80 @@
+# Rendered by the nginx image entrypoint (envsubst, DOCS_* vars only).
+# The Docusaurus build is static, so every page and JS chunk is gated here;
+# the React check in src/theme/Root.tsx alone does not protect content.
+
+proxy_cache_path /var/cache/nginx/docs_auth levels=1 keys_zone=docs_auth:1m max_size=10m inactive=10m use_temp_path=off;
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    # TLS ends at the Dokku proxy; absolute redirects would point at http://host:80.
+    absolute_redirect off;
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    location / {
+        auth_request /_docs_auth;
+        error_page 401 = @docs_sign_in;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Cache-Control "private, no-cache" always;
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /assets/ {
+        auth_request /_docs_auth;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Cache-Control "private, max-age=604800, immutable" always;
+        try_files $uri =404;
+    }
+
+    location = /access {
+        return 301 /access/$is_args$args;
+    }
+
+    location /access/ {
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ =404;
+    }
+
+    location = /access/config.json {
+        default_type application/json;
+        add_header Cache-Control "no-store" always;
+        return 200 '{"apiUrl":"${DOCS_API_ORIGIN}/graphql"}';
+    }
+
+    location /img/ {
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        add_header Cache-Control "public, max-age=604800" always;
+        try_files $uri =404;
+    }
+
+    location = /robots.txt {
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
+    location = /_docs_auth {
+        internal;
+        if ($cookie_tv_docs_access = "") {
+            return 401;
+        }
+        proxy_pass ${DOCS_API_ORIGIN}/docs-access/verify;
+        proxy_ssl_server_name on;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie "tv_docs_access=$cookie_tv_docs_access";
+        proxy_cache docs_auth;
+        proxy_cache_key $cookie_tv_docs_access;
+        proxy_cache_valid 204 60s;
+        proxy_ignore_headers Cache-Control Expires Set-Cookie;
+    }
+
+    location @docs_sign_in {
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        return 302 /access/?next=$request_uri;
+    }
+}

@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import {
@@ -39,7 +40,7 @@ function useDevOtp() {
 }
 
 function generateOtpCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 export function signDocsAccessToken(email: string) {

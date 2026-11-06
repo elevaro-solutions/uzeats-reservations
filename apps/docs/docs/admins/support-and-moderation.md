@@ -71,11 +71,15 @@ Published posts appear on the diner web app for organic traffic.
 
 Templates cover:
 
-- Reservation confirmation
-- Reminder / no-show warnings
+- Reservation confirmation, request received, updated, reminder, running late, cancelled
+- No-show / completed follow-ups, no-show fee charged and refunded, ask for review
 - Waitlist notification
-- Password reset
+- Password reset and docs access codes
+- Agreement reminders (Partner Agreement, Terms of Use)
+- Billing: `card_charge_failed`, `card_action_required`, `card_expiring`, `trial_card_missing`, `billing_admin_alert`
 - Survey invitations
+
+**Send test** emails the open draft to your own address (requires SendGrid).
 
 ## Platform config
 

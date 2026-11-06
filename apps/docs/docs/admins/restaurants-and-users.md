@@ -15,18 +15,35 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 | Request public profile | Owner/manager | Grow → Public profile; reviewed at **Admin → Profile requests** |
 | Edit menu | Admin | Restaurant detail → Menu; check **Popular** on up to 10 dishes for the public page |
 | Approve / reject | Admin | Moves `pending` → `approved` or `rejected` |
-| Suspend | Admin | Hides from search; blocks new bookings |
+| Suspend | Admin | Also marks the restaurant inactive and not visible; the public page shows a closed booking card |
+| Visible / Not visible, Active / Inactive | Admin | Listing switches, only for approved restaurants |
+| Package / paid period start | Super admin | Restaurant → Package; a stale Stripe subscription link is dropped instead of failing |
 | Delete (permanent) | Super admin only | Irreversible |
 | Import MHTML | Admin | Parse DoorDash/Uber Eats export for menu/metadata |
 
-### Restaurant status
+The More menu and bulk bar group **Standing** (Approve / Reject / Suspend) apart from **Listing** (Visible / Active). Reject, Suspend, Not visible, Active, and Inactive ask for a reason, which is stored on the audit log.
+
+### Standing
 
 | Status | Effect |
 |---|---|
 | `pending` | Not visible to diners |
-| `approved` | Live in search and booking |
+| `approved` | Eligible for search and booking (see Listing) |
 | `rejected` | Registration denied |
-| `suspended` | Temporarily disabled |
+| `suspended` | Temporarily disabled; approving again makes it visible and active |
+
+### Listing
+
+| Setting | Effect |
+|---|---|
+| **Not visible** | Hidden from diner search and its public page |
+| **Inactive** | Public page stays, but **Complete reservation** is disabled and new bookings are rejected; out of diner search |
+
+A restaurant with no active plan, or one past day 14 of the unpaid-invoice ladder, is also off diner search.
+
+### Add restaurant
+
+**Add restaurant** walks through Details, Owner, and Review. If the new owner's email or phone is already registered, the Owner step names it so you can change it, leave the phone blank, or link the existing account. Admin-created restaurants on a free trial still need a default card (setup guide step).
 
 ### Public URL slugs
 
@@ -45,8 +62,8 @@ Account admin is split by role:
 | Page | Accounts | Create |
 |---|---|---|
 | **Admin → Guests** | Customer accounts on the guest app | Create guest with email/password |
-| **Admin → Restaurant accounts** | Owners and managers (`restaurant_owner` / `manager`) | Create or invite with role + venue access; managers need ≥1 venue |
-| **Admin → Admins** | `admin` / `account_manager` / `super_admin` | Create admin or account manager; promote super admin via role change (super admin) |
+| **Admin → Restaurant accounts** | Owners and venue staff (`restaurant_owner` / `manager` / `host`) | Create or invite with role + venue access; staff need ≥1 venue |
+| **Admin → Platform accounts** | `admin` / `account_manager` / `super_admin` / `qa` | Create admin, account manager, or QA (super admin); promote super admin via role change |
 
 Each list has a **detail** page for profile, password reset, impersonation, and assigned restaurants (owners/managers). **Guests**, **Restaurant accounts**, and **Admins** can download the current filters as Excel, PDF, or JSON.
 
@@ -54,7 +71,7 @@ Each list has a **detail** page for profile, password reset, impersonation, and 
 
 | Field | Notes |
 |---|---|
-| Role | `diner`, `restaurant_owner`, `manager`, `admin`, `account_manager`, `super_admin` |
+| Role | `diner`, `restaurant_owner`, `manager`, `host`, `admin`, `account_manager`, `super_admin`, `qa` |
 | Restaurant IDs | Which venues an owner/manager member can access |
 | Verification | Email/phone verified flags |
 | Loyalty | Platform points and tier (guests) |
@@ -78,7 +95,7 @@ Registration API: `apps/api/src/routes/partner.ts` and `services/partnerRegister
 
 ## Multi-location owners
 
-Owners with several restaurants see a selector in `DashShell`. Admin can attach additional `restaurantIds` to their user record.
+Owners with several restaurants land on **All restaurants** and pick a venue from the header selector in `DashShell`. Admin can attach additional `restaurantIds` to their user record.
 
 ## Audit
 

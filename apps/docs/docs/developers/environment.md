@@ -42,13 +42,16 @@ NEXT_PUBLIC_WS_URL=ws://localhost:4000/graphql
 
 ## Stripe
 
+The API keeps separate sandbox (`_TEST`) and live (`_LIVE`) keys. **Admin → Config → Billing** picks the active mode, and clients load the matching publishable key from the API.
+
 | Variable | Purpose |
 |---|---|
-| `STRIPE_SECRET_KEY` | API — PaymentIntents, subscriptions |
-| `STRIPE_WEBHOOK_SECRET` | Required in production |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Web + dashboard Stripe.js |
+| `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` | API — PaymentIntents, SetupIntents, subscriptions, invoices |
+| `STRIPE_WEBHOOK_SECRET_TEST` / `STRIPE_WEBHOOK_SECRET_LIVE` | Webhook signature check (required in production) |
+| `STRIPE_PUBLISHABLE_KEY_TEST` / `STRIPE_PUBLISHABLE_KEY_LIVE` | Served to web + dashboard Stripe.js |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Legacy fallback, used only when the key prefix matches the requested mode |
 
-Without Stripe keys, deposits and billing flows are stubbed for local dev.
+Without Stripe keys, deposits and billing flows are stubbed for local dev. Stored `cus_` / `sub_` / `pi_` IDs are not migrated between modes.
 
 ## Storage (DigitalOcean Spaces)
 
@@ -65,19 +68,29 @@ Uploads are stubbed when keys are missing.
 | Variable | Channel |
 |---|---|
 | `SENDGRID_API_KEY` | Transactional email |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_WEBHOOK_SECRET` | Legacy Telegram alerts bot |
 | `API_PUBLIC_URL` | Telegram webhook registration |
+| `MESSENGER_BOT_WEBHOOK_BASE_URL` | Merchant messenger bot webhook mode (https); unset = long polling. The bot token itself is in Admin → Config |
 | `VAPID_*` | Web push notifications |
 | `TWILIO_*` | SMS (transactional + opt-in at `/sms`) |
+| `ELEVARO_LEADS_*` | Forward diner contact-form leads |
 
-## AI (optional)
+## AI and 3D (optional)
 
 | Variable | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | Personalized review reply drafts on the partner Reviews page (Google AI Studio free tier) |
+| `GEMINI_API_KEY` | Review reply drafts and package descriptions (Google AI Studio free tier) |
 | `GEMINI_MODEL` | Defaults to `gemini-3.5-flash-lite`. Override if Google renames free-tier models |
+| `KIRI_ENGINE_API_KEY` | Virtual 3D room scans from walkthrough video or photos |
 
-Without `GEMINI_API_KEY`, `generateReviewReplyDraft` still returns a templated draft. Drafts are not posted until `replyToReview`.
+Without `GEMINI_API_KEY`, `generateReviewReplyDraft` still returns a templated draft. Drafts are not posted until `replyToReview`. Without `KIRI_ENGINE_API_KEY`, owners do not see scan uploads and the room is procedural + photos only.
+
+## Docs site
+
+| Variable | Where | Purpose |
+|---|---|---|
+| `DOCS_API_URL` | Docs build (`Dockerfile.docs` build arg) | GraphQL URL the docs client calls |
+| `DOCS_API_ORIGIN` | Docs container (runtime) | API origin nginx calls at `/docs-access/verify` to check every request; also served to the sign-in page. Defaults to `https://api.tablevera.online` |
 
 ## SEO & public URLs
 

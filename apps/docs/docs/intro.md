@@ -16,7 +16,13 @@ sidebar_position: 1
 | Platform operators | [Admins → Platform overview](/admins/platform-overview) | Partner dashboard (admin) |
 | Architects & contributors | [Architecture → Overview](/architecture/overview) | — |
 | AI / LLM agents | [LLM → Overview](/llm/overview) | — |
-| QA | [Manual QA](/qa/overview) | Docs site (this section) |
+| QA | [Manual QA](/qa/overview) | Partner Hub `/admin/qa` |
+
+## Access
+
+This site is internal. Every page needs an approved docs email: sign in with a one-time code at `/access/`, or request access there. Platform admins approve requests in Partner Hub → Platform → **Docs access**. Platform admin accounts have access automatically.
+
+Do not paste credentials, API keys, server addresses, or customer data into these pages.
 
 ## Monorepo at a glance
 
@@ -24,29 +30,24 @@ sidebar_position: 1
 |---|---|---|
 | `apps/api` | 4000 | Apollo GraphQL API + BullMQ workers |
 | `apps/web` | 3000 | Diner-facing Next.js app |
-| `apps/dashboard` | 3001 | Restaurant partner + platform admin |
-| `apps/mobile` | Expo | React Native diner app |
-| `apps/merchant-mobile` | Expo | React Native partner ops app |
+| `apps/dashboard` | 3001 | Partner Hub (restaurant partners + platform admin) |
+| `apps/mobile` | Expo | Tablevera diner app (App Store, Google Play) |
+| `apps/merchant-mobile` | Expo | Tablevera Partner ops app (App Store, Google Play) |
 | `apps/docs` | 3002 | This documentation site |
+| `apps/e2e` | — | Playwright browser smoke tests |
 | `packages/shared` | — | Zod schemas, constants, types |
 | `packages/ui` | — | Design tokens and shared components |
 | `packages/widget` | — | Embeddable booking widget |
 
-## Demo accounts (local)
+## Demo accounts (local only)
 
-Password for all seed accounts: `Password123!`
+`pnpm seed` creates a diner, a restaurant owner, and a super admin on your local database. The emails and shared password are in `apps/api/src/seed.ts`. Never run the seed against production.
 
-| Email | Role |
-|---|---|
-| `diner@tablevera.local` | Diner |
-| `owner@tablevera.local` | Restaurant owner |
-| `a@tablevera.local` | Super admin |
-
-Phone OTP in development: any phone number + code `123456` when `AUTH_DEV_OTP=true`.
+Phone and email OTP in development: code `123456` when `AUTH_DEV_OTP=true`. The API ignores this flag in production.
 
 ## Quick links
 
 - Product site: [tablevera.online](https://tablevera.online)
-- Root README: [github.com — reservations README](https://github.com)
+- Root README: `README.md` in the repo
 - Design system: see `packages/ui/DESIGN.md` in the repo
 - Deployment guide: [Developers → Deployment](/developers/deployment)

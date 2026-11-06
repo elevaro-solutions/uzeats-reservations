@@ -2,12 +2,16 @@
 sidebar_position: 3
 title: Release v0.81.0
 slug: release-0-81-0
-description: Active manual QA gate for Tablevera 0.81.0.
+description: Archived manual QA page for Tablevera 0.81.0.
 ---
 
 # Release v0.81.0
 
-**Status:** Active  
+:::note Archived
+Release checklists moved to Partner Hub `/admin/qa` in v0.85.0. This page is kept as a record. Do not use it as the current gate.
+:::
+
+**Status:** Archived (superseded by `/admin/qa`)  
 **Source:** changelog `0.81.0` (2026-10-14)  
 **Env:** _______________ **Commit / build:** _______________
 

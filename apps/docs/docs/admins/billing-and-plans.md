@@ -4,14 +4,18 @@ Tablevera uses **Stripe** for partner subscriptions, deposits, and invoicing.
 
 ## Subscription plans
 
-Plan definitions live in `apps/api/src/config/plans.ts`. Each plan includes:
+Built-in plan defaults live in `apps/api/src/config/plans.ts`; admins edit the live catalog on **Admin → Pricing**. Each package includes:
 
-- Monthly price
-- Feature flags (table limits, campaign access, etc.)
-- **Manager seats** (`managerSeats`) — how many Manager (`manager`) accounts the owner can invite (minimum 1; Basic 1 / Core 3 / Pro 5 by default). The restaurant owner does not consume a seat. Owners manage the team at Partner Hub → Settings → Team; upgrade the package for more seats.
-- Trial period (when applicable)
+- Price and **billing duration** (number + day / week / month / year, e.g. 14 days or 3 months). Public `/pricing` and plan pickers show the duration (e.g. `/ 14 days`); annual billing only applies to 1-month packages
+- Feature flags (table limits, campaigns, floor plans, 3D view, etc.)
+- **Team seats** (`managerSeats`) — how many managers and hosts the owner can invite (minimum 1; Basic 1 / Core 3 / Pro 5 by default). The owner does not use a seat
+- Trial period (30 days on paid plans)
 
-Partners choose a plan during signup or change plans in **Settings → Billing**.
+**Base** is a $0 plan with a per-cover fee on network and website bookings, so a restaurant can stay listed without a subscription. Free plans have no paid cycle; switching off Base starts the new plan right away.
+
+Packages marked **Hidden** stay available to platform admins (restaurant create/edit, package assignment, invoices) but are not returned to partners or the public. **Featured / popular** highlights one package on public `/pricing`. Plans & pricing also sets how many packages the public page shows at once (default 3) and whether the **Compare all features** table appears.
+
+Partners choose a plan during signup or change plans in **Billing**. Superadmins can set a restaurant's paid period start on **Admin → Restaurants → Package** (a future date means trial until the first charge).
 
 ## Plan changes
 
@@ -21,13 +25,40 @@ Policy implemented in `apps/api/src/services/planChangePolicy.ts`:
 |---|---|
 | **Switch right away** | Charge the **full** new monthly price today (not a prorated difference). Unused time on the current plan is not credited. A new billing period starts now. |
 | **Switch at period end** | Default for downgrades. $0 today; the new plan starts at renewal. |
-| **Preview** | Dashboard shows cost before confirming |
+| **Preview** | Dashboard compares current and new price and lists gained or lost features |
+
+Upgrades start immediately and clear a scheduled cancel. **Cancel** keeps access until the paid period ends; **Resume** restores renewal. The cancel dialog offers **Switch to Base** instead.
+
+## Default payment card
+
+Each venue has one **default card**, shown on Billing → **Default payment method** (brand, last 4, expiry). Owners add or replace it through Stripe. Cards saved at signup or when adding a restaurant count as the default. It is auto-charged for:
+
+- Subscription renewals
+- Monthly cover-fee invoices
+- Paid extras (SMS credits, Virtual 3D room)
+
+Saving or replacing the card retries open invoices and an unpaid renewal right away. Owners get a reminder about 3 days before a trial ends if no card is on file, and a warning about 30 days before the card expires. When the bank asks to confirm a renewal (3D Secure), the owner gets a **Confirm payment** link.
+
+### Failed charges
+
+| Who retries | When |
+|---|---|
+| Stripe | Subscription renewals (Smart Retries). The daily job does not charge renewals a second time |
+| Daily billing job | Platform invoices on days 0, 1, 3, 5, and 7 after the due date, then weekly; at most once a day |
+
+A lost, stolen, or expired card pauses retries until the owner replaces it. On the first failure the owner gets an email and in-app alert with the bank's reason, the next retry date, and **Replace card** / **Pay now** links; Billing and invoice detail show a red **Automatic charge failed** banner. Admins and account managers get `billing_admin_alert` on the first failure and when a venue is hidden, restricted, or terminated for non-payment.
+
+## Paying invoices
+
+Billing → **Pay all invoices** settles every open invoice for the selected restaurant (or every restaurant under **All restaurants**) in one charge. `/billing/unpaid` lists every open invoice. Each platform invoice also has a matching Stripe hosted invoice.
 
 ## Admin billing tools
 
 | Page | Purpose |
 |---|---|
-| **Invoices** | Stripe invoice list across partners |
+| **Invoices** | Platform invoice list across partners, month insights (subscriptions, Virtual 3D, other services), recent transactions |
+| **Failed charges** | Restaurant, invoice, amount, reason, attempts, last attempt, and next retry |
+| **No-show fees** | Collected card-guarantee fees with totals and charge / refund actions |
 | **Revenue** | Aggregated MRR and revenue charts |
 | **Churn** | Cancellation and downgrade trends |
 | **Loyalty** | View outstanding points; super admins edit earn rates and create tiers |
@@ -37,27 +68,24 @@ Annual billing discounts are defined in `@reservations/shared` (`annualBilling.t
 
 ## Deposits
 
-Diners may pay refundable deposits at booking:
+Restaurants pick a deposit policy (Booking policies → Deposit policy). Tables can override the per-guest amount (max $100,000).
 
-- Stripe PaymentIntents with **manual capture**
-- Webhook at `POST /webhooks/stripe` confirms holds
-- Stubbed locally without `STRIPE_SECRET_KEY`
+| Policy | At booking | Later |
+|---|---|---|
+| **Card guarantee** (default) | Diner saves a card (Stripe SetupIntent); nothing charged | Fee charged off-session for a no-show or a cancel inside the cancel window (24 hours by default) |
+| **Prepaid** | Amount charged now and applied to the bill | Refunded in full if the diner cancels in time or the restaurant cancels |
+
+Packages, private dining, and experiences are always charged at booking. Stubbed locally without Stripe keys.
 
 ## Partner billing permissions
 
-Only `restaurant_owner` and platform admins can manage billing (`canManageBilling()`). Managers cannot view or change subscription details.
+Only `restaurant_owner` and platform admins can manage billing (`canManageBilling()`). Managers and hosts cannot view or change subscription details.
 
 ## Stripe configuration
 
-Production requires:
+The API holds separate sandbox and live keys; **Admin → Config → Billing** switches the active mode (super admin only). See [Environment variables](/developers/environment) for the variable names. Real key values live only in the server environment, never in docs or the repo.
 
-```bash
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-```
-
-Webhook endpoint: `https://api.yourdomain.com/webhooks/stripe`
+Webhook endpoint: `https://api.<your-domain>/webhooks/stripe`
 
 ## Gift cards & promotions
 
@@ -86,7 +114,7 @@ Unpaid invoices with a balance follow a UTC-day ladder from the **oldest unpaid 
 
 | Days past due | What happens |
 |---|---|
-| 0–7 | Grace. Daily card retry. Still listed. |
+| 0–7 | Grace. Card retries on days 0, 1, 3, 5, and 7. Still listed. |
 | 8–13 | Overdue. 1.5%/month finance charge starts (or legal max). $25 once per invoice on the first card decline. |
 | 14–29 | Hidden from diner search and new online bookings. Partner Hub stays open so staff can honor existing reservations. Phone/walk-in logging still allowed. |
 | 30–59 | Partner Hub limited to Billing + honoring the existing book. No new in-product reservations. Owner gets a 30-day termination notice. |

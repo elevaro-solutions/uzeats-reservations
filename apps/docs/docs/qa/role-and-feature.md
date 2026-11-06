@@ -6,7 +6,7 @@ description: Evergreen manual smoke by role and by feature.
 
 # Role and feature checklist
 
-Use for a full smoke, or only the surfaces a release touched. Record failures as tickets. Do not sign a release until its **Required** items pass on the [active release page](/qa/release-0-81-0).
+Use for a full smoke, or only the surfaces a release touched. Record failures in Partner Hub `/admin/qa/issues`. Do not sign a release until its **Required** items pass on the active checklist at `/admin/qa`.
 
 **Tester:** _______________ **Date:** _______________ **Env:** _______________
 
@@ -38,8 +38,10 @@ Use for a full smoke, or only the surfaces a release touched. Record failures as
 
 ### Owner (Partner Hub)
 
-- [ ] Login lands on overview; location switcher works when there are multiple venues
+- [ ] Login lands on overview; with multiple venues it lands on **All restaurants** and the switcher scopes pages and alerts
 - [ ] Billing is visible; a manager cannot open Billing
+- [ ] Default payment card shows on Billing and can be replaced; **Pay all invoices** settles open invoices
+- [ ] Settings → Account → Agreements opens the Partner Agreement and signed-copy PDF
 - [ ] Team invite stays within package seats; a full package shows a seat-limit error
 - [ ] Settings: profile, shifts and tables, closures and hours, notifications
 - [ ] Grow: booking widget snippet and Google Business link
@@ -47,8 +49,8 @@ Use for a full smoke, or only the surfaces a release touched. Record failures as
 
 ### Manager
 
-- [ ] Reservations: phone and walk-in; seat, complete, cancel with a reason
-- [ ] Live floor: assign and seat
+- [ ] Reservations: phone and walk-in; seat, complete, cancel with a reason; find by 6-digit confirmation number
+- [ ] Live floor Tables view: drag a guest onto a tile; the table drawer seats, completes, and lists Upcoming today
 - [ ] Waitlist Live and History; notify and seat
 - [ ] Guests, review replies, message replies
 - [ ] Cannot change the plan
@@ -94,7 +96,13 @@ Use for a full smoke, or only the surfaces a release touched. Record failures as
 ### Billing and deposits
 
 - [ ] Partner subscription or invoice pay path (test mode is fine)
-- [ ] Deposit hold on book; diner billing history shows it
+- [ ] Card guarantee booking saves a card without charging; a no-show charge and refund work from the detail page
+- [ ] A declined auto-charge shows the **Automatic charge failed** banner and appears on Admin → Failed charges
+
+### Menu and online ordering
+
+- [ ] Menu editor search, reorder, Popular star (x / 10), and the Unsaved changes bar
+- [ ] Online ordering link shows **Order online** on the diner page with UTM tags; switching it off hides the button
 
 ### Notifications
 

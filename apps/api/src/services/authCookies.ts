@@ -186,8 +186,16 @@ export function endImpersonationCookies(res: Response, req: Request): boolean {
 const DOCS_ACCESS_COOKIE = 'tv_docs_access';
 const DOCS_ACCESS_MAX_AGE_SEC = 30 * 24 * 60 * 60;
 
-function docsCookieDomain() {
-  return env.NODE_ENV === 'production' ? '.tablevera.online' : undefined;
+/** Parent domain of `DOCS_APP_URL` so the API host and the docs host (nginx gate) both receive the cookie. */
+export function docsCookieDomain(): string | undefined {
+  if (env.NODE_ENV !== 'production') return undefined;
+  try {
+    const labels = new URL(env.DOCS_APP_URL).hostname.split('.');
+    if (labels.length >= 3) return `.${labels.slice(1).join('.')}`;
+  } catch {
+    // Unset or invalid DOCS_APP_URL keeps the production default.
+  }
+  return '.tablevera.online';
 }
 
 export function getDocsAccessTokenFromRequest(req: Request): string | null {

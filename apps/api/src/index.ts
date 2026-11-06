@@ -48,6 +48,7 @@ import { uploadsRouter, videoUploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
 import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { resolveLocalUploadPath } from "./services/spaces.js";
+import { getDocsAccessSession } from "./services/docsAccess.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -126,7 +127,7 @@ async function main() {
   });
 
   const SENSITIVE_GRAPHQL =
-    /\b(login|register|registerRestaurantPartner|requestPhoneOtp|verifyPhoneOtp|requestPasswordReset|resetPassword|acceptManagerInvite|validateGiftCard|refreshToken)\b/i;
+    /\b(login|register|registerRestaurantPartner|requestPhoneOtp|verifyPhoneOtp|requestPasswordReset|resetPassword|acceptManagerInvite|validateGiftCard|refreshToken|checkDocsAccessEmail|requestDocsAccess|requestDocsAccessOtp|verifyDocsAccessOtp)\b/i;
 
   function isSensitiveGraphql(req: express.Request) {
     const body = req.body as
@@ -456,6 +457,13 @@ async function main() {
       context: async ({ req, res }) => createContext({ req, res }),
     }),
   );
+
+  // nginx `auth_request` target for the docs site (apps/docs). No IP rate
+  // limit: every call arrives from the docs container.
+  app.get("/docs-access/verify", async (req, res) => {
+    const session = await getDocsAccessSession(req);
+    res.status(session.granted ? 204 : 401).end();
+  });
 
   app.get("/health", async (_req, res) => {
     const mongoState = mongoose.connection.readyState;

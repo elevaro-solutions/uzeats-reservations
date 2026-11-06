@@ -27,7 +27,8 @@ Mobile stores tokens from the `AuthPayload` mutation response.
 | `host` | Front-of-house — reservations (today default), waitlist, live floor, guests, messages, deposits; no settings/billing/grow |
 | `admin` | Platform operator — most admin pages |
 | `account_manager` | Platform operator (limited elevated admin edits) |
-| `super_admin` | Full platform control including destructive ops |
+| `super_admin` | Full platform control including destructive ops, legal agreements, QA role assignment |
+| `qa` | Release tester — QA dashboard, checklist, and issues; cannot create restaurants |
 
 ## Permission helpers
 
@@ -36,12 +37,13 @@ Defined in `packages/shared/src/roles.ts`:
 ```typescript
 isPlatformAdmin(role)      // admin | account_manager | super_admin
 isSuperAdmin(role)         // super_admin only
+canManageQaChecklist(role) // super_admin | qa
 isHostRole(role)           // host
 isVenueStaffRole(role)     // manager | host (consume team seats)
 canManageBilling(role)     // restaurant_owner | platform admin
-canCreateRestaurant(role)  // not manager/host
+canCreateRestaurant(role)  // not manager/host/qa
 canAccessPartnerPath(role, pathname) // host FOH allowlist
-partnerLandingPath(role)   // host → /reservations; admin → /admin; else /overview
+partnerLandingPath(role)   // qa → /admin/qa/dashboard; admin → /admin; host → /reservations; else /overview
 canEditUser(actor, target) // super_admin guard for elevated users
 ```
 
@@ -69,9 +71,20 @@ Both web and dashboard use Apollo Client with `credentials: 'include'`. Auth sta
 
 API accepts origins listed in `CORS_ORIGINS` (comma-separated). Must include web and dashboard URLs in each environment.
 
+## Docs site access
+
+The docs site is a static build, so access is enforced by its nginx container, not by React:
+
+1. A visitor enters a work email at `/access/`. Approved emails (from Partner Hub → Platform → **Docs access**) and platform admin accounts get a 6-digit code by email
+2. `verifyDocsAccessOtp` sets the HttpOnly `tv_docs_access` cookie (30 days, `.tablevera.online`)
+3. nginx calls `GET /docs-access/verify` for each page and asset (cached 60 seconds per cookie). The API answers 204 if the JWT is valid and the email is still approved, otherwise 401
+
+Each code allows 5 wrong guesses, counted before the code is compared so batched or aliased GraphQL guesses cannot get around the cap. Revoking an email blocks it within a minute.
+
 ## Security notes
 
 - Never log JWT secrets or Stripe keys
 - Developer page masks secret env values
 - Password minimum enforced at registration
-- Rate limiting on auth endpoints (where configured)
+- Login, signup, OTP, password reset, invite, gift card, and docs-access operations share a stricter limit (30 requests per 15 minutes per IP); other GraphQL calls allow 300 per minute
+- Signed agreements store version, time, IP address, and device

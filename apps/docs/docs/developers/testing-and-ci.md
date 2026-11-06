@@ -2,7 +2,7 @@
 
 Full pyramid notes live in the monorepo at `docs/automation-testing.md`.
 
-Manual release checklists (role, feature, and the active release sign-off) are published at [Manual QA](/qa/overview).
+The active release checklist and sign-off live in Partner Hub at `/admin/qa`. See [Manual QA](/qa/overview).
 
 ## Running tests
 
@@ -31,7 +31,9 @@ API tests live in `apps/api/src/__tests__/` and use Vitest + MongoMemoryServer. 
 - Plan change policy (full-price immediate switches, scheduled downgrades)
 - Waitlist ops, party-size bounds, holidays / location slugs
 - Owner/manager support tickets (`createOwnerSupportTicket` / `myOwnerSupportTickets`), including HTML details and image attachments
-- Telegram webhook handling
+- Billing: auto-charge retries, default payment method, invoices, fail-to-pay enforcement, Stripe hosted invoices
+- Legal agreements, QA checklist / history / issues, docs access OTP and session
+- Telegram webhook and messenger bot handling
 
 ### Browser E2E — `@reservations/e2e`
 
@@ -81,4 +83,4 @@ pnpm seed
 
 Clears and re-seeds restaurants, tables, shifts, and demo users. Use `pnpm seed -- --clear` to remove seed data while keeping admin accounts.
 
-Demo diner `diner@tablevera.local` starts with 750 loyalty points for testing redemption flows.
+The seed diner starts with 750 loyalty points for testing redemption flows.

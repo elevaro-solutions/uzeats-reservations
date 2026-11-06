@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sign in · Tablevera Docs</title>
+  <link rel="icon" href="/img/tablevera-icon.svg">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+      color: #0f172a;
+    }
+    .card {
+      width: min(100%, 480px);
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+    }
+    .brand { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.5rem; }
+    .brand h1 { margin: 0 0 0.25rem; font-size: 1.35rem; }
+    .brand p { margin: 0; color: #64748b; font-size: 0.95rem; }
+    form, .success { display: flex; flex-direction: column; gap: 0.75rem; }
+    form[hidden], .success[hidden], p[hidden] { display: none; }
+    label { font-size: 0.875rem; font-weight: 600; color: #334155; }
+    input, textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+      font: inherit;
+    }
+    button {
+      margin-top: 0.25rem;
+      border: 0;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      background: #0f172a;
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.secondary { background: transparent; color: #475569; border: 1px solid #cbd5e1; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .hint { margin: 0; color: #475569; line-height: 1.5; }
+    .success p {
+      margin: 0;
+      color: #166534;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      padding: 0.75rem;
+    }
+    .note { margin: 0.75rem 0 0; color: #475569; font-size: 0.9rem; }
+    .error { margin: 0.75rem 0 0; color: #b91c1c; font-size: 0.9rem; }
+    @media (prefers-color-scheme: dark) {
+      body { background: linear-gradient(180deg, #0f172a 0%, #111827 100%); color: #f8fafc; }
+      .card { background: #1e293b; border-color: #334155; }
+      .brand p, .hint, .note { color: #94a3b8; }
+      label { color: #e2e8f0; }
+      input, textarea { background: #0f172a; border-color: #475569; color: #f8fafc; }
+      button { background: #2563eb; }
+      button.secondary { background: transparent; color: #cbd5e1; border-color: #475569; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <img src="/img/tablevera-icon.svg" alt="" width="40" height="40">
+      <div>
+        <h1>Tablevera Docs</h1>
+        <p>Internal documentation for developers, partners, and platform admins.</p>
+      </div>
+    </div>
+
+    <p id="checking" class="hint">Checking access…</p>
+
+    <form id="step-email" hidden>
+      <label for="docs-email">Work email</label>
+      <input id="docs-email" type="email" required autocomplete="email" placeholder="you@company.com">
+      <button type="submit">Continue</button>
+    </form>
+
+    <form id="step-otp" hidden>
+      <p class="hint">Enter the 6-digit code sent to <strong id="otp-email"></strong>.</p>
+      <label for="docs-otp">Verification code</label>
+      <input id="docs-otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" required placeholder="123456">
+      <button type="submit">Sign in</button>
+      <button type="button" class="secondary" id="resend-otp">Resend code</button>
+      <button type="button" class="secondary" data-back>Use a different email</button>
+    </form>
+
+    <form id="step-request" hidden>
+      <p class="hint">Request access for <strong id="request-email"></strong>. An admin will review your request.</p>
+      <div class="row">
+        <div>
+          <label for="docs-first">First name</label>
+          <input id="docs-first" autocomplete="given-name">
+        </div>
+        <div>
+          <label for="docs-last">Last name</label>
+          <input id="docs-last" autocomplete="family-name">
+        </div>
+      </div>
+      <label for="docs-company">Company</label>
+      <input id="docs-company" autocomplete="organization">
+      <label for="docs-reason">Why do you need access?</label>
+      <textarea id="docs-reason" rows="4" minlength="10" required placeholder="Briefly describe your role and what you need from the docs."></textarea>
+      <button type="submit">Request access</button>
+      <button type="button" class="secondary" data-back>Back</button>
+    </form>
+
+    <div id="step-done" class="success" hidden>
+      <p id="done-message"></p>
+      <button type="button" class="secondary" data-back>Start over</button>
+    </div>
+
+    <p id="note" class="note" hidden></p>
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+
+  <script>
+    (function () {
+      var EMAIL_KEY = 'tv_docs_access_email';
+      var steps = ['step-email', 'step-otp', 'step-request', 'step-done'];
+      var $ = function (id) { return document.getElementById(id); };
+      var email = '';
+      var apiUrlPromise = resolveApiUrl();
+
+      function fallbackApiUrl() {
+        var host = window.location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:4000/graphql';
+        return 'https://api.' + host.replace(/^docs\./, '') + '/graphql';
+      }
+
+      function resolveApiUrl() {
+        return fetch('/access/config.json', { cache: 'no-store' })
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (cfg) { return (cfg && cfg.apiUrl) || fallbackApiUrl(); })
+          .catch(fallbackApiUrl);
+      }
+
+      function nextPath() {
+        var next = new URLSearchParams(window.location.search).get('next') || '/';
+        if (next.charAt(0) !== '/' || next.charAt(1) === '/' || next.charAt(1) === '\\') return '/';
+        if (next.indexOf('/access/') === 0) return '/';
+        return next;
+      }
+
+      function graphql(query, variables) {
+        return apiUrlPromise.then(function (url) {
+          return fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', 'X-Client-App': 'docs' },
+            body: JSON.stringify({ query: query, variables: variables || {} }),
+          });
+        }).then(function (res) { return res.json(); }).then(function (json) {
+          if (json.errors && json.errors.length) throw new Error(json.errors[0].message || 'Request failed');
+          if (!json.data) throw new Error('Empty response');
+          return json.data;
+        });
+      }
+
+      function show(step) {
+        $('checking').hidden = true;
+        steps.forEach(function (id) { $(id).hidden = id !== step; });
+      }
+
+      function setText(id, text) {
+        var el = $(id);
+        el.textContent = text || '';
+        el.hidden = !text;
+      }
+
+      function setBusy(form, busy) {
+        Array.prototype.forEach.call(form.querySelectorAll('button'), function (b) { b.disabled = busy; });
+      }
+
+      function run(form, task) {
+        setBusy(form, true);
+        setText('error', '');
+        return task().catch(function (err) {
+          setText('error', err && err.message ? err.message : 'Something went wrong');
+        }).then(function () { setBusy(form, false); });
+      }
+
+      function sendOtp() {
+        return graphql(
+          'mutation RequestDocsAccessOtp($email: String!) { requestDocsAccessOtp(email: $email) { success message } }',
+          { email: email }
+        ).then(function (data) {
+          var result = data.requestDocsAccessOtp;
+          if (!result.success) throw new Error(result.message);
+          setText('note', result.message);
+        });
+      }
+
+      $('step-email').addEventListener('submit', function (e) {
+        e.preventDefault();
+        email = $('docs-email').value.trim().toLowerCase();
+        run(e.currentTarget, function () {
+          return graphql(
+            'query CheckDocsAccessEmail($email: String!) { checkDocsAccessEmail(email: $email) { approved pending denied } }',
+            { email: email }
+          ).then(function (data) {
+            var status = data.checkDocsAccessEmail;
+            try { localStorage.setItem(EMAIL_KEY, email); } catch (_) {}
+            if (status.approved) {
+              return sendOtp().then(function () {
+                $('otp-email').textContent = email;
+                $('docs-otp').value = '';
+                show('step-otp');
+              });
+            }
+            if (status.pending) {
+              $('done-message').textContent = 'Your access request is pending review. We will email you when approved.';
+              setText('note', '');
+              show('step-done');
+              return;
+            }
+            $('request-email').textContent = email;
+            setText('note', '');
+            show('step-request');
+          });
+        });
+      });
+
+      $('docs-otp').addEventListener('input', function (e) {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      });
+
+      $('step-otp').addEventListener('submit', function (e) {
+        e.preventDefault();
+        run(e.currentTarget, function () {
+          return graphql(
+            'mutation VerifyDocsAccessOtp($email: String!, $code: String!) { verifyDocsAccessOtp(email: $email, code: $code) { granted } }',
+            { email: email, code: $('docs-otp').value.trim() }
+          ).then(function (data) {
+            if (!data.verifyDocsAccessOtp.granted) throw new Error('Verification failed. Try again.');
+            window.location.replace(nextPath());
+          });
+        });
+      });
+
+      $('resend-otp').addEventListener('click', function () {
+        run($('step-otp'), sendOtp);
+      });
+
+      $('step-request').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var optional = function (id) { return $(id).value.trim() || undefined; };
+        run(e.currentTarget, function () {
+          return graphql(
+            'mutation RequestDocsAccess($input: RequestDocsAccessInput!) { requestDocsAccess(input: $input) { success message } }',
+            {
+              input: {
+                email: email,
+                firstName: optional('docs-first'),
+                lastName: optional('docs-last'),
+                company: optional('docs-company'),
+                reason: optional('docs-reason'),
+              },
+            }
+          ).then(function (data) {
+            $('done-message').textContent = data.requestDocsAccess.message;
+            show('step-done');
+          });
+        });
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-back]'), function (btn) {
+        btn.addEventListener('click', function () {
+          setText('note', '');
+          setText('error', '');
+          show('step-email');
+        });
+      });
+
+      try { $('docs-email').value = localStorage.getItem(EMAIL_KEY) || ''; } catch (_) {}
+
+      function autoRedirectAllowed() {
+        try {
+          var last = Number(sessionStorage.getItem('tv_docs_access_redirect') || 0);
+          if (Date.now() - last < 15000) return false;
+          sessionStorage.setItem('tv_docs_access_redirect', String(Date.now()));
+        } catch (_) {}
+        return true;
+      }
+
+      graphql('query DocsAccessSession { docsAccessSession { granted } }')
+        .then(function (data) {
+          if (data.docsAccessSession.granted && autoRedirectAllowed()) {
+            window.location.replace(nextPath());
+            return;
+          }
+          show('step-email');
+          if (data.docsAccessSession.granted) {
+            setText('error', 'Your session was not accepted by the docs server. Sign in again to refresh it.');
+          }
+        })
+        .catch(function () { show('step-email'); });
+    })();
+  </script>
+</body>
+</html>

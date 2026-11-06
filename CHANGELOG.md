@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.101.1] — 2026-11-06
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: docs `/access/` redirect and return, signed-out 401 on docs files, 5-guess code limit, revoked access sign-out, no secrets in docs, and the docs content refresh
+
+### Changed
+- Docs site sign-in moved to a standalone `/access/` page. Signed-out visitors to any docs page are sent there and returned to the page after entering their code
+
+### Fixed
+- Docs site pages could be downloaded without signing in: the access check only hid content in the browser, while the page text (including demo logins and deployment notes) was public in the site's JavaScript files. The docs server now checks the docs session on every page and file; signed-out requests get the sign-in page (pages) or 401 (files)
+- Docs verification codes are burned after 5 wrong guesses, are generated with a secure random source, and share the stricter sign-in rate limit, so a code can no longer be brute-forced with batched requests
+- Docs site responses send `noindex, nofollow` and `robots.txt` disallows crawling
+- Docs sign-in cookie uses the parent domain of `DOCS_APP_URL` (e.g. `.tablevera.app` on staging) instead of always `.tablevera.online`, so staging docs can sign in behind the new gate
+
+### Removed
+- Demo seed passwords and seed account emails from the docs site; they stay in `apps/api/src/seed.ts`. Production server address removed from the July 2026 QA report
+
+### Docs
+- Docs site pages updated for v0.85–v0.101: host and QA roles, All restaurants, Live floor Tables view, Menu editor and Online ordering, default payment card and failed-charge retries, Pay all invoices, Base plan and package durations, deposit policies and no-show fees, restaurant visibility, legal agreements, QA tools in Partner Hub, Stripe sandbox/live keys, Dokku deployment, and docs access
+- QA docs point at Partner Hub `/admin/qa`; the v0.81.0 page is marked archived
+
 ## [0.101.0] — 2026-11-05
 
 ### Added
