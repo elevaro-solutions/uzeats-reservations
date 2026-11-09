@@ -106,6 +106,44 @@ function isDuplicateKeyError(err: unknown) {
   return Boolean(err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 11000);
 }
 
+function isDuplicateInvoiceNumberError(err: unknown) {
+  if (!isDuplicateKeyError(err)) return false;
+  const keyPattern = (err as { keyPattern?: Record<string, unknown> }).keyPattern;
+  if (keyPattern && typeof keyPattern === 'object') return 'number' in keyPattern;
+  return /index:\s+number_/.test(String((err as { message?: string }).message ?? ''));
+}
+
+/**
+ * Next free `<stem>NNNN` invoice number. Counting invoices per period is not enough:
+ * canceled/replaced invoices move to `YYYY-MM~…` periods but keep their numbers.
+ */
+export async function nextInvoiceNumber(stem: string) {
+  const escaped = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const docs = await Invoice.find({ number: { $regex: `^${escaped}\\d+$` } })
+    .select('number')
+    .lean();
+  let max = 0;
+  for (const doc of docs) {
+    const seq = Number(String(doc.number).slice(stem.length));
+    if (Number.isFinite(seq) && seq > max) max = seq;
+  }
+  return `${stem}${String(max + 1).padStart(4, '0')}`;
+}
+
+/** Create an invoice under `stem`, retrying when a concurrent create takes the same number. */
+async function createInvoiceWithNumber(stem: string, data: Record<string, unknown>) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const number = await nextInvoiceNumber(stem);
+    try {
+      return await Invoice.create({ ...data, number });
+    } catch (err) {
+      if (isDuplicateInvoiceNumberError(err)) continue;
+      throw err;
+    }
+  }
+  throw new ConflictError('Could not allocate a unique invoice number — try again');
+}
+
 /** Stored beside the calendar month so a prepaid 3D invoice can coexist with the period bill. */
 export const VIRTUAL_ROOM_INVOICE_SUFFIX = '~virtual-room';
 
@@ -677,13 +715,9 @@ export async function createManualInvoice(input: {
     }
   }
 
-  const countForPeriod = await Invoice.countDocuments({ billingPeriod: period });
-  const seq = String(countForPeriod + 1).padStart(4, '0');
-  const number = `${prefix}-${period.replace('-', '')}-M${seq}`;
   const payToken = newPayToken();
 
-  const doc = await Invoice.create({
-    number,
+  const doc = await createInvoiceWithNumber(`${prefix}-${period.replace('-', '')}-M`, {
     restaurantId: input.restaurantId,
     subscriptionId: sub?._id,
     status,
@@ -871,12 +905,8 @@ export async function generateInvoicesForPeriod(period: string) {
       continue;
     }
 
-    const seq = String(created + updated + skipped + 1).padStart(4, '0');
-    const number = `${prefix}-${period.replace('-', '')}-${seq}`;
-
     try {
-      const doc = await Invoice.create({
-        number,
+      const doc = await createInvoiceWithNumber(`${prefix}-${period.replace('-', '')}-`, {
         restaurantId: sub.restaurantId,
         subscriptionId: sub._id,
         status: nextStatus,
@@ -985,10 +1015,7 @@ export async function ensurePeriodInvoiceForRestaurant(
       await attachStripeInvoiceToLocal(existing);
     }
   } else {
-    const countForPeriod = await Invoice.countDocuments({ billingPeriod: period });
-    const seq = String(countForPeriod + 1).padStart(4, '0');
-    existing = await Invoice.create({
-      number: `${prefix}-${period.replace('-', '')}-${seq}`,
+    existing = await createInvoiceWithNumber(`${prefix}-${period.replace('-', '')}-`, {
       restaurantId,
       subscriptionId: sub._id,
       status: nextStatus,
@@ -2168,13 +2195,8 @@ export async function recordPrepaidVirtualRoomInvoice(input: {
   const config = await getPlatformConfig();
   const prefix = config.invoicePrefix || 'INV';
   const currency = config.currency || 'usd';
-  const countForPeriod = await Invoice.countDocuments({
-    billingPeriod: { $in: [input.period, billingPeriod] },
-  });
-  const seq = String(countForPeriod + 1).padStart(4, '0');
   const description = `Virtual 3D room add-on - ${input.period}`;
-  const doc = await Invoice.create({
-    number: `${prefix}-${input.period.replace('-', '')}-3D${seq}`,
+  const doc = await createInvoiceWithNumber(`${prefix}-${input.period.replace('-', '')}-3D`, {
     restaurantId: input.restaurantId,
     subscriptionId: sub?._id,
     status: 'paid',

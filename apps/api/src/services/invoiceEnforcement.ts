@@ -405,10 +405,39 @@ async function persistEnforcement(
   await sub.save();
 }
 
+/**
+ * `amountDueCents` caches invoice debt (failed auto-charge / past-due sync) and Stripe plan-change
+ * debt. Once invoices are paid the cached copy must drop, or the snapshot keeps reading it back
+ * as debt and the venue stays past_due forever. Keep only what open invoices or Stripe still owe.
+ */
+async function reconcileCachedAmountDue(sub: SubDoc, restaurantId: string) {
+  const cached = sub.amountDueCents ?? 0;
+  if (cached <= 0) return;
+  const invoices = await unpaidInvoicesForRestaurant(restaurantId);
+  const invoiceCents = invoices.reduce((sum, inv) => sum + (inv.totalCents ?? 0), 0);
+  if (cached <= invoiceCents) return;
+  let stripeCents = 0;
+  if (sub.stripeSubscriptionId) {
+    try {
+      const { getOpenSubscriptionPayment } = await import('./stripe.js');
+      stripeCents = (await getOpenSubscriptionPayment(sub.stripeSubscriptionId)).amountDueCents;
+    } catch (err) {
+      logger.warn({ err, restaurantId }, 'could not verify Stripe balance; keeping cached amount due');
+      return;
+    }
+  }
+  const next = Math.max(invoiceCents, stripeCents);
+  if (next === cached) return;
+  sub.amountDueCents = next;
+  if (next === 0 && sub.status !== 'past_due') sub.pastDueSince = undefined;
+  await sub.save();
+}
+
 export async function syncSubscriptionPastDueFlag(restaurantId: string, now = new Date()) {
   const sub = await Subscription.findOne({ restaurantId });
   if (!sub) return null;
   if (sub.status === 'cancelled' || sub.status === 'paused') return sub;
+  await reconcileCachedAmountDue(sub, restaurantId);
   const snapshot = await getVenueEnforcementSnapshot(restaurantId, now, sub);
   const hasDebt = snapshot.outstandingCents > 0 && snapshot.stage !== 'current';
   if (hasDebt && snapshot.daysPastDue != null && snapshot.daysPastDue >= 0) {
@@ -655,6 +684,7 @@ export async function applyEnforcementForRestaurant(
   if (!paused) {
     await assessFinanceChargesForRestaurant(restaurantId, now);
   }
+  if (sub.status !== 'cancelled') await reconcileCachedAmountDue(sub, restaurantId);
 
   const snapshot = await getVenueEnforcementSnapshot(restaurantId, now, sub);
   const previousStage = (envOf(sub).stage as FailToPayStage | undefined) ?? 'current';

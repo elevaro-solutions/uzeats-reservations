@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const BOTTOM_TOLERANCE_PX = 24;
 
@@ -15,56 +15,52 @@ function contentFitsWithoutScroll(el: HTMLElement) {
 /**
  * Tracks whether a scrollable element has been scrolled to the bottom.
  * If content does not overflow, `reachedEnd` is true immediately.
+ *
+ * `scrollRef` is a callback ref: portal content (e.g. antd Modal) can mount after
+ * the owner's effects run, so a plain ref object would still be null there.
  */
 export function useScrollReachedEnd(deps: unknown[] = []) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
 
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    setEl(node);
+  }, []);
+
   const check = useCallback(() => {
-    const el = scrollRef.current;
     if (!el) return;
     if (contentFitsWithoutScroll(el) || isAtBottom(el)) {
       setReachedEnd(true);
     }
-  }, []);
+  }, [el]);
 
   const scrollToEnd = useCallback(() => {
-    const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    // Smooth scroll may finish after a frame; re-check shortly.
     window.setTimeout(check, 350);
-  }, [check]);
-
-  const onScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (isAtBottom(el)) setReachedEnd(true);
-  }, []);
+  }, [el, check]);
 
   useEffect(() => {
     setReachedEnd(false);
-    const el = scrollRef.current;
     if (!el) return;
 
-    const run = () => check();
-    run();
+    check();
     // Images / late HTML layout can change scrollHeight after paint.
-    const raf = requestAnimationFrame(run);
-    const t = window.setTimeout(run, 100);
+    const raf = requestAnimationFrame(check);
+    const t = window.setTimeout(check, 100);
 
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null;
+    el.addEventListener('scroll', check, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(check) : null;
     ro?.observe(el);
 
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(t);
-      el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('scroll', check);
       ro?.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- caller controls reset via deps
-  }, [check, onScroll, ...deps]);
+  }, [el, check, ...deps]);
 
   return { scrollRef, reachedEnd, scrollToEnd };
 }

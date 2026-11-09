@@ -1,4 +1,10 @@
-import { restaurantInquiryInputSchema, type RestaurantInquiryInput } from '@reservations/shared';
+import {
+  htmlToPlainText,
+  restaurantInquiryInputSchema,
+  type RestaurantInquiryInput,
+} from '@reservations/shared';
+import { NotFoundError, ValidationError } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { RestaurantInquiry } from '../models/RestaurantInquiry.js';
 import type { UserDocument } from '../models/User.js';
@@ -29,24 +35,41 @@ function resolveSender(
     };
   }
   if (!input.name?.trim() || !input.email?.trim()) {
-    throw new Error('Name and email are required to message this restaurant');
+    throw new ValidationError('Name and email are required to message this restaurant');
   }
   return { name: input.name.trim(), email: input.email.trim().toLowerCase() };
 }
 
+/** The inquiry is already stored (Partner Hub inbox), so a failed email must not fail the send. */
+async function sendInquiryEmail(
+  to: string | null | undefined,
+  subject: string,
+  body: string,
+  htmlBody: string,
+  context: Record<string, unknown>,
+) {
+  if (!to?.trim()) return;
+  try {
+    await sendEmail(to, subject, body, { htmlBody });
+  } catch (err) {
+    logger.warn({ err, ...context }, '[inquiry] email not delivered');
+  }
+}
+
 export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryContext) {
-  const input = restaurantInquiryInputSchema.parse(rawInput);
+  const parsed = restaurantInquiryInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    throw new ValidationError(parsed.error.issues[0]?.message ?? 'Invalid message');
+  }
+  const input = parsed.data;
   const restaurant = await Restaurant.findById(input.restaurantId).lean();
   if (!restaurant || restaurant.status !== 'approved') {
-    throw new Error('Restaurant not found');
-  }
-
-  const owner = await User.findById(restaurant.ownerId).lean();
-  if (!owner?.email) {
-    throw new Error('This restaurant is not accepting messages right now');
+    throw new NotFoundError('Restaurant');
   }
 
   const sender = resolveSender(input, ctx);
+  const messageText = htmlToPlainText(input.message);
+  if (!messageText) throw new ValidationError('Write a message');
 
   const inquiry = await RestaurantInquiry.create({
     restaurantId: input.restaurantId,
@@ -55,6 +78,12 @@ export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryConte
     userId: sender.userId,
     message: input.message.trim(),
   });
+  const logContext = {
+    restaurantId: input.restaurantId,
+    inquiryId: inquiry._id.toString(),
+  };
+
+  const owner = await User.findById(restaurant.ownerId).select('email').lean();
 
   const subject = `[Tablevera] Message about ${restaurant.name}`;
   const body = [
@@ -62,7 +91,7 @@ export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryConte
     ``,
     `From: ${sender.name} <${sender.email}>`,
     ``,
-    input.message,
+    messageText,
     ``,
     `— Sent via Tablevera`,
   ].join('\n');
@@ -73,10 +102,10 @@ export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryConte
       { label: 'From', value: `${sender.name} (${sender.email})` },
       { label: 'Restaurant', value: restaurant.name },
     ]),
-    emailParagraph(`<span style="white-space:pre-wrap">${escapeHtml(input.message)}</span>`),
+    emailParagraph(`<span style="white-space:pre-wrap">${escapeHtml(messageText)}</span>`),
   ].join('');
 
-  await sendEmail(owner.email, subject, body, { htmlBody });
+  await sendInquiryEmail(owner?.email, subject, body, htmlBody, logContext);
 
   const confirmSubject = `Your message was sent to ${restaurant.name}`;
   const confirmBody = [
@@ -85,7 +114,7 @@ export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryConte
     `Your message to ${restaurant.name} has been delivered. The restaurant will respond to you directly at ${sender.email} if needed.`,
     ``,
     `Your message:`,
-    input.message,
+    messageText,
     ``,
     `— The Tablevera team`,
   ].join('\n');
@@ -96,18 +125,22 @@ export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryConte
       `Your message to <strong>${escapeHtml(restaurant.name)}</strong> has been delivered. The restaurant will respond to you directly at <strong>${escapeHtml(sender.email)}</strong> if needed.`,
     ),
     emailParagraph('<strong>Your message:</strong>'),
-    emailParagraph(`<span style="white-space:pre-wrap">${escapeHtml(input.message)}</span>`),
+    emailParagraph(`<span style="white-space:pre-wrap">${escapeHtml(messageText)}</span>`),
     emailSignature(),
   ].join('');
 
-  await sendEmail(sender.email, confirmSubject, confirmBody, { htmlBody: confirmHtml });
+  await sendInquiryEmail(sender.email, confirmSubject, confirmBody, confirmHtml, logContext);
 
-  await notifyRestaurantManagers(input.restaurantId, {
-    type: 'restaurant_inquiry',
-    title: 'New website message',
-    body: `${sender.name}: ${input.message.slice(0, 120)}`,
-    data: { restaurantId: input.restaurantId, inquiryId: inquiry._id.toString() },
-  });
+  try {
+    await notifyRestaurantManagers(input.restaurantId, {
+      type: 'restaurant_inquiry',
+      title: 'New website message',
+      body: `${sender.name}: ${messageText.slice(0, 120)}`,
+      data: { restaurantId: input.restaurantId, inquiryId: inquiry._id.toString() },
+    });
+  } catch (err) {
+    logger.warn({ err, ...logContext }, '[inquiry] manager notification failed');
+  }
 
   return {
     success: true,

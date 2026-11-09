@@ -13,6 +13,7 @@ export type FloorTableStatus = 'free' | 'reserved' | 'seated' | 'turning';
 
 const RESERVED_WINDOW_MS = 30 * 60_000;
 const TURNING_THRESHOLD_MIN = 15;
+const SEATED_LOOKBACK_MS = 12 * 60 * 60_000;
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;
@@ -31,13 +32,22 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
   const dayEnd = range.$lt;
   const now = new Date();
 
+  const viewingToday = opsDate === todayIsoInTimeZone(timeZone, now);
   const [tables, reservations, shifts] = await Promise.all([
     Table.find({ restaurantId, active: true }).sort({ name: 1 }),
     Reservation.find({
       restaurantId,
-      status: { $in: ['pending', 'confirmed', 'seated'] },
-      slotStart: { $lt: dayEnd },
-      slotEnd: { $gt: dayStart },
+      $or: [
+        {
+          status: { $in: ['pending', 'confirmed', 'seated'] },
+          slotStart: { $lt: dayEnd },
+          slotEnd: { $gt: dayStart },
+        },
+        // Seated is a physical state: show the party even if staff seated it against another day's slot.
+        ...(viewingToday
+          ? [{ status: 'seated', seatedAt: { $gte: new Date(now.getTime() - SEATED_LOOKBACK_MS) } }]
+          : []),
+      ],
     })
       .populate('dinerId', 'firstName lastName')
       .sort({ slotStart: 1 }),

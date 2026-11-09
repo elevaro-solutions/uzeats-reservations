@@ -209,15 +209,15 @@ function itemMatches(item: MenuItemForm | undefined, query: string, filter: Item
 /** First dish or category that would fail save, including panels never opened. */
 function firstIncompleteField(sections: MenuSectionForm[]) {
   for (let si = 0; si < sections.length; si += 1) {
-    const section = sections[si]!;
-    const sectionName = section.name?.trim();
+    const section = sections[si];
+    const sectionName = section?.name?.trim();
     if (!sectionName) {
       return { path: ['sections', si, 'name'], sectionIndex: si, error: `Category ${si + 1} needs a name` };
     }
-    const items = section.items ?? [];
+    const items = section?.items ?? [];
     for (let ii = 0; ii < items.length; ii += 1) {
-      const item = items[ii]!;
-      if (!item.name?.trim()) {
+      const item = items[ii];
+      if (!item?.name?.trim()) {
         return {
           path: ['sections', si, 'items', ii, 'name'],
           sectionIndex: si,
@@ -513,10 +513,10 @@ export default function MenuPage() {
             return;
           }
           try {
-            const sections = (values.sections ?? []).map((s) => ({
-              name: s.name.trim(),
-              items: (s.items ?? []).map((i) => ({
-                name: i.name.trim(),
+            const sections = (values.sections ?? []).filter(Boolean).map((s) => ({
+              name: (s.name ?? '').trim(),
+              items: (s.items ?? []).filter(Boolean).map((i) => ({
+                name: (i.name ?? '').trim(),
                 description: i.description?.trim() || '',
                 priceCents: Math.round((i.price ?? 0) * 100),
                 dietary: i.dietary ?? [],

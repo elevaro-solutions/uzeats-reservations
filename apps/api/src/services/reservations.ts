@@ -132,6 +132,20 @@ function formatReservationWhen(
   return formatDateTimeInTimeZone(slotStart, restaurantTimeZone(restaurant ?? {}));
 }
 
+/** The live floor only shows today's bookings, so a party seated against a later day vanishes. */
+export function assertSeatableOnVisitDay(
+  slotStart: Date,
+  restaurant?: Parameters<typeof restaurantTimeZone>[0] | null,
+  now = new Date(),
+) {
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+  if (isoDateInTimeZone(slotStart, timeZone) > todayIsoInTimeZone(timeZone, now)) {
+    throw new ValidationError(
+      `This booking is for ${formatDateTimeInTimeZone(slotStart, timeZone)}. Guests can be seated on the day of their reservation.`,
+    );
+  }
+}
+
 function publicWebBaseUrl() {
   return (env.WEB_APP_URL || EMAIL_BRAND.siteUrl).replace(/\/+$/, '');
 }
@@ -1491,6 +1505,7 @@ export async function updateReservationStatus(
   if (!allowed[reservation.status]?.includes(status)) {
     throw new ValidationError(`Cannot transition from ${reservation.status} to ${status}`);
   }
+  if (status === 'seated') assertSeatableOnVisitDay(reservation.slotStart, restaurant);
 
   const previousStatus = reservation.status;
   reservation.status = status as typeof reservation.status;
@@ -2316,6 +2331,7 @@ export async function seatReservationAtTable(
   if (!['pending', 'confirmed'].includes(reservation.status)) {
     throw new ValidationError(`Cannot seat reservation with status ${reservation.status}`);
   }
+  assertSeatableOnVisitDay(reservation.slotStart, restaurant);
 
   const table = await Table.findOne({
     _id: tableId,

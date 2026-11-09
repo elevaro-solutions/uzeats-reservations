@@ -49,6 +49,7 @@ import { importRestaurantRouter } from "./routes/importRestaurant.js";
 import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { resolveLocalUploadPath } from "./services/spaces.js";
 import { getDocsAccessSession } from "./services/docsAccess.js";
+import { syncAllPublicReviewStats } from "./services/reviewStats.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -70,6 +71,11 @@ async function main() {
   await ensureDefaultEmailTemplates();
   await ensureDefaultLegalAgreements();
   await ensureDefaultTableShapes();
+  void syncAllPublicReviewStats()
+    .then((updated) => {
+      if (updated) logger.info({ updated }, "[reviews] synced public review stats");
+    })
+    .catch((err) => logger.warn({ err }, "[reviews] review stats sync failed"));
   await initStripeModeFromConfig();
   startNotificationWorkers();
   startCampaignWorker();

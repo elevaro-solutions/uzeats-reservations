@@ -10,6 +10,7 @@ import {
   assessDeclinedCardFee,
   getVenueEnforcementSnapshot,
   pauseBillingEnforcement,
+  syncSubscriptionPastDueFlag,
   waiveInvoiceEnforcementFees,
 } from '../services/invoiceEnforcement.js';
 import { restaurantIsPubliclyListed } from '../services/publicListing.js';
@@ -168,5 +169,27 @@ describe('fail-to-pay enforcement', () => {
     const after = await Invoice.findById(invoice._id);
     expect(after!.lines.every((l) => !(l as { kind?: string }).kind)).toBe(true);
     expect(after!.totalCents).toBe(10_000);
+  });
+
+  it('clears past_due and the cached amount due once every invoice is paid', async () => {
+    const { restaurant } = await seedVenue();
+    const id = restaurant._id.toString();
+    const invoice = await unpaidInvoice(restaurant._id, new Date('2026-10-01T00:00:00.000Z'));
+    const day15 = new Date('2026-10-16T12:00:00.000Z');
+    await syncSubscriptionPastDueFlag(id, day15);
+    let sub = await Subscription.findOne({ restaurantId: restaurant._id });
+    expect(sub!.status).toBe('past_due');
+    expect(sub!.amountDueCents).toBeGreaterThan(0);
+
+    invoice.status = 'paid';
+    invoice.paidAt = day15;
+    await invoice.save();
+    const snapshot = await applyEnforcementForRestaurant(id, day15);
+    expect(snapshot.outstandingCents).toBe(0);
+    expect(snapshot.stage).toBe('current');
+    sub = await Subscription.findOne({ restaurantId: restaurant._id });
+    expect(sub!.status).toBe('active');
+    expect(sub!.amountDueCents).toBe(0);
+    expect(await restaurantIsPubliclyListed(id)).toBe(true);
   });
 });

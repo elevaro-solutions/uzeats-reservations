@@ -76,6 +76,7 @@ export {
   type SignaturePadProps,
 } from './SignaturePad';
 export { useScrollReachedEnd } from './useScrollReachedEnd';
+export { downloadBase64File } from './downloadBase64';
 export {
   AgreementReviewModal,
   type AgreementReviewModalProps,

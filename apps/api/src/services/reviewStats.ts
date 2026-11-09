@@ -35,3 +35,31 @@ export async function recomputePublicReviewStats(
     reviewCount: 0,
   });
 }
+
+/**
+ * Seed / import data stored listing-site counts (e.g. 96) that search cards still showed.
+ * Align every restaurant with its published reviews; only differing rows are written.
+ */
+export async function syncAllPublicReviewStats(): Promise<number> {
+  const stats = await Review.aggregate<{ _id: mongoose.Types.ObjectId; avg: number; count: number }>([
+    { $match: { hidden: { $ne: true } } },
+    { $group: { _id: '$restaurantId', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ]);
+  const byId = new Map(stats.map((s) => [s._id.toString(), s]));
+  const restaurants = await Restaurant.find({})
+    .select('_id averageRating reviewCount')
+    .lean();
+
+  const ops = [];
+  for (const r of restaurants) {
+    const s = byId.get(r._id.toString());
+    const averageRating = s ? Math.round(s.avg * 10) / 10 : 0;
+    const reviewCount = s?.count ?? 0;
+    if ((r.averageRating ?? 0) === averageRating && (r.reviewCount ?? 0) === reviewCount) continue;
+    ops.push({
+      updateOne: { filter: { _id: r._id }, update: { $set: { averageRating, reviewCount } } },
+    });
+  }
+  if (ops.length) await Restaurant.bulkWrite(ops);
+  return ops.length;
+}

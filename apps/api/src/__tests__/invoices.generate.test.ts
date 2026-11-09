@@ -7,15 +7,18 @@ import { Subscription } from '../models/Subscription.js';
 import { User } from '../models/User.js';
 import {
   buildCoverFeeLines,
+  createManualInvoice,
   generateDuePeriodInvoices,
   generateInvoicesForPeriod,
+  nextInvoiceNumber,
   previousUtcBillingPeriod,
   utcBillingPeriod,
 } from '../services/invoices.js';
 
 async function seedRestaurant(plan = 'core') {
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const owner = await User.create({
-    email: `invoice-owner-${Date.now()}@test.com`,
+    email: `invoice-owner-${suffix}@test.com`,
     passwordHash: 'unused',
     firstName: 'Ivy',
     lastName: 'Owner',
@@ -23,7 +26,7 @@ async function seedRestaurant(plan = 'core') {
   });
   const restaurant = await Restaurant.create({
     name: 'Invoice Test Kitchen',
-    slug: `invoice-test-${Date.now()}`,
+    slug: `invoice-test-${suffix}`,
     cuisine: 'American',
     priceRange: 2,
     status: 'approved',
@@ -218,6 +221,74 @@ describe('period invoice generation', () => {
     const invoice = await Invoice.findOne({ restaurantId: restaurant._id, billingPeriod: period });
     expect(invoice!.number).toBe('INV-202608-M0001');
     expect(invoice!.totalCents).toBe(5000);
+  });
+
+  it('manual create after a canceled duplicate does not reuse the canceled invoice number', async () => {
+    const { restaurant } = await seedRestaurant();
+    const period = '2026-08';
+    const base = {
+      restaurantId: String(restaurant._id),
+      billingPeriod: period,
+      dueDate: '2026-08-20',
+      amountCents: 10000,
+    };
+    const first = await createManualInvoice(base);
+    expect(first.number).toBe('INV-202608-M0001');
+
+    const second = await createManualInvoice({
+      ...base,
+      forceCreate: true,
+      duplicateJustification: 'QA retest',
+    });
+    expect(second.number).toBe('INV-202608-M0002');
+
+    const third = await createManualInvoice({
+      ...base,
+      forceCreate: true,
+      duplicateJustification: 'QA retest again',
+    });
+    expect(third.number).toBe('INV-202608-M0003');
+  });
+
+  it('period generation skips numbers already taken by other restaurants', async () => {
+    const a = await seedRestaurant();
+    const b = await seedRestaurant();
+    const period = '2026-08';
+    await Invoice.create({
+      number: 'INV-202608-0002',
+      restaurantId: new mongoose.Types.ObjectId(),
+      status: 'pending',
+      billingPeriod: `${period}~canceled-INV-202608-0002`,
+      currency: 'usd',
+      subtotalCents: 100,
+      totalCents: 100,
+      lines: [{ description: 'Old', quantity: 1, unitAmountCents: 100, amountCents: 100 }],
+      dueDate: new Date('2026-08-15T00:00:00.000Z'),
+    });
+
+    const result = await generateInvoicesForPeriod(period);
+    expect(result.created).toBe(2);
+    const numbers = (
+      await Invoice.find({ restaurantId: { $in: [a.restaurant._id, b.restaurant._id] } })
+    ).map((i) => i.number);
+    expect(new Set(numbers).size).toBe(2);
+    expect(numbers).not.toContain('INV-202608-0002');
+  });
+
+  it('nextInvoiceNumber continues after the highest existing sequence', async () => {
+    await Invoice.create({
+      number: 'INV-202608-M0007',
+      restaurantId: new mongoose.Types.ObjectId(),
+      status: 'canceled',
+      billingPeriod: '2026-08~canceled-INV-202608-M0007',
+      currency: 'usd',
+      subtotalCents: 100,
+      totalCents: 100,
+      lines: [],
+      dueDate: new Date('2026-08-15T00:00:00.000Z'),
+    });
+    expect(await nextInvoiceNumber('INV-202608-M')).toBe('INV-202608-M0008');
+    expect(await nextInvoiceNumber('INV-202608-')).toBe('INV-202608-0001');
   });
 
   it('generateDuePeriodInvoices covers previous and current UTC months', async () => {

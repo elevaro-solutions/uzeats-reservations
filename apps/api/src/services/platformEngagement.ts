@@ -1,3 +1,4 @@
+import { escapeHtml } from './emailBranding.js';
 import { User } from '../models/User.js';
 import { Reservation } from '../models/Reservation.js';
 import { sendEmail } from './notifications.js';
@@ -14,12 +15,12 @@ export type PlatformEngagementAudience = {
 };
 
 const HARD_CAP = 500;
+const AUDIENCE_STATUSES = new Set(['pending', 'confirmed', 'seated', 'completed', 'no_show']);
 
 export async function resolvePlatformEngagementRecipients(audience: PlatformEngagementAudience) {
   const limit = Math.min(Math.max(1, audience.limit ?? 100), HARD_CAP);
-  const statuses = audience.reservationStatuses?.length
-    ? audience.reservationStatuses
-    : ['completed'];
+  const requested = (audience.reservationStatuses ?? []).filter((s) => AUDIENCE_STATUSES.has(s));
+  const statuses = requested.length ? requested : ['completed'];
 
   let dinerIds: string[] | null = null;
   if (audience.restaurantId) {
@@ -60,11 +61,12 @@ export async function sendPlatformEngagementEmail(input: {
   let sent = 0;
   for (const user of recipients) {
     if (!user.email) continue;
-    const html = bodyHtml.replaceAll('{{firstName}}', user.firstName?.trim() || 'there');
-    const text = (input.bodyText ?? '')
-      .replaceAll('{{firstName}}', user.firstName?.trim() || 'there');
+    const firstName = user.firstName?.trim() || 'there';
+    const personalSubject = subject.replaceAll('{{firstName}}', firstName);
+    const html = bodyHtml.replaceAll('{{firstName}}', escapeHtml(firstName));
+    const text = (input.bodyText ?? '').replaceAll('{{firstName}}', firstName);
     try {
-      await sendEmail(user.email, subject, text || html.replace(/<[^>]+>/g, ' '), {
+      await sendEmail(user.email, personalSubject, text || html.replace(/<[^>]+>/g, ' '), {
         htmlBody: html,
       });
       sent += 1;

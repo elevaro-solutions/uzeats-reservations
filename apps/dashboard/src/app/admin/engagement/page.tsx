@@ -24,6 +24,12 @@ import { RichTextEditor } from '@/components/RichTextEditor';
 const { Paragraph, Text } = Typography;
 const { TextArea } = Input;
 
+const AUDIENCE_STATUSES = {
+  booked: ['pending', 'confirmed', 'seated', 'completed', 'no_show'],
+  visited: ['completed'],
+} as const;
+type AudienceKind = keyof typeof AUDIENCE_STATUSES;
+
 export default function AdminEngagementPage() {
   const { ready } = useRequireAdmin();
   const [form] = Form.useForm();
@@ -45,6 +51,7 @@ export default function AdminEngagementPage() {
     bodyHtml: string;
     bodyText?: string;
     restaurantId?: string;
+    audience?: AudienceKind;
     limit?: number;
   }) => {
     try {
@@ -54,7 +61,7 @@ export default function AdminEngagementPage() {
           bodyHtml: values.bodyHtml,
           bodyText: values.bodyText || null,
           restaurantId: values.restaurantId || null,
-          reservationStatuses: ['completed'],
+          reservationStatuses: [...AUDIENCE_STATUSES[values.audience ?? 'booked']],
           limit: values.limit ?? 100,
         },
       });
@@ -73,14 +80,18 @@ export default function AdminEngagementPage() {
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <PageHeader
           title="Engagement email"
-          subtitle="Send a one-off platform email to diners (optionally filtered by restaurant). Use {{firstName}} in the body."
+          subtitle="Send a one-off platform email to diners (optionally filtered by restaurant). Use {{firstName}} in the subject or body."
         />
         <Card>
           <Form
             form={form}
             layout="vertical"
             onFinish={onFinish}
-            initialValues={{ limit: 100, bodyHtml: '<p>Hi {{firstName}},</p><p></p>' }}
+            initialValues={{
+              limit: 100,
+              audience: 'booked',
+              bodyHtml: '<p>Hi {{firstName}},</p><p></p>',
+            }}
           >
             <Form.Item
               name="subject"
@@ -94,7 +105,7 @@ export default function AdminEngagementPage() {
                 allowClear
                 showSearch
                 optionFilterProp="label"
-                placeholder="All diners with completed visits"
+                placeholder="All diners"
                 options={(Array.isArray(restaurants) ? restaurants : []).map(
                   (r: { id: string; name: string }) => ({
                     value: r.id,
@@ -102,6 +113,27 @@ export default function AdminEngagementPage() {
                   }),
                 )}
               />
+            </Form.Item>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, next) => prev.restaurantId !== next.restaurantId}
+            >
+              {({ getFieldValue }) =>
+                getFieldValue('restaurantId') ? (
+                  <Form.Item name="audience" label="Restaurant guests to include">
+                    <Select
+                      style={{ maxWidth: 420 }}
+                      options={[
+                        {
+                          value: 'booked',
+                          label: 'Everyone who booked (upcoming and past)',
+                        },
+                        { value: 'visited', label: 'Past guests only (completed visits)' },
+                      ]}
+                    />
+                  </Form.Item>
+                ) : null
+              }
             </Form.Item>
             <Form.Item
               name="limit"

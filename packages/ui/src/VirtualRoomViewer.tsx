@@ -1677,7 +1677,7 @@ export function VirtualRoomViewer({
             : available
               ? [
                   [colors.success, 'Available — click to select'],
-                  [UNAVAILABLE, 'Taken'],
+                  [UNAVAILABLE, 'Not available for this booking'],
                   [colors.accent[500], 'Selected'],
                 ].map(([c, label]) => (
                   <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

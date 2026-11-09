@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
+import { Reservation } from '../models/Reservation.js';
 import { User } from '../models/User.js';
 import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
@@ -610,17 +611,28 @@ describe('Booking Flow (E2E)', () => {
       superAdminToken,
     );
 
-    const seatRes = await graphqlRequest(
-      agent,
-      `mutation Seat($reservationId: ID!, $tableId: ID!) {
-        seatReservationAtTable(reservationId: $reservationId, tableId: $tableId) {
-          id
-          status
-        }
-      }`,
-      { reservationId: seatResId, tableId },
-      superAdminToken,
+    const seat = () =>
+      graphqlRequest(
+        agent,
+        `mutation Seat($reservationId: ID!, $tableId: ID!) {
+          seatReservationAtTable(reservationId: $reservationId, tableId: $tableId) {
+            id
+            status
+          }
+        }`,
+        { reservationId: seatResId, tableId },
+        superAdminToken,
+      );
+
+    const early = await seat();
+    expect(early.body.errors?.[0]?.message).toMatch(/seated on the day of their reservation/);
+
+    const slotStart = new Date(Date.now() - 5 * 60_000);
+    await Reservation.updateOne(
+      { _id: seatResId },
+      { $set: { slotStart, slotEnd: new Date(slotStart.getTime() + 90 * 60_000) } },
     );
+    const seatRes = await seat();
 
     expect(seatRes.body.errors).toBeUndefined();
     expect(seatRes.body.data.seatReservationAtTable.status).toBe('seated');

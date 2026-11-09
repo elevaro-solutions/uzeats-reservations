@@ -2,7 +2,14 @@
 
 import { Button, Typography } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
-import { TableveraBrand, colors, radii, spacing, typography } from '@reservations/ui';
+import {
+  TableveraBrand,
+  colors,
+  downloadBase64File,
+  radii,
+  spacing,
+  typography,
+} from '@reservations/ui';
 
 const { Title, Text } = Typography;
 
@@ -110,8 +117,5 @@ export function BrandedAgreementView({
 }
 
 export function downloadBase64Pdf(filename: string, base64: string) {
-  const link = document.createElement('a');
-  link.href = `data:application/pdf;base64,${base64}`;
-  link.download = filename;
-  link.click();
+  downloadBase64File(filename, base64);
 }

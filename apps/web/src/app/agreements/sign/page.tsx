@@ -9,6 +9,7 @@ import {
   AgreementReviewModal,
   SignaturePad,
   colors,
+  downloadBase64File,
   isSignatureComplete,
   radii,
   spacing,
@@ -33,13 +34,6 @@ type Compliance = {
   daysRemaining?: number | null;
   agreement: { name: string; bodyHtml: string; version: number; versionPublishedAt?: string | null };
 };
-
-function downloadBase64Pdf(filename: string, base64: string) {
-  const link = document.createElement('a');
-  link.href = `data:application/pdf;base64,${base64}`;
-  link.download = filename;
-  link.click();
-}
 
 function SignTermsContent() {
   const { user, loading: authLoading } = useAuth();
@@ -75,7 +69,7 @@ function SignTermsContent() {
       const pdf = (result.data as { legalAgreementPdf?: { filename: string; content: string } })
         ?.legalAgreementPdf;
       if (!pdf?.content) throw new Error('empty');
-      downloadBase64Pdf(pdf.filename, pdf.content);
+      downloadBase64File(pdf.filename, pdf.content);
     } catch {
       message.error('Could not download PDF');
     }
@@ -126,7 +120,7 @@ function SignTermsContent() {
         result.data as { mySignedLegalAgreementPdf?: { filename: string; content: string } }
       )?.mySignedLegalAgreementPdf;
       if (!pdf?.content) throw new Error('empty');
-      downloadBase64Pdf(pdf.filename, pdf.content);
+      downloadBase64File(pdf.filename, pdf.content);
     } catch {
       message.error('Could not download signed copy');
     }

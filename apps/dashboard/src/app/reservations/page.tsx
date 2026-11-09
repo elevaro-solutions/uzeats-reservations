@@ -328,7 +328,12 @@ function ReservationsPageContent() {
   const queryStartDate = period === 'custom' ? customStartDate : undefined;
   const queryEndDate = period === 'custom' ? customEndDate : undefined;
   const queryPeriod = period === 'custom' ? undefined : period;
-  const queryRestaurantId = allRestaurants ? undefined : activeRestaurantId;
+  const rawLocation = searchParams.get('location');
+  const locationFilter =
+    allRestaurants && restaurants.some((r: { id: string }) => r.id === rawLocation)
+      ? (rawLocation as string)
+      : undefined;
+  const queryRestaurantId = allRestaurants ? locationFilter : activeRestaurantId;
   const listReady = allRestaurants ? restaurants.length > 0 : Boolean(activeRestaurantId);
 
   const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
@@ -811,6 +816,22 @@ function ReservationsPageContent() {
                   endDate: range[1].format('YYYY-MM-DD'),
                 });
               }}
+            />
+          ) : null}
+          {allRestaurants && restaurants.length > 1 ? (
+            <Select
+              aria-label="Location"
+              placeholder="All locations"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              value={locationFilter}
+              style={{ width: 220 }}
+              options={restaurants.map((r: { id: string; name: string }) => ({
+                value: r.id,
+                label: r.name,
+              }))}
+              onChange={(value: string | undefined) => replaceListParams({ location: value })}
             />
           ) : null}
           <Select

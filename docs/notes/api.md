@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-11-09] QA checklist catalog is v0.102.0
+- `QA_CHECKLIST_RELEASE` is `0.102.0`. Catalog groups are Agreements, Partner Hub, Admin, Floor, Billing, Diner web, and Menu. Items reference the Partner Hub Issues they close (QA-013 … QA-029). v0.101.2 docs-access items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Close the matching Issues after these pass so the tracker and the gate agree.
+
 ## [2026-11-06] QA checklist catalog is v0.101.2
 - `QA_CHECKLIST_RELEASE` is `0.101.2`. Catalog group is Docs access (generic messages, send throttle, denied cooldown, 5s revoke). v0.101.1 nginx gate items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Testers burn their own send quota on the throttle task; use a dedicated test email or wait an hour before the next run.

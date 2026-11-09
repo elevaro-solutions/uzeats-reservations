@@ -126,9 +126,9 @@ function PaymentInner({
         size="large"
         block
         loading={loading}
-        disabled={!stripe || !elements || elementFailed || loading}
+        disabled={!stripe || !elements || elementFailed}
         onClick={() => void handleSubmit()}
-        style={{ background: BRAND_COLOR, borderColor: BRAND_COLOR }}
+        style={{ background: BRAND_COLOR, borderColor: BRAND_COLOR, color: '#fff' }}
       >
         {notice
           ? mode === 'setup'

@@ -6,6 +6,7 @@ import { Checkbox, Form, Typography, message } from 'antd';
 import {
   AgreementReviewModal,
   SignaturePad,
+  downloadBase64File,
   isSignatureComplete,
   spacing,
   typography,
@@ -22,13 +23,6 @@ type Props = {
   acceptedName?: string;
   suggestedFullName?: string;
 };
-
-function downloadBase64Pdf(filename: string, base64: string) {
-  const link = document.createElement('a');
-  link.href = `data:application/pdf;base64,${base64}`;
-  link.download = filename;
-  link.click();
-}
 
 function defaultAcceptedName(signatureName: string) {
   return signatureName.endsWith('Signature')
@@ -71,7 +65,7 @@ export function AgreementAcceptField({
         message.error('Could not download PDF');
         return;
       }
-      downloadBase64Pdf(pdf.filename, pdf.content);
+      downloadBase64File(pdf.filename, pdf.content);
     } catch {
       message.error('Could not download PDF');
     }

@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.102.0] — 2026-11-09
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: agreement modal checkbox and Firefox PDF, Reservations location filter, Engagement email audience, same-day seating, manual invoice after cancel, Past Due clearing, Message the restaurant, search review counts, 3D picker label, and Menu empty rows
+- Legal agreement review modal (diner web and Partner Hub sign-up / agreement signing) has an "I have read and agree to the … (version N)" checkbox under the agreement text. It unlocks once the agreement is scrolled to the end, and "I accept" requires it to be ticked
+- Partner Hub Reservations (All restaurants): **All locations** filter narrows the list and export to one restaurant (QA-025)
+- Admin Engagement email: choose **Everyone who booked** (upcoming and past) or **Past guests only** when targeting a restaurant; `{{firstName}}` also works in the subject (QA-018)
+
+### Changed
+- Diner 3D table picker: grey tables are labelled "Not available for this booking" (booked or wrong size for the party) instead of "Taken" (QA-013)
+- Guests can only be seated on the day of their reservation (Partner Hub and Telegram bot) (QA-029)
+
+### Fixed
+- Scrolling a legal agreement to the end in the review modal did not enable acceptance: the scroll listener never attached because the modal content mounts after the hook first ran
+- Admin manual invoice create failed with "That value is already in use" after an invoice for the same period was canceled or replaced; monthly invoice generation could also silently skip a restaurant on a number clash (QA-028)
+- Restaurants stayed **Past Due** with the old balance after every invoice was paid (e.g. via Pay all); the balance and status now clear, and stuck venues heal on the next daily billing run (QA-026)
+- Pay invoices modal: "Updating invoices…" button text was invisible while confirming (QA-027)
+- Diner "Message the restaurant" returned Internal server error when the restaurant email could not be delivered; the message is still saved to the Partner Hub inbox (QA-024)
+- Live floor shows a seated party on its table even if staff seated it against another day's booking (QA-029)
+- Search / browse restaurant cards showed seeded review counts (e.g. 96) instead of published reviews; counts sync on API start (QA-017, QA-023)
+- Agreement PDF downloads (diner sign-up, agreement signing, Partner Hub) work in Firefox and for large PDFs (QA-020)
+- Menu editor save is guarded against empty category / dish rows (QA-022)
+
 ## [0.101.2] — 2026-11-06
 
 ### Added

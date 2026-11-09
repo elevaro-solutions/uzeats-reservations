@@ -211,13 +211,15 @@ export function VirtualRoomTablePicker({
                 ) : availableIds.length === 0 ? (
                   'No tables are free at this time — try another time.'
                 ) : (
-                  selectionOptional
-                    ? dinerFeePreviewLabel
-                      ? `Tap a green table to prefer it (${dinerFeePreviewLabel}).`
-                      : 'Tap a green table to prefer it for this booking.'
-                    : dinerFeePreviewLabel
-                      ? `Tap a green table to select it (${dinerFeePreviewLabel}).`
-                      : 'Tap a green table to select it.'
+                  `${
+                    selectionOptional
+                      ? dinerFeePreviewLabel
+                        ? `Tap a green table to prefer it (${dinerFeePreviewLabel}).`
+                        : 'Tap a green table to prefer it for this booking.'
+                      : dinerFeePreviewLabel
+                        ? `Tap a green table to select it (${dinerFeePreviewLabel}).`
+                        : 'Tap a green table to select it.'
+                  } Grey tables are booked at this time or don't fit your party size.`
                 )}
               </Text>
               <Space>
