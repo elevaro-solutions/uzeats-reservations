@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.103.1] — 2026-11-10
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: agreement modal checkbox works without scrolling (diner signup, partner register, `/agreements/sign`)
+
+### Changed
+- Legal agreement review modal: "I accept" turns on when "I have read and agree" is checked. Scrolling to the end is no longer required.
+
 ## [0.103.0] — 2026-11-10
 
 ### Added

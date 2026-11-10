@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
-import { DownloadOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
+import { DownloadOutlined } from '@ant-design/icons';
 import { TableveraBrand } from './brand';
 import { colors, radii, spacing, typography } from './tokens';
-import { useScrollReachedEnd } from './useScrollReachedEnd';
 
 const { Title, Text } = Typography;
 
@@ -22,8 +21,7 @@ export type AgreementReviewModalProps = {
   /** Primary footer label. Default: "I accept" */
   confirmLabel?: string;
   /**
-   * When true (default), Confirm stays disabled until the user scrolls to the end
-   * and ticks the consent checkbox.
+   * When true (default), Confirm stays disabled until the user ticks the consent checkbox.
    * Set false for view-only flows (e.g. already-signed) where "Done" should not be blocked.
    */
   requireScrollToEnd?: boolean;
@@ -42,9 +40,8 @@ export function AgreementReviewModal({
   confirmLabel = 'I accept',
   requireScrollToEnd = true,
 }: AgreementReviewModalProps) {
-  const { scrollRef, reachedEnd, scrollToEnd } = useScrollReachedEnd([open, bodyHtml, version]);
   const [consented, setConsented] = useState(false);
-  const canConfirm = !requireScrollToEnd || (reachedEnd && consented);
+  const canConfirm = !requireScrollToEnd || consented;
 
   useEffect(() => {
     setConsented(false);
@@ -80,13 +77,6 @@ export function AgreementReviewModal({
             width: '100%',
           }}
         >
-          <div>
-            {requireScrollToEnd && !reachedEnd ? (
-              <Button icon={<VerticalAlignBottomOutlined />} onClick={scrollToEnd}>
-                Scroll to end
-              </Button>
-            ) : null}
-          </div>
           <div style={{ display: 'flex', gap: spacing.sm, marginLeft: 'auto' }}>
             <Button onClick={onCancel}>Cancel</Button>
             <Button
@@ -152,7 +142,6 @@ export function AgreementReviewModal({
         </div>
 
         <div
-          ref={scrollRef}
           className="agreement-review-html"
           style={{
             maxHeight: 'min(50vh, 420px)',
@@ -177,18 +166,9 @@ export function AgreementReviewModal({
               marginTop: spacing.md,
             }}
           >
-            <Checkbox
-              checked={consented}
-              disabled={!reachedEnd}
-              onChange={(e) => setConsented(e.target.checked)}
-            >
+            <Checkbox checked={consented} onChange={(e) => setConsented(e.target.checked)}>
               I have read and agree to the {name} (version {version})
             </Checkbox>
-            {!reachedEnd ? (
-              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                Scroll to the end of the agreement to enable acceptance.
-              </Text>
-            ) : null}
           </div>
         ) : null}
       </div>
