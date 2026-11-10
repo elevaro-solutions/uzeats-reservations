@@ -76,7 +76,7 @@ const PRESETS = [
 
 export default function AdminExportsPage() {
   const { ready } = useRequireAdmin();
-  const [format, setFormat] = useState<ExportFormat>('csv');
+  const [format, setFormat] = useState<ExportFormat>('xlsx');
   const [preset, setPreset] = useState<string>('month');
   const [month, setMonth] = useState(() => dayjs());
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null);
@@ -200,9 +200,7 @@ export default function AdminExportsPage() {
                 optionType="button"
                 buttonStyle="solid"
                 options={[
-                  { label: 'CSV', value: 'csv' },
                   { label: 'Excel', value: 'xlsx' },
-                  { label: 'JSON', value: 'json' },
                   { label: 'PDF', value: 'pdf' },
                 ]}
               />

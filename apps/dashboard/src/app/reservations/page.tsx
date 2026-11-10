@@ -860,7 +860,7 @@ function ReservationsPageContent() {
             aria-label="Search reservations"
           />
           <ExportMenu
-            formats={['xlsx', 'pdf', 'json']}
+            formats={['xlsx', 'pdf']}
             loading={exporting}
             disabled={!listReady}
             onExport={(format) => void onExportReservations(format)}

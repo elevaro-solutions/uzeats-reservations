@@ -236,11 +236,12 @@ import {
 } from "../lib/reservationListSearch.js";
 import {
   getLoyaltyHistory,
-  awardReviewPoints,
   reverseReviewPoints,
 } from "../services/loyalty.js";
 import { generateReviewReplyDraft } from "../services/reviewReplyDraft.js";
 import { recomputePublicReviewStats } from "../services/reviewStats.js";
+import { publishReservationReview } from "../services/reviewCreate.js";
+import { submitSurvey } from "../services/surveys.js";
 import { respondToReviewReport, replyToReviewReport } from "../services/reviewReportResponse.js";
 import { ReviewReaction } from "../models/ReviewReaction.js";
 import { generatePlanPackageDescription } from "../services/planDescription.js";
@@ -424,10 +425,7 @@ import { getFeatures, requireFeature } from "../services/plans.js";
 import { getManagerSeatsUsage } from "../services/managerSeats.js";
 import { normalizeManagerSeats, sanitizePlanHighlights } from "../config/plans.js";
 import { executeCampaign, scheduleCampaign } from "../services/campaigns.js";
-import {
-  askGuestForReview,
-  cancelReviewRequestEmail,
-} from "../services/reviewRequest.js";
+import { askGuestForReview } from "../services/reviewRequest.js";
 import {
   buildPreShiftReport,
   buildRevenueForecast,
@@ -5279,54 +5277,7 @@ export const resolvers = {
       const existing = await Review.findOne({ reservationId: reservation._id });
       if (existing) throw new ConflictError("Already reviewed");
 
-      const review: any = await Review.create({
-        restaurantId: reservation.restaurantId,
-        dinerId: user._id,
-        reservationId: reservation._id,
-        rating: input.rating,
-        ...(input.foodRating != null ? { foodRating: input.foodRating } : {}),
-        ...(input.serviceRating != null ? { serviceRating: input.serviceRating } : {}),
-        ...(input.atmosphereRating != null
-          ? { atmosphereRating: input.atmosphereRating }
-          : {}),
-        comment: input.comment ?? "",
-        photos: input.photos ?? [],
-      });
-
-      void cancelReviewRequestEmail(reservation._id.toString());
-      await recomputePublicReviewStats(reservation.restaurantId);
-
-      try {
-        await awardReviewPoints(user._id.toString(), reservation._id.toString());
-      } catch (err) {
-        // Review must succeed even when loyalty writes fail (standalone Mongo
-        // rejects multi-doc transactions; production masks that as 500).
-        logger.error(
-          { err, reservationId: reservation._id.toString() },
-          "[createReview] loyalty award failed",
-        );
-      }
-
-      const restaurantId = reservation.restaurantId.toString();
-      const dinerName =
-        `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "A guest";
-      const commentPreview = (input.comment ?? "").trim().slice(0, 120);
-      const restaurant = await Restaurant.findById(reservation.restaurantId)
-        .select("name")
-        .lean();
-      const venueSuffix = restaurant?.name ? ` — ${restaurant.name}` : "";
-      await notifyRestaurantManagers(restaurantId, {
-        type: "new_review",
-        title: "New review",
-        body: commentPreview
-          ? `${input.rating}★ from ${dinerName}: ${commentPreview}${venueSuffix}`
-          : `${input.rating}★ from ${dinerName}${venueSuffix}`,
-        data: {
-          reviewId: review._id.toString(),
-          reservationId: reservation._id.toString(),
-        },
-      });
-
+      const review = await publishReservationReview(reservation, user, input);
       return mapReview(review);
     },
 
@@ -7473,32 +7424,7 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      const reservation = await Reservation.findById(args.input.reservationId);
-      if (!reservation || !reservation.dinerId.equals(user._id)) {
-        throw new Error("Reservation not found");
-      }
-      if (reservation.status !== "completed") {
-        throw new Error("Surveys are available after a completed visit");
-      }
-      const existing = await SurveyResponse.findOne({
-        reservationId: reservation._id,
-      });
-      if (existing) throw new Error("Survey already submitted");
-
-      const doc = await SurveyResponse.create({
-        restaurantId: reservation.restaurantId,
-        reservationId: reservation._id,
-        dinerId: user._id,
-        overallRating: args.input.overallRating,
-        foodRating: args.input.foodRating,
-        serviceRating: args.input.serviceRating,
-        ambienceRating: args.input.ambienceRating,
-        valueRating: args.input.valueRating,
-        wouldRecommend: args.input.wouldRecommend,
-        feedback: args.input.feedback,
-        submittedAt: new Date(),
-      });
-      return mapSurveyResponse(doc);
+      return mapSurveyResponse(await submitSurvey(user, args.input));
     },
 
     // ---- Restaurant groups ----

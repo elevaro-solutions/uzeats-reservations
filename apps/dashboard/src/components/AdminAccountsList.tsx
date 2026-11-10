@@ -584,7 +584,7 @@ function AdminAccountsListContent({ kind }: Props) {
               )}
               {(kind === 'diner' || kind === 'restaurant_owner' || kind === 'platform') && (
                 <ExportMenu
-                  formats={['xlsx', 'pdf', 'json']}
+                  formats={['xlsx', 'pdf']}
                   loading={exporting}
                   onExport={(format) =>
                     void (kind === 'diner' ? onExportDiners(format) : onExportUsers(format))

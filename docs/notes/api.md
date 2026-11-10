@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-11-10] QA checklist catalog is v0.103.0
+- `QA_CHECKLIST_RELEASE` is `0.103.0`. Catalog groups are Surveys, Exports, Booking, and Partner Hub (QA-030 … QA-036). v0.102.0 items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Close the matching Partner Hub Issues once these pass.
+
 ## [2026-11-09] QA checklist catalog is v0.102.0
 - `QA_CHECKLIST_RELEASE` is `0.102.0`. Catalog groups are Agreements, Partner Hub, Admin, Floor, Billing, Diner web, and Menu. Items reference the Partner Hub Issues they close (QA-013 … QA-029). v0.101.2 docs-access items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Close the matching Issues after these pass so the tracker and the gate agree.

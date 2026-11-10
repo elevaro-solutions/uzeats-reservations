@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -481,6 +482,27 @@ export default function RestaurantProfilePage() {
             >
               <Select options={priceRangeOptions} />
             </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Alert
+              type="info"
+              showIcon
+              title="Dining style, occasions, and amenities"
+              description={
+                <>
+                  Tags diners filter by — Late night, Fine dining, Business meal, Family dinner,
+                  Outdoor seating, dietary options, meals — are set in{' '}
+                  <Link
+                    href={
+                      restaurantId ? `/profile?restaurant=${restaurantId}` : '/profile'
+                    }
+                  >
+                    Public profile → Discovery
+                  </Link>
+                  . Changes there are reviewed before they go live.
+                </>
+              }
+            />
           </Col>
         </Row>
       ),

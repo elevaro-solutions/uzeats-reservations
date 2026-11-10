@@ -358,6 +358,9 @@ export async function getAvailabilityForRestaurants(params: {
     overridesByRestaurant.set(String(o.restaurantId), o);
   }
 
+  const { partySizeAllowedAt, partySizeRulesByRestaurant } = await import('./accessRules.js');
+  const partySizeRules = await partySizeRulesByRestaurant(approvedIds);
+
   for (const restaurant of restaurants) {
     const id = String(restaurant._id);
     const bounds = dayBounds.get(id)!;
@@ -396,7 +399,7 @@ export async function getAvailabilityForRestaurants(params: {
       }
     }
 
-    const slots = computeSlotsForRestaurant({
+    let slots = computeSlotsForRestaurant({
       restaurant,
       date: params.date,
       partySize: params.partySize,
@@ -407,6 +410,16 @@ export async function getAvailabilityForRestaurants(params: {
       reservations: reservationsByRestaurant.get(id) ?? [],
       claimsByTable: claimsByRestaurantTable.get(id) ?? new Map(),
     });
+    const rules = partySizeRules.get(id);
+    if (rules?.length) {
+      const timeZone = restaurantTimeZone(restaurant);
+      slots = slots.map((slot) =>
+        slot.available &&
+        !partySizeAllowedAt(rules, params.partySize, new Date(slot.time), timeZone)
+          ? { ...slot, available: false, remainingTables: 0 }
+          : slot,
+      );
+    }
     result.set(id, slots);
     if (useCache) {
       void setCachedAvailability(

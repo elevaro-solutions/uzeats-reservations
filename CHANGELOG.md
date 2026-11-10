@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.103.0] — 2026-11-10
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: survey-published reviews and resubmit, Excel / PDF-only branded exports and readable reservation columns, access-rule covers and party-size slots, Messages box layout, and the Listing tags hint
+- Post-visit survey: the overall rating (plus food, service, and ambience) and comment are published as the visit's public review when the guest has not reviewed it yet (QA-036)
+- Restaurant profile → Listing explains where dining style, occasion (Late night, Fine dining, Business meal…), meal, dietary, and amenity tags are edited, with a link to Public profile → Discovery (QA-032)
+
+### Changed
+- Partner Hub exports offer Excel and PDF only (Reservations, Accounts, Admin exports); JSON and CSV buttons are gone (QA-035)
+- Reservations export uses readable columns (Conf #, local date and time, Guest, Party size, Status, Table, Source, dollars instead of cents); the PDF prints the key columns and notes how many more are in Excel (QA-035)
+- Excel and PDF exports are Tablevera branded: forest header band with the Tablevera logo and a gold rule, report title and export details, forest table header with white text, light striped rows, and a "tablevera.app" footer with page numbers. Excel also freezes the header row, adds filters, sizes columns, hides gridlines, and prints landscape fit-to-width (QA-035)
+- Diner booking times hide slots blocked by an access rule's party-size limits instead of failing at confirm (QA-033)
+
+### Fixed
+- Submitting the post-visit survey a second time returned Internal server error; it now says the survey was already submitted (QA-034)
+- PDF exports printed "—" and other punctuation as garbled characters (e.g. "Reservations â Osiyo") (QA-035)
+- Access rules "Covers per slot" cap was never enforced (QA-033)
+- Partner Hub Messages: the message box stays at the bottom of the conversation instead of floating mid-card, and spans the full width (QA-030)
+
 ## [0.102.0] — 2026-11-09
 
 ### Added

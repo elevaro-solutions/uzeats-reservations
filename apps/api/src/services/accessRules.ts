@@ -4,6 +4,7 @@ import {
   restaurantTimeZone,
   weekdayInTimeZone,
 } from '@reservations/shared';
+import mongoose from 'mongoose';
 import { AccessRule, type AccessRuleDocument } from '../models/AccessRule.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -23,6 +24,44 @@ function ruleAppliesToSlot(rule: AccessRuleDocument, slotStart: Date, timeZone: 
     if (hm < rule.startTime || hm >= rule.endTime) return false;
   }
   return true;
+}
+
+/** Active party-size rules for restaurants whose plan enforces access rules. */
+export async function partySizeRulesByRestaurant(
+  restaurantIds: Array<mongoose.Types.ObjectId | string>,
+): Promise<Map<string, AccessRuleDocument[]>> {
+  const result = new Map<string, AccessRuleDocument[]>();
+  if (restaurantIds.length === 0) return result;
+  const rules = (await AccessRule.find({
+    restaurantId: { $in: restaurantIds },
+    active: true,
+    $or: [{ minPartySize: { $gt: 0 } }, { maxPartySize: { $gt: 0 } }],
+  }).lean()) as AccessRuleDocument[];
+  for (const rule of rules) {
+    const id = String(rule.restaurantId);
+    const list = result.get(id);
+    if (list) list.push(rule);
+    else result.set(id, [rule]);
+  }
+  for (const id of [...result.keys()]) {
+    if (!(await getFeatures(id)).accessRules) result.delete(id);
+  }
+  return result;
+}
+
+/** Same party-size test `checkAccessRules` applies at booking, for slots offered to diners. */
+export function partySizeAllowedAt(
+  rules: AccessRuleDocument[],
+  partySize: number,
+  slotStart: Date,
+  timeZone: string,
+) {
+  return rules.every((rule) => {
+    if (!ruleAppliesToSlot(rule, slotStart, timeZone)) return true;
+    if (rule.minPartySize && partySize < rule.minPartySize) return false;
+    if (rule.maxPartySize && partySize > rule.maxPartySize) return false;
+    return true;
+  });
 }
 
 export async function getBookingWindow(restaurantId: string): Promise<{
@@ -94,7 +133,8 @@ export async function checkAccessRules(input: {
       const existing = await Reservation.aggregate([
         {
           $match: {
-            restaurantId: input.restaurantId,
+            // Aggregations do not cast; a string id never matched, so the cap was never hit.
+            restaurantId: new mongoose.Types.ObjectId(input.restaurantId),
             slotStart: input.slotStart,
             status: { $in: ['pending', 'confirmed', 'seated'] },
           },

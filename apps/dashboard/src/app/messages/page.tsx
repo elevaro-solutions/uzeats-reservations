@@ -326,8 +326,24 @@ function MessagesContent() {
         </Card>
 
         <Card
-          style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-          styles={{ body: { display: 'flex', flexDirection: 'column', height: 520, padding: 16 } }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            // Do not stretch to the inbox height, or the composer ends mid-card.
+            alignSelf: 'flex-start',
+            position: 'sticky',
+            top: 16,
+          }}
+          styles={{
+            body: {
+              display: 'flex',
+              flexDirection: 'column',
+              height: 'clamp(420px, calc(100vh - 200px), 720px)',
+              padding: 16,
+            },
+          }}
         >
           {!activeReservationId && !activeInquiryId ? (
             <Empty description="Select a conversation" style={{ margin: 'auto' }} />
@@ -426,7 +442,7 @@ function MessagesContent() {
                   ))
                 )}
               </div>
-              <Space.Compact style={{ width: '100%' }}>
+              <Space.Compact style={{ width: '100%', flexShrink: 0 }}>
                 <RichTextArea
                   rows={1}
                   maxRows={4}
@@ -434,6 +450,7 @@ function MessagesContent() {
                   onChange={setDraft}
                   submitOnEnter={handleSend}
                   placeholder="Type a message…"
+                  style={{ flex: 1, minWidth: 0 }}
                 />
                 <Button
                   type="primary"
