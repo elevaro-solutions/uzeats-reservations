@@ -84,13 +84,13 @@ const shortcuts = [
   {
     href: '/admin/billing',
     title: 'Billing',
-    desc: 'Invoices, revenue, plans, loyalty, and exports',
+    desc: 'Invoices, revenue, plans, and loyalty',
     icon: <FileDoneOutlined />,
   },
   {
     href: '/admin/platform',
     title: 'Platform',
-    desc: 'Configuration, content, templates, audit, and QA',
+    desc: 'Configuration, data exports, templates, audit, and QA',
     icon: <ControlOutlined />,
   },
 ];

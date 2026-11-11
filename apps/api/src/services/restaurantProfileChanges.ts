@@ -1,7 +1,8 @@
 import {
   requestRestaurantProfileChangeInputSchema,
-  restaurantProfileChangeSchema,
+  restaurantProfileChangePatchSchema,
   isPlatformAdmin,
+  type RestaurantInput,
   type RestaurantProfileChange,
 } from '@reservations/shared';
 import mongoose from 'mongoose';
@@ -20,9 +21,14 @@ import {
   ValidationError,
 } from '../lib/errors.js';
 import {
+  fallbackProfileChange,
+  listingPatchFromRestaurantUpdate,
+  mergeProfileChange,
   profileChangeToDbSet,
   profileChangesEqual,
+  proposalFromProfileRequest,
   restaurantProfileSnapshot,
+  type RestaurantProfileSource,
 } from '../lib/restaurantProfileChange.js';
 import { logAudit } from './audit.js';
 import { notifyUser } from './notifications.js';
@@ -37,8 +43,8 @@ function hasProfileChangeAccess(
   return Boolean(user.restaurantIds?.some((id) => id.equals(restaurant._id)));
 }
 
-function mapProfileChange(profile: unknown): RestaurantProfileChange {
-  return restaurantProfileChangeSchema.parse(profile ?? {});
+function mapProfileChange(profile: unknown, fallback: RestaurantProfileChange): RestaurantProfileChange {
+  return mergeProfileChange(fallback, profile);
 }
 
 async function mapProfileChangeRequest(doc: RestaurantProfileChangeRequestDocument) {
@@ -48,13 +54,15 @@ async function mapProfileChangeRequest(doc: RestaurantProfileChangeRequestDocume
     doc.reviewedById ? User.findById(doc.reviewedById) : Promise.resolve(null),
   ]);
 
+  const fallback = restaurant ? restaurantProfileSnapshot(restaurant) : fallbackProfileChange();
+
   return {
     id: doc._id.toString(),
     restaurantId: doc.restaurantId.toString(),
     restaurant: restaurant ? mapRestaurant(restaurant) : null,
     requestedBy: requester ? mapUser(requester) : null,
-    current: mapProfileChange(doc.current),
-    proposed: mapProfileChange(doc.proposed),
+    current: mapProfileChange(doc.current, fallback),
+    proposed: mapProfileChange(doc.proposed, fallback),
     reason: doc.reason ?? null,
     status: doc.status,
     notes: doc.notes ?? null,
@@ -126,9 +134,9 @@ export async function applyRestaurantProfileChange(opts: {
   excludeRequestId?: string;
   notifyOwner?: boolean;
 }) {
-  const profile = restaurantProfileChangeSchema.parse(opts.profile);
   const restaurant = await Restaurant.findById(opts.restaurantId);
   if (!restaurant) throw new NotFoundError('Restaurant');
+  const profile = mergeProfileChange(restaurantProfileSnapshot(restaurant), opts.profile);
 
   await Restaurant.findByIdAndUpdate(opts.restaurantId, {
     $set: profileChangeToDbSet(profile),
@@ -157,6 +165,55 @@ export async function applyRestaurantProfileChange(opts: {
   return Restaurant.findById(opts.restaurantId);
 }
 
+async function pendingProfileChange(restaurantId: mongoose.Types.ObjectId) {
+  return RestaurantProfileChangeRequest.findOne({
+    restaurantId,
+    status: 'pending',
+  }).sort({ createdAt: -1 });
+}
+
+async function persistProfileChange(opts: {
+  restaurant: { _id: mongoose.Types.ObjectId };
+  user: UserDocument;
+  current: RestaurantProfileChange;
+  proposed: RestaurantProfileChange;
+  reason?: string;
+  replaceReason: boolean;
+}) {
+  const existing = await pendingProfileChange(opts.restaurant._id);
+  if (existing) {
+    const unchanged =
+      profileChangesEqual(mergeProfileChange(opts.current, existing.proposed), opts.proposed) &&
+      (!opts.replaceReason || (existing.reason ?? undefined) === opts.reason);
+    if (unchanged) return mapProfileChangeRequest(existing);
+
+    existing.proposed = opts.proposed;
+    existing.current = opts.current;
+    if (opts.replaceReason) existing.reason = opts.reason;
+    existing.requestedById = opts.user._id;
+    await existing.save();
+    return mapProfileChangeRequest(existing);
+  }
+
+  const doc = await RestaurantProfileChangeRequest.create({
+    restaurantId: opts.restaurant._id,
+    requestedById: opts.user._id,
+    current: opts.current,
+    proposed: opts.proposed,
+    reason: opts.reason,
+    status: 'pending',
+  });
+
+  await logAudit({
+    actorId: opts.user._id.toString(),
+    action: 'requestRestaurantProfileChange',
+    resource: 'Restaurant',
+    resourceId: opts.restaurant._id.toString(),
+  });
+
+  return mapProfileChangeRequest(doc);
+}
+
 export async function requestRestaurantProfileChange(rawInput: unknown, user: UserDocument) {
   const input = requestRestaurantProfileChangeInputSchema.parse(rawInput);
   const restaurant = await Restaurant.findById(input.restaurantId);
@@ -166,42 +223,70 @@ export async function requestRestaurantProfileChange(rawInput: unknown, user: Us
   }
 
   const current = restaurantProfileSnapshot(restaurant);
-  const proposed = restaurantProfileChangeSchema.parse(input.profile);
+  const existing = await pendingProfileChange(restaurant._id);
+  const rawProfile = asProfileRecord(rawInput);
+  restaurantProfileChangePatchSchema.parse(rawProfile);
+  const proposed = proposalFromProfileRequest(current, existing?.proposed, rawProfile);
   if (profileChangesEqual(current, proposed)) {
     throw new ValidationError('No public profile changes to request');
   }
 
-  const existing = await RestaurantProfileChangeRequest.findOne({
-    restaurantId: restaurant._id,
-    status: 'pending',
-  }).sort({ createdAt: -1 });
-
-  if (existing) {
-    existing.proposed = proposed;
-    existing.current = current;
-    existing.reason = input.reason;
-    existing.requestedById = user._id;
-    await existing.save();
-    return mapProfileChangeRequest(existing);
-  }
-
-  const doc = await RestaurantProfileChangeRequest.create({
-    restaurantId: restaurant._id,
-    requestedById: user._id,
+  return persistProfileChange({
+    restaurant,
+    user,
     current,
     proposed,
     reason: input.reason,
-    status: 'pending',
+    replaceReason: true,
   });
+}
 
-  await logAudit({
-    actorId: user._id.toString(),
-    action: 'requestRestaurantProfileChange',
-    resource: 'Restaurant',
-    resourceId: restaurant._id.toString(),
+function asProfileRecord(rawInput: unknown) {
+  if (!rawInput || typeof rawInput !== 'object' || !('profile' in rawInput)) return {};
+  const profile = (rawInput as { profile?: unknown }).profile;
+  return profile && typeof profile === 'object' ? (profile as Record<string, unknown>) : {};
+}
+
+/**
+ * Queue guest-facing listing edits from updateRestaurant.
+ * `replace` trusts the editor payload (so a field can be changed back).
+ * `delta` only queues values that differ from the live restaurant.
+ */
+export async function queueOwnerRestaurantListingChange(opts: {
+  restaurant: RestaurantProfileSource & { _id: mongoose.Types.ObjectId; status?: string | null };
+  user: UserDocument;
+  raw: Record<string, unknown>;
+  input: RestaurantInput;
+  replaceListing: boolean;
+}) {
+  const current = restaurantProfileSnapshot(opts.restaurant);
+  const existing = await pendingProfileChange(opts.restaurant._id);
+  const patch = listingPatchFromRestaurantUpdate({
+    live: current,
+    input: opts.input,
+    raw: opts.raw,
+    mode: opts.replaceListing ? 'replace' : 'delta',
   });
+  if (Object.keys(patch).length === 0) return 'unchanged' as const;
 
-  return mapProfileChangeRequest(doc);
+  const base = existing ? mergeProfileChange(current, existing.proposed) : current;
+  const proposed = mergeProfileChange(base, patch);
+  if (profileChangesEqual(proposed, current)) {
+    if (existing) await cancelRestaurantProfileChangeRequest(existing._id.toString(), opts.user);
+    return 'reverted' as const;
+  }
+  if (existing && profileChangesEqual(proposed, mergeProfileChange(current, existing.proposed))) {
+    return 'unchanged' as const;
+  }
+
+  await persistProfileChange({
+    restaurant: opts.restaurant,
+    user: opts.user,
+    current,
+    proposed,
+    replaceReason: false,
+  });
+  return 'queued' as const;
 }
 
 export async function myRestaurantProfileChangeRequest(restaurantId: string, user: UserDocument) {
@@ -256,7 +341,9 @@ export async function adminListRestaurantProfileChangeRequests(args: {
       .lean();
     filter.$or = [
       { reason: { $regex: q, $options: 'i' } },
+      { 'proposed.name': { $regex: q, $options: 'i' } },
       { 'proposed.description': { $regex: q, $options: 'i' } },
+      { 'proposed.cuisine': { $regex: q, $options: 'i' } },
       { restaurantId: { $in: restaurants.map((r) => r._id) } },
     ];
   }

@@ -6,6 +6,7 @@ import {
   isPlatformAdmin,
   sanitizeSupportHtml,
   htmlToPlainText,
+  toSpacesCdnUrl,
   type UserRole,
 } from '@reservations/shared';
 import { SupportTicket } from '../models/SupportTicket.js';
@@ -1095,7 +1096,7 @@ export async function listFlaggedContent(limit = 50) {
       authorName: userById.get(r.dinerId.toString()) ?? null,
       body: r.comment || `(${r.rating}★)`,
       rating: r.rating,
-      photos: Array.isArray(r.photos) ? r.photos : [],
+      photos: Array.isArray(r.photos) ? r.photos.filter(Boolean).map((url: string) => toSpacesCdnUrl(url)) : [],
       ownerReply: r.ownerReply ?? null,
       ownerRepliedAt: r.ownerRepliedAt ?? null,
       hidden: Boolean(r.hidden),
@@ -1159,7 +1160,7 @@ export async function getFlaggedContentItem(id: string, type: string) {
       authorName: author ? `${author.firstName} ${author.lastName}` : null,
       body: r.comment || `(${r.rating}★)`,
       rating: r.rating,
-      photos: Array.isArray(r.photos) ? r.photos : [],
+      photos: Array.isArray(r.photos) ? r.photos.filter(Boolean).map((url: string) => toSpacesCdnUrl(url)) : [],
       ownerReply: r.ownerReply ?? null,
       ownerRepliedAt: r.ownerRepliedAt ?? null,
       hidden: Boolean(r.hidden),

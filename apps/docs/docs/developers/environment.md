@@ -59,7 +59,7 @@ Without Stripe keys, deposits and billing flows are stubbed for local dev. Store
 |---|---|
 | `DO_SPACES_KEY` / `DO_SPACES_SECRET` | S3-compatible credentials |
 | `DO_SPACES_BUCKET` | Bucket name |
-| `DO_SPACES_CDN` | Public CDN base URL for images |
+| `DO_SPACES_CDN` | Public CDN base URL. When empty, image URLs use `https://<bucket>.<region>.cdn.digitaloceanspaces.com` |
 
 Uploads are stubbed when keys are missing.
 

@@ -39,8 +39,8 @@ The sidebar keeps support queues first, then accounts. Billing and platform tool
 | **Guests** | Create and manage customer accounts |
 | **Restaurant accounts** | Owners and managers with venue assignment |
 | **Platform accounts** | Every platform role (admin, account manager, super admin, QA) |
-| **Billing** | Hub: invoices, failed charges, no-show fees, revenue, churn, loyalty, plans, services, data exports |
-| **Platform** | Hub grouped into Setup, Configuration, Content, Email, Monitoring, QA, and Advanced (config, discovery, blog, agreements, docs access, templates, SLA, audit, developer, QA tools) |
+| **Billing** | Hub: invoices, failed charges, no-show fees, revenue, churn, loyalty, plans, services |
+| **Platform** | Hub grouped into Setup, Configuration, Content, Email, Monitoring, QA, and Advanced (config, data exports, discovery, blog, agreements, docs access, templates, SLA, audit, developer, QA tools) |
 
 ## Legal agreements
 

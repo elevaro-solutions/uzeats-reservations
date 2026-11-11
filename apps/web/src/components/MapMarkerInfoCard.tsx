@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
 import { priceRangeLabel, typography } from '@reservations/ui';
-import { canUseNextImage } from '@/lib/canUseNextImage';
+import { canUseNextImage, spacesImageProps } from '@/lib/canUseNextImage';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
 type MapMarkerInfoCardProps = {
@@ -37,6 +37,7 @@ export function MapMarkerInfoCard({
   const photos = restaurant.photos?.filter(Boolean) ?? [];
   const [photoIndex, setPhotoIndex] = useState(0);
   const activePhoto = photos[photoIndex] ?? photos[0];
+  const image = activePhoto ? spacesImageProps(activePhoto) : null;
   const slots = restaurant.availableSlotTimes?.slice(0, 3) ?? [];
 
   const locationLabel = restaurant.address?.city ?? 'Nearby';
@@ -53,18 +54,19 @@ export function MapMarkerInfoCard({
       style={{ fontFamily: typography.fontFamily }}
     >
       <div className="rt-map-info-card__media">
-        {activePhoto ? (
-          canUseNextImage(activePhoto) ? (
+        {image ? (
+          canUseNextImage(image.src) ? (
             <Image
-              src={activePhoto}
+              src={image.src}
               alt={restaurant.name}
               fill
               sizes="320px"
+              unoptimized={image.unoptimized}
               style={{ objectFit: 'cover' }}
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={activePhoto} alt={restaurant.name} className="rt-map-info-card__img" />
+            <img src={image.src} alt={restaurant.name} className="rt-map-info-card__img" />
           )
         ) : (
           <div className="rt-map-info-card__placeholder">No photo yet</div>

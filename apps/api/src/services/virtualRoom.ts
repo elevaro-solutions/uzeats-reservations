@@ -29,6 +29,7 @@ import {
   type VirtualRoomSelectionFeeMode,
   type VirtualRoomSelectionFeePayer,
   type VirtualRoomWallPhotoFit,
+  toSpacesCdnUrl,
 } from '@reservations/shared';
 import { AddonFee } from '../models/AddonFee.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -801,7 +802,7 @@ function roomMedia(room: VirtualRoomDocument | null): RoomMedia[] {
     id: m.id,
     kind: m.kind,
     role: m.role,
-    url: m.url,
+    url: m.kind === 'photo' ? toSpacesCdnUrl(m.url) : m.url,
     floorArea: m.floorArea ?? null,
     caption: m.caption ?? null,
     createdAt: m.createdAt ?? null,
@@ -1299,7 +1300,7 @@ export async function addVirtualRoomMedia(restaurantId: string, rawInput: unknow
     id: crypto.randomUUID(),
     kind: input.kind,
     role: input.role,
-    url: input.url,
+    url: input.kind === 'photo' ? toSpacesCdnUrl(input.url) : input.url,
     floorArea: input.floorArea?.trim() || undefined,
     caption: input.caption?.trim() || undefined,
     createdAt: new Date(),

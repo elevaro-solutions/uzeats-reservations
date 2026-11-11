@@ -1,5 +1,25 @@
 # API — Learnings & Observations
 
+## [2026-11-11] QA checklist catalog is v0.105.0
+- `QA_CHECKLIST_RELEASE` is `0.105.0`. Catalog groups are Profile requests, Images, Telegram bot, and Admin. v0.104.0 map / redeem tasks moved to `QA_CHECKLIST_ARCHIVE`.
+- Why it matters: Sign-off for this gate is the profile-change review flow and CDN images, not the previous map work.
+
+## [2026-11-11] Telegram "hasn't tapped Start" must be an AppError
+- `getChat` / `sendMessage` before the person taps Start returns Telegram `chat not found` or `bot can't initiate conversation`. `addMessengerLinkManual` used to rethrow that as `GraphQLError`, and production `formatError` rewrites anything that is not an `AppError` to "Internal server error".
+- `errorForTelegramChatLookup` throws `ValidationError` (details.botUrl = `https://t.me/<username>`) with the steps. A bare `/start` reply now includes the numeric chat ID so those steps are true.
+- Why it matters: Do not wrap this failure in `GraphQLError`. The dashboard linkifies the URL in the error.
+
+## [2026-11-11] Live listing edits are profile-change requests
+- `updateRestaurant` for a non-admin on an `approved` or `suspended` restaurant does not write guest-facing fields (name, cuisine, description, price, photos, logo, phone, website, menu link, address, map pin, and the public-profile discovery tags). Those values are merged onto the pending `RestaurantProfileChangeRequest`. Deposits, loyalty, holidays, and online ordering still save immediately.
+- `submitListingForReview: true` (Restaurant profile) treats the payload as the full listing editor, so a field can be changed back to the live value. Other callers only queue fields that differ from the live restaurant, which keeps a Menu save from wiping a pending name.
+- Restaurants that are not live yet (`pending` / `rejected`) still save listing fields directly. Platform admins always do.
+- Why it matters: Approving the profile request is what publishes the listing. A public-profile discovery request keeps a queued name or cuisine.
+
+## [2026-11-11] Image URLs use the Spaces CDN
+- `publicUrlForUploadKey` publishes `https://<bucket>.<region>.cdn.digitaloceanspaces.com/<key>` when `DO_SPACES_CDN` is empty, and still rewrites an origin host if `DO_SPACES_CDN` was set to the bucket origin. A custom CDN host in `DO_SPACES_CDN` is kept.
+- GraphQL mappers (`logoUrl`, `photos`, `photoUrl`, `avatarUrl`, floor backgrounds, review photos) and blog HTML run stored origin URLs through `toSpacesCdnUrl`. Local `/api/uploads/local/` fallbacks are unchanged.
+- Why it matters: Browsers should request images from the CDN edge. `isOwnUploadUrl` already accepts `bucket.region.cdn.digitaloceanspaces.com`.
+
 ## [2026-11-11] QA runs are created on API start, plus an archive of past catalogs
 - `QaReleaseChecklist` rows used to be created only when someone opened `/admin/qa` while that release was current. v0.103.0 was live on staging ~30 minutes, nobody opened it, and once v0.103.1 deployed its catalog was gone from code, so History skipped it.
 - `ensureQaChecklistRuns()` (API start) creates the current release's run and one for every release in `QA_CHECKLIST_ARCHIVE` (`qaChecklistArchive.ts`). Archived catalogs also fill a row that has no snapshot.

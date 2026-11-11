@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { browserMediaUrl } from '@reservations/shared';
 import { fetchPublishedBlogPosts } from '@/lib/blogSeoFetch';
 import { absoluteUrl, breadcrumbJsonLd, itemListJsonLd } from '@/lib/seo';
 
@@ -86,7 +87,7 @@ export default async function BlogIndexPage() {
                   {post.coverImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={post.coverImageUrl}
+                      src={browserMediaUrl(post.coverImageUrl)}
                       alt=""
                       className="blog-list__image"
                     />

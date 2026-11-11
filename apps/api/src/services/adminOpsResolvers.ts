@@ -8,6 +8,7 @@ import {
   discoveryTaxonomyInputSchema,
   isPlatformAdmin,
   type DiscoveryTaxonomyKind,
+  toSpacesCdnUrl,
   type UserRole,
 } from '@reservations/shared';
 import { resolveOnlineOrderPatch, restaurantInputToDb } from '../lib/restaurantInput.js';
@@ -140,7 +141,7 @@ function mapFlaggedReview(r: any, restaurantName?: string | null, authorName?: s
     authorName: authorName ?? null,
     body: r.comment || `(${r.rating}★)`,
     rating: r.rating,
-    photos: Array.isArray(r.photos) ? r.photos : [],
+    photos: Array.isArray(r.photos) ? r.photos.filter(Boolean).map((url: string) => toSpacesCdnUrl(url)) : [],
     ownerReply: r.ownerReply ?? null,
     ownerRepliedAt: r.ownerRepliedAt ?? null,
     hidden: Boolean(r.hidden),

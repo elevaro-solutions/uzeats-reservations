@@ -6,6 +6,7 @@ import {
   buildScopedObjectKey,
   isOwnUploadUrl,
   isScopedUploadPrefix,
+  publicUrlForUploadKey,
   resolveLocalUploadPath,
 } from '../services/spaces.js';
 
@@ -45,6 +46,17 @@ describe('scoped object keys', () => {
     ).toBe(false);
     expect(isOwnUploadUrl(`http://localhost:4000/api/uploads/local/${key}`)).toBe(true);
     expect(isOwnUploadUrl('http://localhost:4000/api/uploads/local/legacy-photo.jpg')).toBe(true);
+  });
+
+  it('publishes uploads on the Spaces CDN', () => {
+    const key = `restaurants/${RESTAURANT_ID}/menu/dish.jpg`;
+    const url = publicUrlForUploadKey(key);
+    expect(url.endsWith(`/${key}`)).toBe(true);
+    expect(isOwnUploadUrl(url)).toBe(true);
+    const customCdn = env.DO_SPACES_CDN.trim();
+    if (!customCdn || customCdn.includes('digitaloceanspaces.com')) {
+      expect(new URL(url).hostname.endsWith('.cdn.digitaloceanspaces.com')).toBe(true);
+    }
   });
 
   it('keeps local files inside the upload directory', () => {

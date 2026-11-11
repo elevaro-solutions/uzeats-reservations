@@ -2,7 +2,7 @@
 
 import { Typography } from 'antd';
 import { DEFAULT_RESTAURANT_PHOTO } from '@reservations/ui';
-import { canUseNextImage } from '@/lib/canUseNextImage';
+import { canUseNextImage, spacesImageProps } from '@/lib/canUseNextImage';
 import Image from 'next/image';
 
 const { Title } = Typography;
@@ -40,7 +40,9 @@ export function RestaurantPhotosSection({ photos, name, onOpenGallery }: Props) 
         )}
       </div>
       <div className="rt-restaurant-photos-grid">
-        {gallery.slice(0, 8).map((url, i) => (
+        {gallery.slice(0, 8).map((url, i) => {
+          const image = spacesImageProps(url);
+          return (
           <button
             key={url + i}
             type="button"
@@ -48,20 +50,22 @@ export function RestaurantPhotosSection({ photos, name, onOpenGallery }: Props) 
             onClick={() => onOpenGallery?.(i)}
             aria-label={`View photo ${i + 1}`}
           >
-            {canUseNextImage(url) ? (
+            {canUseNextImage(image.src) ? (
               <Image
-                src={url}
+                src={image.src}
                 alt={`${name} photo ${i + 1}`}
                 fill
                 sizes="(max-width: 768px) 50vw, 25vw"
+                unoptimized={image.unoptimized}
                 style={{ objectFit: 'cover' }}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={url} alt={`${name} photo ${i + 1}`} loading="lazy" />
+              <img src={image.src} alt={`${name} photo ${i + 1}`} loading="lazy" />
             )}
           </button>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

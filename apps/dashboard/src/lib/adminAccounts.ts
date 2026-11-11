@@ -143,14 +143,14 @@ export const PLATFORM_ROLE_CAPABILITIES: PlatformCapabilityRow[] = [
   },
   {
     id: 'billing',
-    capability: 'Billing, plans, and exports',
+    capability: 'Billing and plans',
     account_manager: true,
     admin: true,
     super_admin: true,
   },
   {
     id: 'config',
-    capability: 'Platform config and content',
+    capability: 'Platform config, content, and exports',
     account_manager: true,
     admin: true,
     super_admin: true,

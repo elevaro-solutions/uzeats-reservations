@@ -1,4 +1,7 @@
+import { toSpacesCdnUrl } from '@reservations/shared';
+
 /** Verified Unsplash food & dining photos (all return HTTP 200). */
+
 export const DEFAULT_RESTAURANT_PHOTO =
   'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=600&fit=crop&auto=format&q=80';
 
@@ -24,7 +27,9 @@ function isSkippedPhoto(url: string) {
 export function pickRestaurantPhoto(
   photos?: (string | null | undefined)[] | null,
 ): string {
-  const valid = (photos ?? []).filter((p): p is string => typeof p === 'string' && p.trim().length > 0);
+  const valid = (photos ?? [])
+    .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+    .map((p) => toSpacesCdnUrl(p));
   return valid.find((p) => !isSkippedPhoto(p)) ?? valid[0] ?? DEFAULT_RESTAURANT_PHOTO;
 }
 
@@ -33,6 +38,7 @@ export function restaurantPhotoCandidates(
 ): string[] {
   const valid = (photos ?? [])
     .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+    .map((p) => toSpacesCdnUrl(p))
     .filter((p) => !isSkippedPhoto(p));
   return valid.length > 0 ? valid : [...RESTAURANT_PHOTO_FALLBACKS];
 }
@@ -50,9 +56,9 @@ export function pickRestaurantLogo(
   photos?: (string | null | undefined)[] | null,
 ): string | null {
   const logo = logoUrl?.trim();
-  if (logo) return logo;
+  if (logo) return toSpacesCdnUrl(logo);
   const photo = (photos ?? []).find(
     (p): p is string => typeof p === 'string' && p.trim().length > 0 && !isSkippedPhoto(p),
   );
-  return photo ?? null;
+  return photo ? toSpacesCdnUrl(photo) : null;
 }

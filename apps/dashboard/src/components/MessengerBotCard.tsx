@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
+  Alert,
   Button,
   Card,
   Input,
@@ -16,6 +17,7 @@ import {
   message,
 } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
+import { getGraphQLErrorMessage } from '@/lib/errors';
 import {
   ADD_MESSENGER_LINK_MANUAL,
   CREATE_MESSENGER_LINK_INVITE,
@@ -26,7 +28,24 @@ import {
   UPDATE_MESSENGER_LINK,
 } from '@/lib/graphql';
 
-const { Text, Paragraph } = Typography;
+const { Text, Paragraph, Link } = Typography;
+
+function TextWithLinks({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s)]+)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <Link key={i} href={part} target="_blank" rel="noopener noreferrer">
+            {part}
+          </Link>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 type LinkInfo = {
   id: string;
@@ -68,6 +87,7 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
   const [manualOpen, setManualOpen] = useState(false);
   const [manualUserId, setManualUserId] = useState<string | null>(null);
   const [manualChatId, setManualChatId] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const bot = data?.restaurantMessengerBot;
   const members: Member[] = bot?.members ?? [];
@@ -114,11 +134,17 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
     }
   };
 
+  const closeManual = () => {
+    setManualOpen(false);
+    setLinkError(null);
+  };
+
   const handleManual = async () => {
     if (!manualUserId || !manualChatId.trim()) {
       message.error('Pick a team member and enter a Telegram chat id');
       return;
     }
+    setLinkError(null);
     try {
       await addManual({
         variables: {
@@ -130,11 +156,11 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
         },
       });
       message.success('Telegram chat linked');
-      setManualOpen(false);
+      closeManual();
       setManualChatId('');
       await refetch();
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Failed to link chat');
+      setLinkError(getGraphQLErrorMessage(err, 'Failed to link chat'));
     }
   };
 
@@ -190,7 +216,13 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
                 />
               </Space>
               {bot.botUsername ? (
-                <Tag color="blue">@{bot.botUsername}</Tag>
+                bot.botUrl ? (
+                  <Link href={bot.botUrl} target="_blank" rel="noopener noreferrer">
+                    @{bot.botUsername}
+                  </Link>
+                ) : (
+                  <Tag color="blue">@{bot.botUsername}</Tag>
+                )
               ) : null}
             </Space>
 
@@ -215,7 +247,13 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
                 Connect my Telegram
               </Button>
               {bot.canManageTeam ? (
-                <Button disabled={!bot.enabled} onClick={() => setManualOpen(true)}>
+                <Button
+                  disabled={!bot.enabled}
+                  onClick={() => {
+                    setLinkError(null);
+                    setManualOpen(true);
+                  }}
+                >
                   Link chat ID manually
                 </Button>
               ) : null}
@@ -279,7 +317,7 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
       <Modal
         title="Link Telegram chat ID"
         open={manualOpen}
-        onCancel={() => setManualOpen(false)}
+        onCancel={closeManual}
         onOk={handleManual}
         confirmLoading={linking}
         okText="Link"
@@ -308,8 +346,31 @@ export function MessengerBotCard({ restaurantId }: { restaurantId: string | null
             />
           </div>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            The person must open the bot and tap Start once, then paste the numeric chat id here.
+            {bot?.botUrl ? (
+              <>
+                This person must open{' '}
+                <Link href={bot.botUrl} target="_blank" rel="noopener noreferrer">
+                  @{bot.botUsername ?? 'the bot'}
+                </Link>{' '}
+                and tap <Text strong>Start</Text> (or send /start). The bot replies with a numeric
+                chat ID — paste that here.
+              </>
+            ) : (
+              'This person must open the bot and tap Start (or send /start). The bot replies with a numeric chat ID — paste that here.'
+            )}
           </Text>
+          {linkError ? (
+            <Alert
+              type="error"
+              showIcon
+              message="Couldn't link this Telegram chat"
+              description={
+                <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  <TextWithLinks text={linkError} />
+                </div>
+              }
+            />
+          ) : null}
         </Space>
       </Modal>
     </Card>

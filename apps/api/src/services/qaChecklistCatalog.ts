@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.104.0';
+export const QA_CHECKLIST_RELEASE = '0.105.0';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -14,93 +14,59 @@ export type QaChecklistCatalogItem = {
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
   {
-    id: 'rel-map-clusters',
+    id: 'rel-profile-change-review',
     gate: 'required',
-    group: 'Diner web map',
-    label: 'Map groups overlapping restaurants into a numbered bubble; tapping it zooms in or lists venues',
+    group: 'Profile requests',
+    label: 'Live restaurant name, cuisine, description, price, photos, logo, contact, and address go to review',
     steps: [
-      'On diner web, open search and switch to the Map view. Zoom out until several restaurants overlap. Confirm they collapse into one bubble showing a count.',
-      'Click the bubble. Confirm the map glides to it and zooms in smoothly, one level at a time, until the restaurants separate into individual markers.',
-      'Find (or seed) two restaurants at the same address. Click their bubble and confirm a “restaurants here” list opens instead of zooming forever; pick one and confirm its card opens.',
-      'At a mid zoom where name labels would overlap, confirm overlapping labels are hidden but the pin itself is still clickable.',
+      'Sign in as the owner (or manager) of an approved, live restaurant. In Restaurant profile, change the name and description, add a photo, and change the phone or address. Save.',
+      'Confirm Partner Hub says the changes were sent for review, and the diner restaurant page still shows the old name, description, photos, and contact.',
+      'Change a booking setting (e.g. party size or deposit) and save. Confirm it applies right away without review.',
+      'Save the Menu page without touching the listing. Confirm the pending name / description request is still pending (not wiped).',
     ],
   },
   {
-    id: 'rel-map-marker-chips',
+    id: 'rel-profile-request-approve-deny',
     gate: 'required',
-    group: 'Diner web map',
-    label: 'Map markers are white chips (dot + name); selected marker is a larger gold dot with a halo',
+    group: 'Profile requests',
+    label: 'Admin approves or denies the queued profile change in Profile requests',
     steps: [
-      'On the Map view, confirm each restaurant shows as one white chip containing its dot and name.',
-      'Hover a chip. Confirm its shadow deepens smoothly and the dot pops with a soft ring.',
-      'Click a chip. Confirm the selected restaurant shows a larger gold dot with a soft halo and its name label hides while the card is open; closing the card brings the label back.',
+      'As Super Admin, open Partner Hub → Profile requests. Confirm the request from the previous task lists each changed field with old and new values.',
+      'Approve it. Confirm the diner restaurant page now shows the new name, description, photos, and contact.',
+      'Submit another change as the owner, then deny it. Confirm the live listing is unchanged and the owner can edit again.',
     ],
   },
   {
-    id: 'rel-map-card-polish',
+    id: 'rel-images-cdn',
     gate: 'required',
-    group: 'Diner web map',
-    label: 'Map restaurant card: tail lands above the dot, fades in, lighter slots, hover photo arrows, focus states',
+    group: 'Images',
+    label: 'Restaurant, menu, review, profile, blog, and floor images load from the Spaces CDN',
     steps: [
-      'Click a restaurant on the map. Confirm the card fades in and its pointer tail joins the card seamlessly and lands just above the selected dot.',
-      'On a restaurant with 2+ photos, confirm the photo arrows appear on hover (desktop) and are always visible on a touch device / mobile emulation.',
-      'Confirm the time-slot buttons look lighter than before and every button (close, arrows, slots) shows a hover state and a visible focus ring when tabbing with the keyboard.',
+      'On diner web, open a restaurant page, a search / map card, Saved, and a blog post. In DevTools → Network → Img, confirm uploaded photos load from a *.cdn.digitaloceanspaces.com URL (not *.digitaloceanspaces.com and not /_next/image).',
+      'Confirm the photos actually display (no broken images) on the restaurant gallery, map card, discovery cards, and blog cover / inline images.',
+      'In Partner Hub, open Restaurant profile photos, Menu dish photos, and the floor plan background. Confirm they display and load from the CDN.',
+      'Upload a new photo in Partner Hub and confirm it shows right away.',
     ],
   },
   {
-    id: 'rel-map-card-edges',
+    id: 'rel-telegram-link-before-start',
     gate: 'required',
-    group: 'Diner web map',
-    label: 'Map card and “restaurants here” list stay inside the map near its edges',
+    group: 'Telegram bot',
+    label: 'Linking a Telegram chat before Start shows steps and a bot link, not Internal server error',
     steps: [
-      'Pan so a marker sits near the top edge of the map and click it. Confirm the card flips below the marker instead of being cut off.',
-      'Repeat with markers near the left and right edges. Confirm the card shifts sideways and stays fully inside the map.',
-      'Make the browser window short, then select a restaurant low on the map. Confirm the map pans so the card fits above the marker.',
-      'Repeat the top-edge check with a same-spot bubble and confirm the “restaurants here” list also stays inside the map.',
+      'In Partner Hub → Notifications → Telegram messenger bot, open Link Telegram chat ID. Enter the numeric chat ID of a Telegram account that has never opened the bot, and submit.',
+      'Confirm the modal shows the steps (open the bot, tap Start or send /start, copy the chat ID, paste again) with a clickable bot link, not Internal server error.',
+      'From that account, open the bot and send /start before linking. Confirm the reply includes the numeric chat ID. Paste it in Partner Hub and confirm the link succeeds.',
     ],
   },
   {
-    id: 'rel-map-sync-after-filter',
-    gate: 'required',
-    group: 'Diner web map',
-    label: 'Map labels and positions stay in sync after the result list changes',
+    id: 'rel-admin-exports-moved',
+    gate: 'recommended',
+    group: 'Admin',
+    label: 'Admin Data exports live under Platform → Configuration',
     steps: [
-      'On the Map view, change filters (e.g. cuisine, price, or search text) a few times so the result list changes.',
-      'Confirm each marker label matches the restaurant at that position and no stale labels or bubbles are left behind from the previous results.',
-    ],
-  },
-  {
-    id: 'rel-map-short-window',
-    gate: 'required',
-    group: 'Diner web map',
-    label: 'Map page on a short desktop window: map is not clipped; filters scroll inside their panel',
-    steps: [
-      'On desktop, resize the browser to a short height (around 600–700px) and open the Map view.',
-      'Confirm the bottom of the map is visible and the page does not grow taller than the screen.',
-      'Scroll inside the filters sidebar and confirm it scrolls within its own panel.',
-    ],
-  },
-  {
-    id: 'rel-redeem-empty-inputs',
-    gate: 'required',
-    group: 'Diner booking',
-    label: 'Redeem points inputs start empty (no leading 0)',
-    steps: [
-      'Sign in as a diner with loyalty points and start a booking on a restaurant that takes a deposit.',
-      'Confirm the “Redeem loyalty points” input (and the restaurant points input, if shown) is empty with a “Min …” placeholder, not 0.',
-      'Type 1432. Confirm the value reads 1432, not 01432.',
-    ],
-  },
-  {
-    id: 'rel-redeem-validation',
-    gate: 'required',
-    group: 'Diner booking',
-    label: 'Redeem points shows the real validation message and blocks booking until valid',
-    steps: [
-      'On the same booking, enter fewer points than the minimum. Confirm the message says “Minimum redeem is … points”.',
-      'Enter more points than your balance. Confirm the message says “Insufficient loyalty points” (not “Minimum 500 points”) and booking cannot proceed.',
-      'On a small deposit, enter a large valid amount. Confirm it shows the capped amount actually redeemed, or “Deposit is too small to redeem …” when even the minimum does not fit.',
-      'Enter a valid amount. Confirm the success message shows the discount and the confirm step lists the same points redeemed.',
+      'As Super Admin, open Platform. Confirm Data exports is a card under Configuration and is no longer under Billing.',
+      'Open it and confirm /admin/exports still loads and downloads an export.',
     ],
   },
 ];

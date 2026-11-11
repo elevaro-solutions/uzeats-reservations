@@ -14,6 +14,7 @@ import {
   ACCOUNT_UPLOAD_KINDS,
   PLATFORM_UPLOAD_KINDS,
   RESTAURANT_UPLOAD_KINDS,
+  toSpacesCdnUrl,
 } from '@reservations/shared';
 import { env } from '../config/env.js';
 
@@ -201,8 +202,9 @@ export function buildScopedObjectKey(prefix: string, filename: string, contentTy
 }
 
 export function publicUrlForUploadKey(key: string) {
-  const base = env.DO_SPACES_CDN || `${env.DO_SPACES_ENDPOINT}/${env.DO_SPACES_BUCKET}`;
-  return `${base}/${key}`;
+  const explicit = env.DO_SPACES_CDN.replace(/\/$/, '');
+  const base = explicit || `${env.DO_SPACES_ENDPOINT.replace(/\/$/, '')}/${env.DO_SPACES_BUCKET}`;
+  return toSpacesCdnUrl(`${base}/${key}`);
 }
 
 function isMissingObject(err: unknown) {

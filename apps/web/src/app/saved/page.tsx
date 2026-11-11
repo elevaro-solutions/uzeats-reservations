@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type MouseEvent } from 'react';
 import { PageHeader, EmptyState, priceRangeLabel, colors, radii, shadows } from '@reservations/ui';
-import { buildRestaurantBookingPath } from '@reservations/shared';
+import { browserMediaUrl, buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   MY_SAVED_RESTAURANTS,
@@ -132,7 +132,7 @@ function RestaurantList({
               {r.photos?.[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={r.photos[0]}
+                  src={browserMediaUrl(r.photos[0])}
                   alt=""
                   width={72}
                   height={72}

@@ -1,4 +1,4 @@
-import { sanitizeBlogHtml, type BlogPostInput } from '@reservations/shared';
+import { rewriteSpacesUrlsInHtml, sanitizeBlogHtml, toSpacesCdnUrl, type BlogPostInput } from '@reservations/shared';
 import { BlogPost, type BlogPostDocument } from '../models/BlogPost.js';
 import { User } from '../models/User.js';
 import { paginateQuery } from '../lib/pagination.js';
@@ -51,8 +51,8 @@ export function mapBlogPost(doc: any, author?: any) {
     title: doc.title,
     slug: doc.slug,
     excerpt: doc.excerpt ?? '',
-    bodyHtml: sanitizeBlogHtml(doc.bodyHtml ?? ''),
-    coverImageUrl: doc.coverImageUrl || null,
+    bodyHtml: rewriteSpacesUrlsInHtml(sanitizeBlogHtml(doc.bodyHtml ?? '')),
+    coverImageUrl: doc.coverImageUrl ? toSpacesCdnUrl(doc.coverImageUrl) : null,
     status: doc.status,
     publishedAt: doc.publishedAt ?? null,
     seoTitle: doc.seoTitle ?? '',

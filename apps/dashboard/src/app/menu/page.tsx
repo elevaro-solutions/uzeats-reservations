@@ -531,7 +531,7 @@ export default function MenuPage() {
               );
               return;
             }
-            await Promise.all([
+            const [restaurantSave] = await Promise.all([
               updateRestaurant({
                 variables: {
                   id: activeRestaurantId,
@@ -546,7 +546,13 @@ export default function MenuPage() {
               upsertMenu({ variables: { restaurantId: activeRestaurantId, input: { sections } } }),
             ]);
             setDirty(false);
-            message.success('Menu saved');
+            const savedMenuUrl = restaurantSave.data?.updateRestaurant?.menuUrl ?? null;
+            const wantedMenuUrl = menuUrl.trim() || null;
+            message.success(
+              (savedMenuUrl || null) !== wantedMenuUrl
+                ? 'Menu saved. The full menu link was sent for review and is not on the public page yet.'
+                : 'Menu saved',
+            );
             // Refresh Apollo cache only — re-applying form values remounts Form.List keys and collapses items.
             void refetch();
           } catch (err: unknown) {
@@ -575,7 +581,8 @@ export default function MenuPage() {
             />
             <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
               Optional. Powers the “View full menu” button on your public page — a PDF, your
-              website menu, or a third-party menu host.
+              website menu, or a third-party menu host. On a live restaurant, changes to this
+              link are reviewed before diners see them.
             </Text>
           </Card>
           <Card

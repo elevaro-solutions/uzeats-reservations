@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.105.0] — 2026-11-11
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: live-restaurant profile changes go to review, Profile requests approve / deny, CDN-served images on diner and Partner Hub, Telegram link-before-Start guidance and chat ID, and Data exports under Platform → Configuration
+
+### Fixed
+- Linking a Telegram chat before that person opens the bot and taps Start explains what to do (open the bot, tap Start or send /start, copy the chat ID, paste it again) and includes a link to the bot, instead of "Internal server error".
+
+### Changed
+- The Telegram reservation bot's first reply, before a chat is linked, includes the numeric chat ID to paste into Partner Hub.
+- Restaurant owners and managers: changes to a live restaurant’s name, cuisine, description, price, photos, logo, phone, website, menu link, and address are sent to Tablevera for review instead of going live immediately. Booking settings still save right away. Review them in Partner Hub → Profile requests.
+- Restaurant, menu, review, profile, blog, and floor images are served from the DigitalOcean Spaces CDN. The diner site loads those photos straight from the CDN instead of the Spaces origin.
+- Admin Data exports moved from Billing to Platform → Configuration. The page is still `/admin/exports`.
+
+### Docs
+- Profile change review, Spaces CDN images, and Telegram linking notes
+
 ## [0.104.0] — 2026-11-11
 
 ### Added

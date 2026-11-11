@@ -1,5 +1,15 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-11] Telegram link errors stay in the chat-ID modal
+- `MessengerBotCard` shows `addMessengerLinkManual` failures in an Alert inside the modal and turns `https://` in the message into a link. The @username on the card and the hint under the chat ID field also open `botUrl`.
+- Why it matters: `message.error` is plain text, so a bot URL in a toast is not a hyperlink. Keep the long Start instructions in the Alert.
+
+## [2026-11-11] Restaurant profile listing saves go to review
+- `/restaurant-profile` calls `updateRestaurant` with `submitListingForReview: true` and hydrates name, cuisine, description, price, photos, logo, contact, and address from the pending profile request when one exists.
+- The success toast is the review message only when the saved restaurant still has the previous listing. Booking settings use the normal “Restaurant updated” path when the listing matches what was submitted.
+- Menu → Full menu link uses the same mutation without that flag. A changed link on a live restaurant comes back unchanged and the toast says it was sent for review.
+- Why it matters: Do not write listing fields straight onto the restaurant from the partner editor. Admins still use `adminUpdateRestaurant`, which publishes immediately.
+
 ## [2026-11-05] QA checklist catalog is v0.101.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.101.0`. Testers use owner Billing and the setup guide for the default card, a decline test card for failed-charge alerts, Admin → Billing Failed charges, a multi-restaurant owner for All restaurants and Pay all, Live floor Tables view and drawer, Menu → Online ordering and the Menu editor, and the diner home hero.
 - Why it matters: Do not re-test v0.100.x agreement items on this gate. Prior runs stay on History.
@@ -641,6 +651,10 @@
 - Admin `/admin/support/[id]` conversation is chat-style (`SupportTicketThread`). Triage is the right sidebar. Replies use `addSupportNote(..., visibleToRequester: true)`. Owners reply with `addOwnerSupportReply`. Both reply composers accept image attachments (stored on the note). Internal notes stay hidden. Both composers are TipTap.
 - Nav: Account → Support (sidebar + profile menu + ⌘K). Admin queue is still `/admin/support`.
 - Why it matters: Don’t reuse admin `createSupportTicket` from the partner dashboard. Don’t hide owner screenshots in `toRequesterVisibleTicket`. Reply screenshots live on `SupportNote.attachments`, not ticket-level `attachments`.
+
+## [2026-11-11] Admin data exports live on the Platform hub
+- `/admin/exports` is a Platform hub child (`parentSiderHref: '/admin/platform'`, `hubSection: 'Configuration'`). Billing no longer lists it.
+- Why it matters: Don’t put the export card back under `/admin/billing`. Search and the URL stay the same.
 
 ## [2026-09-22] Sidebar hubs: Grow, Insights, Billing, Platform
 - Partner sider omits pages with `parentSiderHref` (Grow/Insights children, Settings tools, Guests loyalty). Hubs: `/grow`, `/insights`; Settings cards include floor setup. **Reviews** is a top-level Guests sider item with an unreplied-count badge.

@@ -6,7 +6,7 @@ import {
   type RestaurantCardProps,
   type RestaurantCardPhotoRenderProps,
 } from '@reservations/ui';
-import { canUseNextImage } from '@/lib/canUseNextImage';
+import { canUseNextImage, spacesImageProps } from '@/lib/canUseNextImage';
 
 function markLoadedIfDecoded(node: HTMLImageElement | null, onLoad: () => void) {
   if (node?.complete && node.naturalWidth > 0) onLoad();
@@ -16,13 +16,15 @@ export function DiscoveryRestaurantCard(props: RestaurantCardProps) {
   return (
     <RestaurantCard
       {...props}
-      renderPhoto={({ src, alt, style, onError, onLoad }: RestaurantCardPhotoRenderProps) =>
-        canUseNextImage(src) ? (
+      renderPhoto={({ src, alt, style, onError, onLoad }: RestaurantCardPhotoRenderProps) => {
+        const image = spacesImageProps(src);
+        return canUseNextImage(image.src) ? (
           <Image
-            src={src}
+            src={image.src}
             alt={alt}
             fill
             sizes="(max-width: 575px) 120px, (max-width: 992px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            unoptimized={image.unoptimized}
             style={{ ...style, position: 'absolute' }}
             ref={(node) => markLoadedIfDecoded(node, onLoad)}
             onError={onError}
@@ -31,7 +33,7 @@ export function DiscoveryRestaurantCard(props: RestaurantCardProps) {
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={src}
+            src={image.src}
             alt={alt}
             loading="lazy"
             decoding="async"
@@ -40,8 +42,8 @@ export function DiscoveryRestaurantCard(props: RestaurantCardProps) {
             onLoad={onLoad}
             style={style}
           />
-        )
-      }
+        );
+      }}
     />
   );
 }

@@ -6,6 +6,7 @@ import {
   isWaitlistWaitOverdue,
   resolveLoyaltyTier,
   resolveOnlineOrderLink,
+  toSpacesCdnUrl,
   waitlistPromisedMinutes,
   waitlistWaitingMinutes,
 } from '@reservations/shared';
@@ -15,6 +16,16 @@ import { EMAIL_BRAND } from '../services/emailBranding.js';
 
 function id(doc: { _id: { toString(): string } }) {
   return doc._id.toString();
+}
+
+/** Stored Spaces origin URLs are served from the DigitalOcean CDN. */
+function cdnUrl(url: string | null | undefined): string | null {
+  if (!url) return url ?? null;
+  return toSpacesCdnUrl(url);
+}
+
+function cdnUrls(urls: Array<string | null | undefined> | null | undefined): string[] {
+  return (urls ?? []).filter((url): url is string => Boolean(url)).map((url) => toSpacesCdnUrl(url));
 }
 
 /** ObjectId or populated doc → hex string (populate breaks bare `.toString()`). */
@@ -61,7 +72,7 @@ export function mapUser(u: any) {
     id: id(u),
     email: u.email ?? null,
     phone: u.phone ?? null,
-    avatarUrl: u.avatarUrl ?? null,
+    avatarUrl: cdnUrl(u.avatarUrl),
     address: mapDinerAddress(u.address),
     hasPassword: Boolean(u.hasPassword ?? u.passwordHash),
     hasGoogle: Boolean(u.hasGoogle ?? u.googleId),
@@ -117,8 +128,8 @@ export function mapRestaurant(r: any) {
       },
       env.WEB_APP_URL || EMAIL_BRAND.siteUrl,
     ),
-    logoUrl: r.logoUrl ?? null,
-    photos: r.photos ?? [],
+    logoUrl: cdnUrl(r.logoUrl),
+    photos: cdnUrls(r.photos),
     status: r.status,
     visibility: r.visibility === 'hidden' ? 'hidden' : 'visible',
     activity: r.activity === 'inactive' ? 'inactive' : 'active',
@@ -202,11 +213,11 @@ export function mapRestaurant(r: any) {
         title: item.title,
         description: item.description ?? null,
         url: item.url ?? null,
-        logoUrl: item.logoUrl ?? null,
+        logoUrl: cdnUrl(item.logoUrl),
       }),
     ),
     termsAndConditions: r.termsAndConditions?.trim() || null,
-    floorPlanBackgroundUrl: r.floorPlanBackgroundUrl ?? null,
+    floorPlanBackgroundUrl: cdnUrl(r.floorPlanBackgroundUrl),
     floorPlanBackgroundColor: r.floorPlanBackgroundColor ?? null,
     floorPlanAreaAppearances: mapFloorPlanAreaAppearances(r.floorPlanAreaAppearances),
     floorFixtures: (r.floorFixtures ?? []).map(mapFloorFixture),
@@ -215,7 +226,7 @@ export function mapRestaurant(r: any) {
     floorPlanDraft: r.floorPlanDraft?.updatedAt
       ? {
           updatedAt: r.floorPlanDraft.updatedAt,
-          backgroundUrl: r.floorPlanDraft.backgroundUrl ?? null,
+          backgroundUrl: cdnUrl(r.floorPlanDraft.backgroundUrl),
           backgroundColor: r.floorPlanDraft.backgroundColor ?? null,
           areaAppearances: mapFloorPlanAreaAppearances(r.floorPlanDraft.areaAppearances),
           fixtures: Array.isArray(r.floorPlanDraft.fixtures)
@@ -251,7 +262,7 @@ export function mapFloorPlanAreaAppearances(raw: unknown) {
     .map((a: any) => ({
       floorArea: String(a.floorArea).trim() || 'Main',
       backgroundColor: a.backgroundColor ?? null,
-      backgroundUrl: a.backgroundUrl ?? null,
+      backgroundUrl: cdnUrl(a.backgroundUrl),
     }));
 }
 
@@ -308,7 +319,7 @@ export function mapTable(t: any) {
     shape: t.shape ?? 'rect',
     rotation: t.rotation ?? 0,
     combineGroupId: t.combineGroupId ?? null,
-    photoUrl: t.photoUrl ?? null,
+    photoUrl: cdnUrl(t.photoUrl),
     requiresManualApproval: t.requiresManualApproval === true,
     depositRequired: t.depositRequired === true,
     depositAmountCents: t.depositAmountCents ?? 0,
@@ -440,7 +451,7 @@ export function mapReviewReportResponses(
           size?: number | null;
         }) => ({
           id: attachment._id.toString(),
-          url: attachment.url,
+          url: toSpacesCdnUrl(attachment.url),
           filename: attachment.filename,
           contentType: attachment.contentType,
           size: attachment.size ?? null,
@@ -462,7 +473,7 @@ export function mapReview(r: any) {
     serviceRating: r.serviceRating ?? null,
     atmosphereRating: r.atmosphereRating ?? null,
     comment: r.comment,
-    photos: Array.isArray(r.photos) ? r.photos.filter(Boolean) : [],
+    photos: cdnUrls(r.photos),
     ownerReply: r.ownerReply ?? null,
     ownerRepliedAt: r.ownerRepliedAt ?? null,
     hidden: r.hidden ?? false,
@@ -651,7 +662,7 @@ export function mapExperience(e: any) {
     title: e.title,
     description: e.description,
     type: e.type,
-    photoUrl: e.photoUrl ?? null,
+    photoUrl: cdnUrl(e.photoUrl),
     date: e.date,
     endDate: e.endDate ?? e.date,
     startTime: e.startTime,
@@ -682,7 +693,7 @@ export function mapRestaurantPackage(p: any) {
     priceCents: p.priceCents ?? 0,
     pricePerGuest: !!p.pricePerGuest,
     includes: p.includes ?? [],
-    photoUrl: p.photoUrl ?? null,
+    photoUrl: cdnUrl(p.photoUrl),
     occasions: p.occasions ?? [],
     minPartySize: p.minPartySize ?? null,
     maxPartySize: p.maxPartySize ?? null,
@@ -717,7 +728,7 @@ export function mapPrivateDiningSpace(s: any) {
     maxGuests: s.maxGuests,
     rentalFeeCents: s.rentalFeeCents ?? 0,
     minimumSpendCents: s.minimumSpendCents ?? 0,
-    photoUrl: s.photoUrl ?? null,
+    photoUrl: cdnUrl(s.photoUrl),
     amenities: s.amenities ?? [],
     active: s.active,
     requiresManualApproval: s.requiresManualApproval === true,
@@ -828,7 +839,7 @@ export function mapMenuItem(i: any) {
     name: i.name,
     description: i.description,
     priceCents: i.priceCents,
-    photoUrl: i.photoUrl,
+    photoUrl: i.photoUrl ? toSpacesCdnUrl(i.photoUrl) : i.photoUrl,
     dietary: i.dietary ?? [],
     available: i.available ?? true,
     popular: i.popular ?? false,

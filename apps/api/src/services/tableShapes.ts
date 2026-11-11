@@ -8,6 +8,7 @@ import {
   isTableShapeRenderPreset,
   normalizeTableShapeLabelFontScale,
   normalizeTableShapeLabelPosition,
+  toSpacesCdnUrl,
   type TableShapeRenderPreset,
 } from '@reservations/shared';
 import { Table } from '../models/Table.js';
@@ -19,7 +20,7 @@ export function mapTableShapeDef(doc: any) {
     key: doc.key as string,
     label: doc.label as string,
     description: doc.description ?? '',
-    iconUrl: doc.iconUrl ?? null,
+    iconUrl: doc.iconUrl ? toSpacesCdnUrl(doc.iconUrl) : null,
     renderPreset: (doc.renderPreset || 'rect') as string,
     labelPosition: normalizeTableShapeLabelPosition(doc.labelPosition),
     labelFontScale: normalizeTableShapeLabelFontScale(

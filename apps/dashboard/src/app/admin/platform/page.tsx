@@ -113,7 +113,7 @@ export default function AdminPlatformHubPage() {
     <div>
       <PageHeader
         title="Platform"
-        subtitle="Configuration, content, agreements, email templates, SLA, audit, and QA tools"
+        subtitle="Configuration, data exports, content, agreements, email templates, SLA, audit, and QA tools"
       />
       <Input.Search
         allowClear

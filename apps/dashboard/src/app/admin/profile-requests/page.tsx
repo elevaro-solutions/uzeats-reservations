@@ -47,7 +47,23 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type ProfileSnapshot = {
+  name?: string | null;
   description?: string | null;
+  cuisine?: string | null;
+  cuisines?: string[] | null;
+  priceRange?: number | null;
+  phone?: string | null;
+  website?: string | null;
+  menuUrl?: string | null;
+  address?: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    country?: string | null;
+  } | null;
+  location?: { lat?: number | null; lng?: number | null } | null;
   neighborhood?: string | null;
   categoryIds?: string[];
   landmarkIds?: string[];
@@ -84,7 +100,15 @@ type ProfileRequestRow = {
 };
 
 const FIELD_LABELS: Array<{ key: keyof ProfileSnapshot; label: string }> = [
+  { key: 'name', label: 'Name' },
+  { key: 'cuisines', label: 'Cuisine' },
   { key: 'description', label: 'About' },
+  { key: 'priceRange', label: 'Price' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'website', label: 'Website' },
+  { key: 'menuUrl', label: 'Menu link' },
+  { key: 'address', label: 'Address' },
+  { key: 'location', label: 'Map pin' },
   { key: 'neighborhood', label: 'Neighborhood' },
   { key: 'categoryIds', label: 'Categories' },
   { key: 'landmarkIds', label: 'Landmarks' },
@@ -104,6 +128,18 @@ const FIELD_LABELS: Array<{ key: keyof ProfileSnapshot; label: string }> = [
 function formatValue(key: keyof ProfileSnapshot, value: ProfileSnapshot[keyof ProfileSnapshot]) {
   if (value == null || value === '') return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (key === 'priceRange' && typeof value === 'number') return '$'.repeat(value);
+  if (key === 'address' && typeof value === 'object' && !Array.isArray(value)) {
+    const address = value as NonNullable<ProfileSnapshot['address']>;
+    return [address.line1, address.line2, address.city, address.state, address.zip, address.country]
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (key === 'location' && typeof value === 'object' && !Array.isArray(value)) {
+    const point = value as NonNullable<ProfileSnapshot['location']>;
+    if (point.lat == null || point.lng == null) return '—';
+    return `${point.lat}, ${point.lng}`;
+  }
   if (key === 'photos' && Array.isArray(value)) return `${value.length} photo${value.length === 1 ? '' : 's'}`;
   if (key === 'logoUrl') return String(value);
   if (key === 'faq' && Array.isArray(value)) {

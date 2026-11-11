@@ -3552,6 +3552,7 @@ export const RESTAURANT_OWNER_EDITOR = gql`
     restaurant(id: $id) {
       id
       slug
+      status
       name
       description
       cuisine
@@ -3595,8 +3596,8 @@ export const RESTAURANT_OWNER_EDITOR = gql`
 `;
 
 export const UPDATE_RESTAURANT = gql`
-  mutation UpdateRestaurant($id: ID!, $input: RestaurantInput!) {
-    updateRestaurant(id: $id, input: $input) {
+  mutation UpdateRestaurant($id: ID!, $input: RestaurantInput!, $submitListingForReview: Boolean) {
+    updateRestaurant(id: $id, input: $input, submitListingForReview: $submitListingForReview) {
       id
       name
       status
@@ -5730,7 +5731,27 @@ export const REVIEW_RESTAURANT_SLUG_REQUEST = gql`
 
 const RESTAURANT_PROFILE_CHANGE_FIELDS = gql`
   fragment RestaurantProfileChangeFields on RestaurantProfileChange {
+    name
     description
+    cuisine
+    cuisines
+    priceRange
+    phone
+    website
+    menuUrl
+    address {
+      line1
+      line2
+      city
+      state
+      zip
+      country
+      neighborhood
+    }
+    location {
+      lat
+      lng
+    }
     neighborhood
     categoryIds
     landmarkIds
@@ -5764,6 +5785,7 @@ const RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS = gql`
     status
     notes
     createdAt
+    updatedAt
     reviewedAt
     current {
       ...RestaurantProfileChangeFields

@@ -1090,31 +1090,67 @@ export type RequestRestaurantSlugInput = z.infer<
   typeof requestRestaurantSlugInputSchema
 >;
 
-export const restaurantProfileChangeSchema = restaurantInputObjectSchema.pick({
-  description: true,
-  neighborhood: true,
-  categoryIds: true,
-  landmarkIds: true,
-  diningStyles: true,
-  discoveryOccasions: true,
-  meals: true,
-  dietaryTags: true,
-  amenities: true,
-  wheelchairAccessible: true,
-  faq: true,
-  featuredIn: true,
-  termsAndConditions: true,
-  photos: true,
-  logoUrl: true,
+const restaurantListingChangeSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  cuisine: z.string().trim().min(1).max(60),
+  cuisines: z.array(z.string().trim().min(1).max(60)).min(1).max(MAX_RESTAURANT_CUISINES),
+  priceRange: z.number().int().min(1).max(4),
+  phone: z.preprocess(
+    (value) => (value == null || value === "" ? null : value),
+    z.string().nullable(),
+  ),
+  website: z.preprocess(
+    (value) => (value == null || value === "" ? null : value),
+    z.string().nullable(),
+  ),
+  menuUrl: z.preprocess(
+    (value) => (value == null || value === "" ? null : value),
+    z.string().nullable(),
+  ),
+  address: z.object({
+    line1: z.string().min(1),
+    line2: z.preprocess((value) => (value == null ? "" : value), z.string()),
+    city: z.string().min(1),
+    state: z.string().min(2).max(2),
+    zip: z.string().min(1).max(10),
+    country: z.string().default("US"),
+  }),
+  location: z.object({
+    lng: z.number(),
+    lat: z.number(),
+  }),
 });
+
+export const restaurantProfileChangeSchema = restaurantInputObjectSchema
+  .pick({
+    description: true,
+    neighborhood: true,
+    categoryIds: true,
+    landmarkIds: true,
+    diningStyles: true,
+    discoveryOccasions: true,
+    meals: true,
+    dietaryTags: true,
+    amenities: true,
+    wheelchairAccessible: true,
+    faq: true,
+    featuredIn: true,
+    termsAndConditions: true,
+    photos: true,
+    logoUrl: true,
+  })
+  .extend(restaurantListingChangeSchema.shape);
 
 export type RestaurantProfileChange = z.infer<
   typeof restaurantProfileChangeSchema
 >;
 
+/** Partial public-profile payload. Omitted listing fields stay as they are. */
+export const restaurantProfileChangePatchSchema = restaurantProfileChangeSchema.partial();
+
 export const requestRestaurantProfileChangeInputSchema = z.object({
   restaurantId: z.string().min(1),
-  profile: restaurantProfileChangeSchema,
+  profile: restaurantProfileChangePatchSchema,
   reason: z.string().trim().max(500).optional(),
 });
 

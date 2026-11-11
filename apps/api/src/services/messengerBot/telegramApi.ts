@@ -104,6 +104,18 @@ export function isTelegramChatGone(err: unknown): boolean {
   return err.errorCode === 400 && /chat not found/i.test(err.description);
 }
 
+/** User never opened the bot, or never tapped Start. Telegram hides the chat until then. */
+export function isTelegramStartRequired(err: unknown): boolean {
+  if (!(err instanceof TelegramApiError)) return false;
+  return /chat not found|can(?:'|’)t initiate conversation/i.test(err.description);
+}
+
+/** User blocked the bot or the account is gone. */
+export function isTelegramBotBlocked(err: unknown): boolean {
+  if (!(err instanceof TelegramApiError)) return false;
+  return /bot was blocked|user is deactivated/i.test(err.description);
+}
+
 export async function sendTelegramText(
   token: string,
   chatId: string,

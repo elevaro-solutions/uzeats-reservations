@@ -12,7 +12,7 @@ import Image from 'next/image';
 import { Modal } from 'antd';
 import { CloseOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { DEFAULT_RESTAURANT_PHOTO } from '@reservations/ui';
-import { canUseNextImage } from '@/lib/canUseNextImage';
+import { canUseNextImage, spacesImageProps } from '@/lib/canUseNextImage';
 
 type Props = {
   photos: string[];
@@ -41,38 +41,41 @@ function GalleryImage({
   sizes: string;
   fit?: 'cover' | 'natural';
 }) {
+  const image = spacesImageProps(src);
   if (fit === 'natural') {
-    if (canUseNextImage(src)) {
+    if (canUseNextImage(image.src)) {
       return (
         <Image
-          src={src}
+          src={image.src}
           alt={alt}
           width={1200}
           height={900}
           priority={priority}
           sizes={sizes}
+          unoptimized={image.unoptimized}
           style={{ width: '100%', height: 'auto' }}
         />
       );
     }
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} />;
+    return <img src={image.src} alt={alt} />;
   }
 
-  if (canUseNextImage(src)) {
+  if (canUseNextImage(image.src)) {
     return (
       <Image
-        src={src}
+        src={image.src}
         alt={alt}
         fill
         priority={priority}
         sizes={sizes}
+        unoptimized={image.unoptimized}
         style={{ objectFit: 'cover' }}
       />
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} />;
+  return <img src={image.src} alt={alt} />;
 }
 
 export const RestaurantPhotoGallery = forwardRef<RestaurantPhotoGalleryHandle, Props>(

@@ -45,12 +45,16 @@ function menuKeyboard(paused: boolean): TelegramReplyKeyboard {
   };
 }
 
-const NOT_LINKED_TEXT = [
-  '👋 <b>Hi! I deliver Tablevera reservation alerts to restaurant teams.</b>',
-  '',
-  'To connect this chat, open the Tablevera dashboard → <b>Notifications</b> → <b>Connect Telegram</b>,',
-  'or ask your manager to send you an invite link.',
-].join('\n');
+function notLinkedText(chatId: string): string {
+  return [
+    '👋 <b>Hi! I deliver Tablevera reservation alerts to restaurant teams.</b>',
+    '',
+    `Your chat ID is <b>${esc(chatId)}</b>.`,
+    'Copy that number. In the Tablevera dashboard open <b>Notifications</b> → <b>Link chat ID manually</b> and paste it.',
+    '',
+    'Or ask your manager for an invite link, open it, and tap <b>Start</b>. That connects this chat without pasting an ID.',
+  ].join('\n');
+}
 
 async function activeMemberships(
   userId: string,
@@ -177,7 +181,7 @@ async function handleStart(token: string, msg: TelegramMessage, payload: string)
     if (link) {
       await sendHelp(token, chatId, String(link.userId), link.paused);
     } else {
-      await sendTelegramText(token, chatId, NOT_LINKED_TEXT);
+      await sendTelegramText(token, chatId, notLinkedText(chatId));
     }
     return;
   }
@@ -229,7 +233,7 @@ async function handleMessage(token: string, msg: TelegramMessage): Promise<void>
   const links = await findActiveTelegramLinks(chatId);
   const link = links[0];
   if (!link) {
-    await sendTelegramText(token, chatId, NOT_LINKED_TEXT);
+    await sendTelegramText(token, chatId, notLinkedText(chatId));
     return;
   }
   const userId = String(link.userId);

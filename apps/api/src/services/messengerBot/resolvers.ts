@@ -285,22 +285,19 @@ export const messengerBotMutations = {
       throw new GraphQLError("The messenger bot isn't available for this restaurant yet.");
     }
 
-    try {
-      await addTelegramLinkManual({
-        botToken: cfg.telegramToken,
-        restaurantId,
-        userId,
-        chatId: String(input.chatId ?? ''),
-        token: typeof input.token === 'string' ? input.token : null,
-        label: typeof input.label === 'string' ? input.label : null,
-        profileOverride: parseProfile(input.profileOverride, 'profileOverride'),
-        allowedActions: Array.isArray(input.allowedActions)
-          ? input.allowedActions.map(String)
-          : null,
-      });
-    } catch (err) {
-      throw new GraphQLError(err instanceof Error ? err.message : 'Could not link Telegram chat');
-    }
+    await addTelegramLinkManual({
+      botToken: cfg.telegramToken,
+      restaurantId,
+      userId,
+      chatId: String(input.chatId ?? ''),
+      botUsername: cfg.telegramUsername,
+      token: typeof input.token === 'string' ? input.token : null,
+      label: typeof input.label === 'string' ? input.label : null,
+      profileOverride: parseProfile(input.profileOverride, 'profileOverride'),
+      allowedActions: Array.isArray(input.allowedActions)
+        ? input.allowedActions.map(String)
+        : null,
+    });
 
     if (cfg.telegramToken) {
       const member = await botMemberForUser(restaurantId, userId);

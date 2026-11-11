@@ -128,7 +128,16 @@ export const typeDefs = `#graphql
   }
 
   type RestaurantProfileChange {
+    name: String!
     description: String
+    cuisine: String!
+    cuisines: [String!]!
+    priceRange: Int!
+    phone: String
+    website: String
+    menuUrl: String
+    address: Address!
+    location: GeoPoint!
     neighborhood: String
     categoryIds: [String!]!
     landmarkIds: [String!]!
@@ -146,7 +155,16 @@ export const typeDefs = `#graphql
   }
 
   input RestaurantProfileChangeInput {
+    name: String
     description: String
+    cuisine: String
+    cuisines: [String!]
+    priceRange: Int
+    phone: String
+    website: String
+    menuUrl: String
+    address: AddressInput
+    location: LocationInput
     neighborhood: String
     categoryIds: [String!]
     landmarkIds: [String!]
@@ -4634,7 +4652,13 @@ export const typeDefs = `#graphql
     clearRecentSearches: Boolean!
 
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
-    updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
+    """
+    Owners and managers of a live restaurant cannot publish listing edits directly.
+    Pass submitListingForReview when the payload is the listing editor (name, cuisine,
+    description, photos, contact, address). Those fields are queued for moderation.
+    Other clients only queue listing fields that differ from the live restaurant.
+    """
+    updateRestaurant(id: ID!, input: RestaurantInput!, submitListingForReview: Boolean): Restaurant!
     setRestaurantStatus(id: ID!, status: RestaurantStatus!, reason: String): Restaurant!
     setRestaurantStatuses(ids: [ID!]!, status: RestaurantStatus!): BulkRestaurantStatusResult!
     """Set diner visibility and/or activity. Omitted fields stay unchanged."""

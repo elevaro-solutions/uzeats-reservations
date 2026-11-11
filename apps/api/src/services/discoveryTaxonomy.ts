@@ -6,6 +6,7 @@ import {
   discoverySlug,
   landmarkSlug,
   type DiscoveryTaxonomyInput,
+  toSpacesCdnUrl,
   type DiscoveryTaxonomyKind,
 } from '@reservations/shared';
 import {
@@ -41,8 +42,8 @@ export function mapDiscoveryTaxonomy(doc: any) {
     slug: doc.slug,
     label: doc.label,
     description: doc.description ?? '',
-    imageUrl: doc.imageUrl || null,
-    iconUrl: doc.iconUrl || null,
+    imageUrl: doc.imageUrl ? toSpacesCdnUrl(doc.imageUrl) : null,
+    iconUrl: doc.iconUrl ? toSpacesCdnUrl(doc.iconUrl) : null,
     sortOrder: doc.sortOrder ?? 0,
     active: doc.active !== false,
     cuisine: doc.cuisine || null,

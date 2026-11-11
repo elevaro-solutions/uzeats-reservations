@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Typography } from 'antd';
 import { TrophyOutlined, FireOutlined, StarOutlined, LinkOutlined } from '@ant-design/icons';
-import { citySlug as toCitySlug, cuisineSlug as toCuisineSlug, neighborhoodSlug as toNeighborhoodSlug } from '@reservations/shared';
+import { browserMediaUrl, citySlug as toCitySlug, cuisineSlug as toCuisineSlug, neighborhoodSlug as toNeighborhoodSlug } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 
 const { Title, Text } = Typography;
@@ -43,7 +43,7 @@ export function RestaurantFeaturedIn({
   const curated = entries.map((item) => ({
     icon: item.logoUrl ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={item.logoUrl} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
+      <img src={browserMediaUrl(item.logoUrl)} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
     ) : (
       <LinkOutlined style={{ color: colors.brand[600] }} />
     ),

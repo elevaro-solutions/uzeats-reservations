@@ -12,7 +12,7 @@ import {
   restaurantPhotoCandidates,
   StarRating,
 } from '@reservations/ui';
-import { canUseNextImage } from '@/lib/canUseNextImage';
+import { canUseNextImage, spacesImageProps } from '@/lib/canUseNextImage';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
 const { Text } = Typography;
@@ -42,6 +42,7 @@ export function MapListRestaurantCard({
   );
   const [photoIndex, setPhotoIndex] = useState(0);
   const photo = photoCandidates[Math.min(photoIndex, photoCandidates.length - 1)] ?? pickRestaurantPhoto();
+  const image = spacesImageProps(photo);
 
   useEffect(() => {
     setPhotoIndex(0);
@@ -60,12 +61,13 @@ export function MapListRestaurantCard({
       tabIndex={0}
     >
       <div className="rt-map-list-card__media">
-        {canUseNextImage(photo) ? (
+        {canUseNextImage(image.src) ? (
           <Image
-            src={photo}
+            src={image.src}
             alt={restaurant.name}
             fill
             sizes="120px"
+            unoptimized={image.unoptimized}
             style={{ objectFit: 'cover' }}
             onError={() => {
               setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
@@ -74,7 +76,7 @@ export function MapListRestaurantCard({
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={photo}
+            src={image.src}
             alt={restaurant.name}
             loading="lazy"
             decoding="async"

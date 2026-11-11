@@ -92,6 +92,7 @@ import {
   cancelRestaurantProfileChangeRequest,
   myRestaurantProfileChangeRequest,
   pendingRestaurantProfileChangeRequestCount,
+  queueOwnerRestaurantListingChange,
   requestRestaurantProfileChange,
 } from "../services/restaurantProfileChanges.js";
 import { sendRestaurantInquiry } from "../services/restaurantInquiry.js";
@@ -370,6 +371,10 @@ import { deleteQaIssue, exportQaIssues, listQaIssues, saveQaIssue } from "../ser
 import { partnerAdminReleaseNotes, readQaReleaseHistory } from "../services/qaReleaseHistory.js";
 import { placeNewTable } from "../services/tablePlacement.js";
 import { resolveOnlineOrderPatch, restaurantInputToDb } from "../lib/restaurantInput.js";
+import {
+  omitPublicListingFields,
+  omitUnsentDiscoveryFields,
+} from "../lib/restaurantProfileChange.js";
 import {
   requireAuth,
   requireAdmin,
@@ -4355,21 +4360,48 @@ export const resolvers = {
 
     updateRestaurant: async (
       _: unknown,
-      args: { id: string; input: unknown },
+      args: { id: string; input: unknown; submitListingForReview?: boolean | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.id, user.role);
+      const raw =
+        args.input && typeof args.input === "object"
+          ? (args.input as Record<string, unknown>)
+          : {};
       const input = restaurantInputSchema.parse(args.input);
-      const current = await Restaurant.findById(args.id)
-        .select("onlineOrderUrl onlineOrderEnabled")
-        .lean();
+      const restaurant = await Restaurant.findById(args.id);
+      if (!restaurant) throw new Error("Restaurant not found");
+
+      const moderateListing =
+        !isPlatformAdmin(user.role) &&
+        (restaurant.status === "approved" || restaurant.status === "suspended");
+      let dbFields: Record<string, unknown> = restaurantInputToDb(input);
+      if (moderateListing) {
+        await queueOwnerRestaurantListingChange({
+          restaurant,
+          user,
+          raw,
+          input,
+          replaceListing: args.submitListingForReview === true,
+        });
+        dbFields = omitPublicListingFields(dbFields);
+      } else if (!isPlatformAdmin(user.role)) {
+        dbFields = omitUnsentDiscoveryFields(dbFields, raw);
+        if (dbFields.address && !Object.prototype.hasOwnProperty.call(raw, "neighborhood")) {
+          dbFields.address = {
+            ...(dbFields.address as Record<string, unknown>),
+            neighborhood: restaurant.address?.neighborhood ?? "",
+          };
+        }
+      }
+
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
         {
           $set: {
-            ...restaurantInputToDb(input),
-            ...resolveOnlineOrderPatch(current, input, user.role),
+            ...dbFields,
+            ...resolveOnlineOrderPatch(restaurant, input, user.role),
           },
         },
         { new: true },

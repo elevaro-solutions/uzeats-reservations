@@ -17,6 +17,7 @@ import {
   Select,
   Space,
   Switch,
+  Tag,
   Typography,
   message,
   Spin,
@@ -55,6 +56,8 @@ import { RestaurantSlugPanel } from '@/components/RestaurantSlugPanel';
 import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
 import {
+  CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST,
+  MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
   MY_RESTAURANTS_SHELL,
   PLATFORM_HOLIDAYS,
   UPDATE_RESTAURANT,
@@ -101,6 +104,75 @@ function importCoachStorageKey(restaurantId: string) {
 }
 
 /** True while listing setup is still sparse (same signals as setup-guide listing tasks). */
+function blankToEmpty(value?: string | null) {
+  return value?.trim() || '';
+}
+
+function listingWasHeldForReview(
+  saved: {
+    name?: string | null;
+    description?: string | null;
+    cuisine?: string | null;
+    cuisines?: string[] | null;
+    priceRange?: number | null;
+    phone?: string | null;
+    website?: string | null;
+    menuUrl?: string | null;
+    logoUrl?: string | null;
+    photos?: string[] | null;
+    address?: {
+      line1?: string | null;
+      line2?: string | null;
+      city?: string | null;
+      state?: string | null;
+      zip?: string | null;
+      country?: string | null;
+    } | null;
+    location?: { lat?: number | null; lng?: number | null } | null;
+  },
+  values: {
+    name?: string;
+    description?: string;
+    cuisines?: string[];
+    priceRange?: number;
+    phone?: string;
+    website?: string;
+    menuUrl?: string;
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+    lat?: number;
+    lng?: number;
+  },
+  photos: string[],
+  logoUrl: string | null,
+) {
+  const savedCuisines = (saved.cuisines?.length ? saved.cuisines : saved.cuisine ? [saved.cuisine] : []).join('|');
+  const formCuisines = (values.cuisines ?? []).join('|');
+  return (
+    blankToEmpty(saved.name) !== blankToEmpty(values.name) ||
+    blankToEmpty(saved.description) !== blankToEmpty(values.description) ||
+    savedCuisines !== formCuisines ||
+    saved.priceRange !== values.priceRange ||
+    blankToEmpty(saved.phone) !== blankToEmpty(values.phone) ||
+    blankToEmpty(saved.website) !== blankToEmpty(values.website) ||
+    blankToEmpty(saved.menuUrl) !== blankToEmpty(values.menuUrl) ||
+    blankToEmpty(saved.logoUrl) !== blankToEmpty(logoUrl) ||
+    JSON.stringify(saved.photos ?? []) !== JSON.stringify(photos) ||
+    blankToEmpty(saved.address?.line1) !== blankToEmpty(values.line1) ||
+    blankToEmpty(saved.address?.line2) !== blankToEmpty(values.line2) ||
+    blankToEmpty(saved.address?.city) !== blankToEmpty(values.city) ||
+    blankToEmpty(saved.address?.state) !== blankToEmpty(values.state) ||
+    blankToEmpty(saved.address?.zip) !== blankToEmpty(values.zip) ||
+    (saved.address?.country || 'US') !== (values.country || 'US') ||
+    Number(saved.location?.lat) !== Number(values.lat) ||
+    Number(saved.location?.lng) !== Number(values.lng)
+  );
+}
+
 function isFirstTimeListingConfig(restaurant: {
   description?: string | null;
   photos?: string[] | null;
@@ -121,6 +193,7 @@ export default function RestaurantProfilePage() {
   const { dirty, markDirty, clearDirty, onValuesChange } = useFormDirty();
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+  const forceHydrateRef = useRef(false);
   const [section, setSection] = useUrlTab({
     param: 'section',
     defaultValue: 'listing',
@@ -144,6 +217,11 @@ export default function RestaurantProfilePage() {
     variables: { id: restaurantId },
   });
   const [updateRestaurant, { loading: saving }] = useMutation(UPDATE_RESTAURANT);
+  const { data: requestData, loading: requestLoading, refetch: refetchRequest } = useQuery(
+    MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
+    { skip: !restaurantId, variables: { restaurantId } },
+  );
+  const [cancelRequest, { loading: cancelling }] = useMutation(CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST);
   const [upsertMenu] = useMutation(UPSERT_MENU);
   const { data: settingsData, refetch: refetchSettings } = useQuery(RESTAURANT_SETTINGS, {
     skip: !restaurantId,
@@ -192,9 +270,40 @@ export default function RestaurantProfilePage() {
       ? settingsData.restaurant
       : null;
   const settingsLoading = Boolean(restaurantId) && !settings && settingsData === undefined;
+  const listingRequest = requestData?.myRestaurantProfileChangeRequest as
+    | {
+        id: string;
+        status: string;
+        updatedAt?: string | null;
+        notes?: string | null;
+        proposed?: {
+          name?: string | null;
+          description?: string | null;
+          cuisines?: string[] | null;
+          priceRange?: number | null;
+          phone?: string | null;
+          website?: string | null;
+          menuUrl?: string | null;
+          photos?: string[] | null;
+          logoUrl?: string | null;
+          address?: {
+            line1?: string | null;
+            line2?: string | null;
+            city?: string | null;
+            state?: string | null;
+            zip?: string | null;
+            country?: string | null;
+          } | null;
+          location?: { lat?: number | null; lng?: number | null } | null;
+        } | null;
+      }
+    | null
+    | undefined;
+  const pendingListing = listingRequest?.status === 'pending' ? listingRequest : null;
   const profileBusy =
     Boolean(restaurantId) &&
     (hydratedId !== restaurantId ||
+      requestLoading ||
       ((editorLoading || settingsLoading) && !restaurant));
 
   const showImportCoach =
@@ -212,24 +321,29 @@ export default function RestaurantProfilePage() {
   };
 
   useEffect(() => {
-    if (!restaurantId || !restaurant || restaurant.id !== restaurantId || settingsLoading) return;
-    if (hydratedIdRef.current === restaurantId) return;
+    if (!restaurantId || !restaurant || restaurant.id !== restaurantId || settingsLoading || requestLoading) {
+      return;
+    }
+    const listing = pendingListing?.proposed;
+    const hydrateKey = `${restaurantId}:${pendingListing?.id ?? 'none'}:${pendingListing?.updatedAt ?? 'none'}`;
+    if (hydratedIdRef.current === hydrateKey) return;
     // Keep unsaved photo/logo/form edits (and in-flight uploads that already marked dirty).
-    if (dirtyRef.current) return;
+    if (dirtyRef.current && !forceHydrateRef.current) return;
+    forceHydrateRef.current = false;
 
     form.setFieldsValue({
-      name: restaurant.name,
-      description: restaurant.description ?? '',
-      cuisines: restaurantCuisinesForForm(restaurant),
-      priceRange: restaurant.priceRange,
-      line1: restaurant.address?.line1,
-      line2: restaurant.address?.line2 ?? '',
-      city: restaurant.address?.city,
-      state: restaurant.address?.state,
-      zip: restaurant.address?.zip,
-      country: restaurant.address?.country ?? 'US',
-      lat: restaurant.location?.lat,
-      lng: restaurant.location?.lng,
+      name: listing?.name ?? restaurant.name,
+      description: listing?.description ?? restaurant.description ?? '',
+      cuisines: listing?.cuisines?.length ? listing.cuisines : restaurantCuisinesForForm(restaurant),
+      priceRange: listing?.priceRange ?? restaurant.priceRange,
+      line1: listing?.address?.line1 ?? restaurant.address?.line1,
+      line2: listing?.address?.line2 ?? restaurant.address?.line2 ?? '',
+      city: listing?.address?.city ?? restaurant.address?.city,
+      state: listing?.address?.state ?? restaurant.address?.state,
+      zip: listing?.address?.zip ?? restaurant.address?.zip,
+      country: listing?.address?.country ?? restaurant.address?.country ?? 'US',
+      lat: listing?.location?.lat ?? restaurant.location?.lat,
+      lng: listing?.location?.lng ?? restaurant.location?.lng,
       depositRequired: restaurant.depositRequired,
       cancellationPeriodHours: restaurant.cancellationPeriodHours ?? null,
       noShowMarkingMode: restaurant.noShowMarkingMode ?? null,
@@ -244,9 +358,9 @@ export default function RestaurantProfilePage() {
       loyaltyEnabled: restaurant.loyaltyEnabled ?? false,
       loyaltyPointsPerVisit: restaurant.loyaltyPointsPerVisit ?? 50,
       loyaltyMinRedeemPoints: restaurant.loyaltyMinRedeemPoints ?? 200,
-      phone: restaurant.phone ?? '',
-      website: restaurant.website ?? '',
-      menuUrl: restaurant.menuUrl ?? '',
+      phone: listing?.phone ?? restaurant.phone ?? '',
+      website: listing?.website ?? restaurant.website ?? '',
+      menuUrl: listing?.menuUrl ?? restaurant.menuUrl ?? '',
       onlineOrderUrl: restaurant.onlineOrderUrl ?? '',
       onlineOrderEnabled: restaurant.onlineOrderEnabled ?? true,
       useSmartAssign: settings?.useSmartAssign ?? false,
@@ -261,12 +375,12 @@ export default function RestaurantProfilePage() {
       manualApprovalPartySize: settings?.manualApprovalPartySize ?? undefined,
       spendAlertDollars: (settings?.spendAlertThresholdCents ?? 0) / 100,
     });
-    setPhotos(restaurant.photos ?? []);
-    setLogoUrl(restaurant.logoUrl ?? null);
+    setPhotos(listing?.photos ?? restaurant.photos ?? []);
+    setLogoUrl(listing?.logoUrl ?? restaurant.logoUrl ?? null);
     clearDirty();
-    hydratedIdRef.current = restaurantId;
+    hydratedIdRef.current = hydrateKey;
     setHydratedId(restaurantId);
-  }, [restaurantId, restaurant, settings, settingsLoading, form, clearDirty]);
+  }, [restaurantId, restaurant, settings, settingsLoading, requestLoading, pendingListing, form, clearDirty]);
 
   const handleSave = async () => {
     if (!restaurantId) return;
@@ -276,6 +390,7 @@ export default function RestaurantProfilePage() {
         updateRestaurant({
           variables: {
             id: restaurantId,
+            submitListingForReview: true,
             input: {
               name: values.name,
               description: values.description || undefined,
@@ -344,10 +459,16 @@ export default function RestaurantProfilePage() {
         message.error('Preferences were not saved. Try again.');
         return;
       }
-      message.success('Restaurant updated');
-      clearDirty();
+      const saved = restaurantResult.data.updateRestaurant;
+      const heldForReview = listingWasHeldForReview(saved, values, photos, logoUrl);
+      message.success(
+        heldForReview
+          ? 'Listing changes were sent for review. Booking and operations settings are saved now.'
+          : 'Restaurant updated',
+      );
       // Refresh cache only — re-hydrating remounts photos and drops unsaved gallery order.
-      void Promise.all([refetch(), refetchSettings()]);
+      await Promise.all([refetch(), refetchSettings(), refetchRequest()]);
+      clearDirty();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : 'Update failed');
@@ -422,14 +543,16 @@ export default function RestaurantProfilePage() {
     requestAnimationFrame(() => {
       form.scrollToField('line1', { behavior: 'smooth', block: 'center' });
     });
-    message.success(`Imported "${data.name ?? 'restaurant'}" — use Address search to confirm the location, then save.`);
+    message.success(
+      `Imported "${data.name ?? 'restaurant'}" — confirm the address, then save. Listing changes go to review.`,
+    );
   };
 
   const detailGroups: ManageDetailGroup[] = [
     {
       key: 'listing',
       label: 'Listing',
-      hint: 'Name, cuisine, and how the restaurant appears to diners.',
+      hint: 'Name, cuisine, description, and price are reviewed before diners see them.',
       icon: <ShopOutlined />,
       children: (
         <Row gutter={16}>
@@ -510,7 +633,7 @@ export default function RestaurantProfilePage() {
     {
       key: 'photos',
       label: 'Photos',
-      hint: 'Logo sits next to the name. The first photo is the hero.',
+      hint: 'Logo and photos are reviewed before they go live. The first photo is the hero.',
       icon: <PictureOutlined />,
       children: (
         <Row gutter={16}>
@@ -553,7 +676,7 @@ export default function RestaurantProfilePage() {
     {
       key: 'contact',
       label: 'Contact',
-      hint: 'Phone, website, menu link, and online ordering URL diners see.',
+      hint: 'Phone, website, and menu link are reviewed. Online ordering saves immediately.',
       icon: <PhoneOutlined />,
       children: (
         <Row gutter={16}>
@@ -609,7 +732,7 @@ export default function RestaurantProfilePage() {
     {
       key: 'address',
       label: 'Address',
-      hint: 'Search to fill the street fields, then adjust pin coordinates if needed.',
+      hint: 'Address changes are reviewed before diners see them. Search to fill the street, then adjust the pin.',
       icon: <EnvironmentOutlined />,
       children: (
         <Row gutter={16}>
@@ -1188,7 +1311,7 @@ export default function RestaurantProfilePage() {
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title="Restaurant profile"
-          subtitle="Name, location, contact, deposits, loyalty, media, booking widget, and public URL"
+          subtitle="Public listing changes are reviewed before diners see them. Booking settings save immediately."
           extra={
             <Space wrap align="start">
               <div className={showImportCoach ? 'rt-import-coach' : undefined}>
@@ -1231,6 +1354,45 @@ export default function RestaurantProfilePage() {
             styles={{ body: { padding: spacing.lg } }}
             style={{ borderRadius: radii.lg }}
           >
+            {pendingListing ? (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: spacing.md }}
+                title={
+                  <Space wrap>
+                    <Tag color="gold">Pending review</Tag>
+                    <span>Diners still see the current listing until Tablevera approves this request.</span>
+                    <Button
+                      size="small"
+                      loading={cancelling}
+                      onClick={() => {
+                        forceHydrateRef.current = true;
+                        void cancelRequest({ variables: { id: pendingListing.id } })
+                          .then(() => refetchRequest())
+                          .then(() => {
+                            clearDirty();
+                            message.success('Listing change request cancelled');
+                          })
+                          .catch((err: unknown) => {
+                            forceHydrateRef.current = false;
+                            message.error(err instanceof Error ? err.message : 'Could not cancel the request');
+                          });
+                      }}
+                    >
+                      Cancel request
+                    </Button>
+                  </Space>
+                }
+              />
+            ) : restaurant.status === 'approved' || restaurant.status === 'suspended' ? (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: spacing.md }}
+                title="Name, cuisine, description, price, photos, phone, website, menu link, and address are reviewed before diners see them. Deposits, loyalty, and booking operations save immediately."
+              />
+            ) : null}
             <Form
               form={form}
               layout="vertical"

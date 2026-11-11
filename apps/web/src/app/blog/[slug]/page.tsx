@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BlogReadTracker } from '@/components/BlogReadTracker';
 import { fetchBlogPostBySlug, fetchPublishedBlogPosts } from '@/lib/blogSeoFetch';
-import { sanitizeBlogHtml } from '@reservations/shared';
+import { browserMediaUrl, sanitizeBlogHtml } from '@reservations/shared';
 import {
   absoluteUrl,
   articleJsonLd,
@@ -150,7 +150,7 @@ export default async function BlogArticlePage({ params }: Props) {
 
       {post.coverImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.coverImageUrl} alt="" className="blog-article__cover" />
+        <img src={browserMediaUrl(post.coverImageUrl)} alt="" className="blog-article__cover" />
       ) : null}
 
       <div

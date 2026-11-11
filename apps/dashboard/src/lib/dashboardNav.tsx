@@ -364,7 +364,7 @@ export const ADMIN_PAGES: DashboardPage[] = [
   }),
   page('/admin/billing', 'Billing', 'Billing', 'admin', <DollarOutlined />, {
     keywords: ['finance', 'hub', 'mrr'],
-    description: 'Invoices, revenue, plans, loyalty, and exports',
+    description: 'Invoices, revenue, plans, and loyalty',
   }),
   page('/admin/invoices', 'Invoices', 'Billing', 'admin', <FileDoneOutlined />, {
     keywords: ['billing'],
@@ -401,18 +401,19 @@ export const ADMIN_PAGES: DashboardPage[] = [
     description: 'Add-ons and billable products',
     parentSiderHref: '/admin/billing',
   }),
-  page('/admin/exports', 'Data exports', 'Billing', 'admin', <DownloadOutlined />, {
-    keywords: ['download', 'csv', 'excel'],
-    description: 'Bulk CSV, Excel, JSON, and PDF exports',
-    parentSiderHref: '/admin/billing',
-  }),
   page('/admin/platform', 'Platform', 'Platform', 'admin', <ControlOutlined />, {
-    keywords: ['settings', 'hub', 'ops', 'qa', 'agreements', 'terms'],
-    description: 'Configuration, content, agreements, templates, audit, and QA',
+    keywords: ['settings', 'hub', 'ops', 'qa', 'agreements', 'terms', 'exports'],
+    description: 'Configuration, content, agreements, templates, audit, QA, and data exports',
   }),
   page('/admin/config', 'Configuration', 'Platform', 'admin', <ControlOutlined />, {
     keywords: ['settings', 'env'],
     description: 'Platform feature flags and defaults',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'Configuration',
+  }),
+  page('/admin/exports', 'Data exports', 'Platform', 'admin', <DownloadOutlined />, {
+    keywords: ['download', 'csv', 'excel', 'json', 'pdf'],
+    description: 'Bulk CSV, Excel, JSON, and PDF exports',
     parentSiderHref: '/admin/platform',
     hubSection: 'Configuration',
   }),

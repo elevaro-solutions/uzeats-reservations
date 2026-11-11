@@ -8,7 +8,13 @@ import {
   type BotProfile,
   type BotViewer,
 } from './profiles.js';
-import { telegramCall } from './telegramApi.js';
+import { AppError, ValidationError } from '../../lib/errors.js';
+import {
+  isTelegramBotBlocked,
+  isTelegramStartRequired,
+  TelegramApiError,
+  telegramCall,
+} from './telegramApi.js';
 
 export const MAX_LINKS_PER_USER = 3;
 const SELF_INVITE_TTL_MS = 24 * 3600 * 1000;
@@ -78,11 +84,78 @@ export type ManualLinkInput = {
   restaurantId: string;
   userId: string;
   chatId: string;
+  /** BotFather username, without @. Used in the "tap Start" error link. */
+  botUsername?: string | null;
   label?: string | null;
   profileOverride?: BotProfile | null;
   allowedActions?: readonly string[] | null;
   token?: string | null;
 };
+
+export function telegramBotPageUrl(username: string | null | undefined): string | null {
+  const name = username?.trim().replace(/^@/, '') ?? '';
+  if (!/^[A-Za-z0-9_]{4,64}$/.test(name)) return null;
+  return `https://t.me/${name}`;
+}
+
+export function telegramStartRequiredMessage(username: string | null | undefined): string {
+  const url = telegramBotPageUrl(username);
+  const open = url
+    ? `Open the bot in Telegram: ${url}`
+    : 'Open the bot from Partner Hub → Notifications (the @username next to the messenger bot).';
+  return [
+    "Telegram can't message this chat yet. This person has not opened the bot and tapped Start, or the chat ID is not one this bot can see.",
+    '',
+    'What to do:',
+    `1. ${open}`,
+    '2. Tap the Start button at the bottom of the chat. If you do not see Start, send the message /start.',
+    '3. The bot replies with a numeric chat ID. Copy that number.',
+    '4. Paste it into Partner Hub → Notifications → Link chat ID manually, and link again.',
+    '',
+    'Telegram blocks every message, including this link, until Start is tapped in that chat.',
+  ].join('\n');
+}
+
+export function telegramBotBlockedMessage(username: string | null | undefined): string {
+  const url = telegramBotPageUrl(username);
+  const open = url
+    ? `Open the bot: ${url}`
+    : 'Open the bot from Partner Hub → Notifications.';
+  return [
+    'Telegram will not deliver messages because this person blocked the bot (or the account is deactivated).',
+    '',
+    'What to do:',
+    `1. ${open}`,
+    '2. Unblock the bot (open the chat, then the profile, then Unblock) and tap Start or Restart.',
+    '3. Paste the chat ID again and link.',
+  ].join('\n');
+}
+
+/** User-facing error for a failed getChat. Never a generic server failure. */
+export function errorForTelegramChatLookup(
+  err: unknown,
+  botUsername: string | null | undefined,
+): AppError {
+  const url = telegramBotPageUrl(botUsername);
+  const details = url ? { botUrl: url } : undefined;
+  if (isTelegramStartRequired(err)) {
+    return new ValidationError(telegramStartRequiredMessage(botUsername), details);
+  }
+  if (isTelegramBotBlocked(err)) {
+    return new ValidationError(telegramBotBlockedMessage(botUsername), details);
+  }
+  if (err instanceof TelegramApiError) {
+    return new ValidationError(
+      'Telegram rejected this chat ID. Check the number, then try again.',
+      details,
+    );
+  }
+  return new AppError(
+    'Telegram is temporarily unreachable. Wait a moment and try linking again.',
+    'TELEGRAM_UNAVAILABLE',
+    503,
+  );
+}
 
 export async function addTelegramLinkManual(params: ManualLinkInput): Promise<{
   member: BotMember;
@@ -90,31 +163,33 @@ export async function addTelegramLinkManual(params: ManualLinkInput): Promise<{
   displayName: string | null;
 }> {
   const chatId = normalizeTelegramChatId(params.chatId);
-  if (!chatId) throw new Error('Enter a valid Telegram chat id (numeric, e.g. 123456789).');
+  if (!chatId) {
+    throw new ValidationError('Enter a valid Telegram chat id (numeric, e.g. 123456789).');
+  }
 
   const member = await botMemberForUser(params.restaurantId, params.userId);
   if (!member) {
-    throw new Error(
+    throw new ValidationError(
       "This team member can't use the bot. Allow Messenger for them and ensure they have a venue role.",
     );
   }
 
   if (params.token?.trim()) {
     const raw = params.token.trim();
-    if (!/^[A-Za-z0-9_-]{16,64}$/.test(raw)) throw new Error('Invalid link token.');
+    if (!/^[A-Za-z0-9_-]{16,64}$/.test(raw)) throw new ValidationError('Invalid link token.');
     const now = new Date();
     const token = await MessengerLinkToken.findOneAndUpdate(
       { tokenHash: hashToken(raw), usedAt: null },
       { $set: { usedAt: now } },
       { new: true },
     ).lean();
-    if (!token) throw new Error('Link token is invalid or already used.');
-    if (token.expiresAt < now) throw new Error('Link token has expired.');
+    if (!token) throw new ValidationError('Link token is invalid or already used.');
+    if (token.expiresAt < now) throw new ValidationError('Link token has expired.');
     if (
       String(token.userId) !== params.userId ||
       String(token.restaurantId) !== params.restaurantId
     ) {
-      throw new Error('Link token does not match this team member.');
+      throw new ValidationError('Link token does not match this team member.');
     }
   }
 
@@ -128,10 +203,8 @@ export async function addTelegramLinkManual(params: ManualLinkInput): Promise<{
   };
   try {
     chat = await telegramCall(params.botToken, 'getChat', { chat_id: chatId });
-  } catch {
-    throw new Error(
-      'Could not reach that Telegram chat. The person must open the bot and tap Start once first, then try again.',
-    );
+  } catch (err) {
+    throw errorForTelegramChatLookup(err, params.botUsername);
   }
 
   const profile = params.profileOverride ?? member.profile;

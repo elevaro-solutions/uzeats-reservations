@@ -1,5 +1,9 @@
 # Web — Learnings & Observations
 
+## [2026-11-11] Spaces photos load from the CDN, not the Next optimizer
+- `spacesImageProps` rewrites `*.digitaloceanspaces.com` to `*.cdn.digitaloceanspaces.com` and sets `unoptimized` on `next/image`. `browserMediaUrl` does the same rewrite for `<img>`.
+- Why it matters: Without `unoptimized`, Next fetches the object and the browser never talks to the Spaces CDN. Stock Unsplash fallbacks stay on the optimizer.
+
 ## [2026-11-04] Pricing featured card follows featuredOnPricing
 - Public `/pricing` applies `pricing-plan-card--featured` (and comparison-column `is-core` styling) from `plan.featuredOnPricing`, not `plan.key === 'core'`. Fallback plans still mark Core featured when the API is offline.
 - Why it matters: Changing which package looks “popular” is an Admin → Pricing switch; do not reintroduce a Core hardcode for card chrome.
