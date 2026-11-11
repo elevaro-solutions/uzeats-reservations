@@ -62,14 +62,17 @@ import {
   DEFAULT_TABLE_HEIGHT,
   DEFAULT_TABLE_WIDTH,
   findFreeFloorSpot,
+  findFreeFloorSpotNear,
   FLOOR_FIXTURE_KINDS,
   FLOOR_FIXTURE_LABELS,
   FLOOR_LAYOUT_TEMPLATES,
+  FLOOR_PLACEMENT_GAP,
   FLOOR_PLAN_GRID_COLS,
   HistoryStack,
   applyFloorLayoutTemplate,
   exportFloorTablesCsv,
   findOverlappingIds,
+  floorRectsOverlapRotated,
   formatCellLength,
   idsInMarquee,
   newCombineGroupId,
@@ -86,6 +89,7 @@ import {
   restaurantUpload,
 } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
+import { floorPlanSaveErrorMessage } from '@/lib/errors';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
@@ -109,6 +113,7 @@ import {
   FLOOR_GRID_COLS,
   FLOOR_GRID_ROWS,
   MAX_CELL_SIZE,
+  MAX_ITEM_CELLS,
   MIN_CELL_SIZE,
   RESIZE_HANDLES,
   floorPlanRotateHandleStyle,
@@ -147,6 +152,7 @@ import {
   mapLoadedScale,
   mapLoadedTables,
   nextTableName,
+  occupiedInArea,
   roomPathD,
   toSaveInput,
   type FloorFixture,
@@ -166,7 +172,10 @@ type MoveInteraction = {
   ids: string[];
   startX: number;
   startY: number;
-  origins: Record<string, { posX: number; posY: number; width: number; height: number }>;
+  origins: Record<
+    string,
+    { posX: number; posY: number; width: number; height: number; rotation: number }
+  >;
 };
 
 type ResizeInteraction = {
@@ -334,6 +343,7 @@ function TableDetailsPanel({
       },
       cols,
       rows,
+      selected.rotation ?? 0,
     );
     onUpdate(next);
   };
@@ -495,7 +505,7 @@ function TableDetailsPanel({
             <InputNumber
               size="small"
               min={1}
-              max={cols - selected.posX}
+              max={Math.min(MAX_ITEM_CELLS, cols - selected.posX)}
               value={selected.width}
               onChange={(v) => v && applyLayoutPatch({ width: v })}
               style={{ width: '100%' }}
@@ -508,7 +518,7 @@ function TableDetailsPanel({
             <InputNumber
               size="small"
               min={1}
-              max={rows - selected.posY}
+              max={Math.min(MAX_ITEM_CELLS, rows - selected.posY)}
               value={selected.height}
               onChange={(v) => v && applyLayoutPatch({ height: v })}
               style={{ width: '100%' }}
@@ -946,19 +956,28 @@ export default function FloorPlanPage() {
   ]);
 
   const overlappingIds = useMemo(() => {
+    const areaKey = (area: string) => (area || 'Main').toLowerCase();
     const byArea = new Map<string, FloorTable[]>();
     for (const t of visibleTables) {
-      const key = (t.floorArea || 'Main').toLowerCase();
-      const list = byArea.get(key) ?? [];
+      const list = byArea.get(areaKey(t.floorArea)) ?? [];
       list.push(t);
-      byArea.set(key, list);
+      byArea.set(areaKey(t.floorArea), list);
     }
     const ids = new Set<string>();
     for (const list of byArea.values()) {
       for (const id of findOverlappingIds(list)) ids.add(id);
     }
+    // Fixtures may touch each other (doors on walls) but not tables.
+    for (const f of visibleFixtures) {
+      for (const t of byArea.get(areaKey(f.floorArea)) ?? []) {
+        if (floorRectsOverlapRotated(f, t)) {
+          ids.add(f.id);
+          ids.add(t.id);
+        }
+      }
+    }
     return ids;
-  }, [visibleTables]);
+  }, [visibleTables, visibleFixtures]);
 
   const selectedId = selectedIds.length === 1 ? selectedIds[0]! : null;
   const selected = tables.find((t) => t.id === selectedId) ?? null;
@@ -1076,10 +1095,17 @@ export default function FloorPlanPage() {
           shiftKey ? 15 : undefined,
         );
         if (interaction.target === 'table') {
-          updateTable(interaction.id, { rotation }, !dragCommittedRef.current);
+          const t = snap.tables.find((row) => row.id === interaction.id);
+          const pos = t ? clampMove(t, 0, 0, canvasCols, canvasRows, rotation) : {};
+          updateTable(interaction.id, { ...pos, rotation }, !dragCommittedRef.current);
         } else {
           patchFixtures(
-            (prev) => prev.map((f) => (f.id === interaction.id ? { ...f, rotation } : f)),
+            (prev) =>
+              prev.map((f) =>
+                f.id === interaction.id
+                  ? { ...f, ...clampMove(f, 0, 0, canvasCols, canvasRows, rotation), rotation }
+                  : f,
+              ),
             !dragCommittedRef.current,
           );
         }
@@ -1104,6 +1130,7 @@ export default function FloorPlanPage() {
             dy,
             canvasCols,
             canvasRows,
+            primaryOrig.rotation,
           );
           const others = snap.tables
             .filter(
@@ -1125,6 +1152,7 @@ export default function FloorPlanPage() {
             0,
             canvasCols,
             canvasRows,
+            primaryOrig.rotation,
           );
           setGuides(aligned.guides);
           const appliedDx = nextPrimary.posX - primaryOrig.posX;
@@ -1144,6 +1172,7 @@ export default function FloorPlanPage() {
                 appliedDy,
                 canvasCols,
                 canvasRows,
+                orig.rotation,
               );
               return { ...t, ...moved };
             }),
@@ -1163,6 +1192,7 @@ export default function FloorPlanPage() {
             dy,
             canvasCols,
             canvasRows,
+            orig.rotation,
           );
           setGuides([]);
           patchFixtures(
@@ -1179,13 +1209,20 @@ export default function FloorPlanPage() {
         clientY - interaction.startY,
         interaction.rotation,
       );
-      const next = applyResize(
-        interaction.orig,
-        interaction.handle,
-        snapDelta(local.dx, size),
-        snapDelta(local.dy, size),
+      const next = clampMove(
+        applyResize(
+          interaction.orig,
+          interaction.handle,
+          snapDelta(local.dx, size),
+          snapDelta(local.dy, size),
+          canvasCols,
+          canvasRows,
+        ),
+        0,
+        0,
         canvasCols,
         canvasRows,
+        interaction.rotation,
       );
       if (interaction.target === 'table') {
         updateTable(interaction.id, next, !dragCommittedRef.current);
@@ -1312,7 +1349,13 @@ export default function FloorPlanPage() {
     for (const id of ids) {
       const t = snapshotRef.current.tables.find((row) => row.id === id);
       if (!t) continue;
-      origins[id] = { posX: t.posX, posY: t.posY, width: t.width, height: t.height };
+      origins[id] = {
+        posX: t.posX,
+        posY: t.posY,
+        width: t.width,
+        height: t.height,
+        rotation: t.rotation ?? 0,
+      };
     }
     interactionRef.current = {
       kind: 'move',
@@ -1389,6 +1432,15 @@ export default function FloorPlanPage() {
 
   const buildSaveInput = () => toSaveInput(snapshotRef.current);
 
+  const saveErrorNames = () => {
+    const snap = snapshotRef.current;
+    return {
+      tables: snap.tables.map((t) => t.name),
+      fixtures: snap.fixtures.map((f) => f.name),
+      rooms: snap.rooms.filter((r) => r.points.length >= 3).map((r) => r.name),
+    };
+  };
+
   const handleSaveDraft = async () => {
     if (!activeRestaurantId) return;
     try {
@@ -1399,7 +1451,7 @@ export default function FloorPlanPage() {
       setDirty(true);
       message.success('Draft saved');
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to save draft');
+      message.error(floorPlanSaveErrorMessage(err, 'save the draft', saveErrorNames()));
     }
   };
 
@@ -1421,13 +1473,20 @@ export default function FloorPlanPage() {
       forceHydrateRef.current = true;
       await refetch();
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to publish layout');
+      message.error(floorPlanSaveErrorMessage(err, 'publish the layout', saveErrorNames()));
     }
   };
 
   const handleDuplicate = async () => {
     if (!selected || !activeRestaurantId) return;
-    const layout = duplicateTableLayout(selected, tables);
+    const layout = duplicateTableLayout(selected, tables, fixtures, {
+      cols: canvasCols,
+      rows: canvasRows,
+    });
+    if (!layout) {
+      message.warning('No room on the canvas for a copy. Enlarge the canvas or zoom out first.');
+      return;
+    }
     const name = nextTableName(tables);
     try {
       const result = await createTable({
@@ -1444,15 +1503,13 @@ export default function FloorPlanPage() {
       });
       const created = result.data?.createTable as FloorTable | undefined;
       if (!created?.id) throw new Error('Failed to duplicate');
+      // Keep the client spot: the server checks saved positions only and may move the copy off-canvas.
       const nextTable: FloorTable = {
         ...selected,
         id: created.id,
         name,
         combineGroupId: null,
-        posX: created.posX ?? layout.posX,
-        posY: created.posY ?? layout.posY,
-        width: created.width ?? layout.width,
-        height: created.height ?? layout.height,
+        ...layout,
       };
       commitSnapshot({
         ...snapshotRef.current,
@@ -1461,7 +1518,7 @@ export default function FloorPlanPage() {
       setSelectedIds([created.id]);
       message.success('Table duplicated');
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to duplicate');
+      message.error(floorPlanSaveErrorMessage(err, 'duplicate the table'));
     }
   };
 
@@ -1476,7 +1533,7 @@ export default function FloorPlanPage() {
       setSelectedIds([]);
       message.success('Table deleted');
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to delete table');
+      message.error(floorPlanSaveErrorMessage(err, 'delete the table'));
     }
   };
 
@@ -1502,21 +1559,27 @@ export default function FloorPlanPage() {
   const addFixture = (kind: FloorFixtureKind) => {
     const defaults = FIXTURE_DEFAULTS[kind];
     const area = areaFilter || floorAreas[0] || 'Main';
-    const occupied = [
-      ...visibleTables.map((t) => ({
-        posX: t.posX,
-        posY: t.posY,
-        width: t.width,
-        height: t.height,
-      })),
-      ...visibleFixtures.map((f) => ({
-        posX: f.posX,
-        posY: f.posY,
-        width: f.width,
-        height: f.height,
-      })),
-    ];
-    const spot = findFreeFloorSpot(occupied, Math.ceil(defaults.width), Math.ceil(defaults.height));
+    const occupied = occupiedInArea(
+      area,
+      tables.filter((t) => t.active),
+      fixtures,
+    );
+    const width = Math.min(defaults.width, canvasCols);
+    const height = Math.min(defaults.height, canvasRows);
+    const anchor = {
+      posX: Math.max(0, (canvasCols - width) / 2),
+      posY: Math.max(0, (canvasRows - height) / 2),
+      width,
+      height,
+    };
+    const near = findFreeFloorSpotNear(anchor, occupied, {
+      cols: canvasCols,
+      rows: canvasRows,
+      gap: 0,
+    });
+    const free = occupied.some((o) => floorRectsOverlapRotated(anchor, o)) ? near : anchor;
+    const spot = free ?? clampMove(anchor, 0, 0, canvasCols, canvasRows);
+    if (!free) message.warning('The canvas is full, so the fixture was placed over other items.');
     const fixture: FloorFixture = {
       id: newFixtureId(),
       name: defaults.name,
@@ -1524,8 +1587,8 @@ export default function FloorPlanPage() {
       floorArea: area,
       posX: spot.posX,
       posY: spot.posY,
-      width: defaults.width,
-      height: defaults.height,
+      width,
+      height,
       rotation: 0,
     };
     patchFixtures((prev) => [...prev, fixture]);
@@ -1768,12 +1831,12 @@ export default function FloorPlanPage() {
     if (!activeRestaurantId) return;
     const floorArea = values.floorArea?.trim() || 'Main';
     const shape = normalizeTableShape(values.shape);
-    const areaKey = floorArea.toLowerCase();
     const preferred = findFreeFloorSpot(
-      tables.filter((t) => (t.floorArea || 'Main').toLowerCase() === areaKey),
+      occupiedInArea(floorArea, tables, fixtures),
       DEFAULT_TABLE_WIDTH,
       DEFAULT_TABLE_HEIGHT,
-      FLOOR_PLAN_GRID_COLS,
+      Math.min(canvasCols, FLOOR_PLAN_GRID_COLS),
+      { rows: canvasRows, gap: FLOOR_PLACEMENT_GAP },
     );
     const input = {
       name: values.name.trim(),
@@ -1835,7 +1898,7 @@ export default function FloorPlanPage() {
       setTableModalOpen(false);
       tableForm.resetFields();
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to add table');
+      message.error(floorPlanSaveErrorMessage(err, 'add the table'));
     }
   };
 
@@ -1884,8 +1947,10 @@ export default function FloorPlanPage() {
       }
       if ((e.key === 'r' || e.key === 'R') && selected) {
         e.preventDefault();
+        const rotation = normalizeRotation((selected.rotation ?? 0) + (e.shiftKey ? 90 : 15));
         updateTable(selected.id, {
-          rotation: normalizeRotation((selected.rotation ?? 0) + (e.shiftKey ? 90 : 15)),
+          ...clampMove(selected, 0, 0, canvasCols, canvasRows, rotation),
+          rotation,
         });
         return;
       }
@@ -1898,7 +1963,7 @@ export default function FloorPlanPage() {
             if (!selectedIds.includes(t.id)) return t;
             return {
               ...t,
-              ...clampMove(t, dx, dy, canvasCols, canvasRows),
+              ...clampMove(t, dx, dy, canvasCols, canvasRows, t.rotation ?? 0),
             };
           }),
         );
@@ -2160,7 +2225,7 @@ export default function FloorPlanPage() {
           </Tooltip>
         )}
         {overlappingIds.size > 0 && (
-          <Tooltip title="Tables that overlap in the same area — resolve before publishing">
+          <Tooltip title="Tables that overlap another table or fixture in the same area — resolve before publishing">
             <Tag color="error">{overlappingIds.size} overlapping</Tag>
           </Tooltip>
         )}
@@ -2409,6 +2474,7 @@ export default function FloorPlanPage() {
                                 posY: f.posY,
                                 width: f.width,
                                 height: f.height,
+                                rotation: f.rotation ?? 0,
                               },
                             },
                           };
@@ -2425,9 +2491,11 @@ export default function FloorPlanPage() {
                                 : f.kind === 'window'
                                   ? '#d7ebf5'
                                   : 'rgba(120, 113, 108, 0.35)',
-                          border: isSelected
-                            ? `2px solid ${colors.brand[600]}`
-                            : `1px dashed ${colors.neutral[500]}`,
+                          border: overlappingIds.has(f.id)
+                            ? '2px solid #ff4d4f'
+                            : isSelected
+                              ? `2px solid ${colors.brand[600]}`
+                              : `1px dashed ${colors.neutral[500]}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -2768,7 +2836,13 @@ export default function FloorPlanPage() {
                     onChange={(rotation) =>
                       patchFixtures((prev) =>
                         prev.map((f) =>
-                          f.id === selectedFixture.id ? { ...f, rotation } : f,
+                          f.id === selectedFixture.id
+                            ? {
+                                ...f,
+                                ...clampMove(f, 0, 0, canvasCols, canvasRows, rotation),
+                                rotation,
+                              }
+                            : f,
                         ),
                       )
                     }

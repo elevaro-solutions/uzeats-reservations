@@ -27,6 +27,7 @@ import {
 } from 'antd';
 import { PlusOutlined, RocketOutlined, StarOutlined, TagOutlined, FundOutlined, GiftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { CombinedGraphQLErrors } from '@apollo/client';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -47,12 +48,35 @@ import {
   RESTAURANT_SETTINGS,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { getGraphQLErrorMessage } from '@/lib/errors';
 import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const dollars = (cents: number) => `$${((cents ?? 0) / 100).toFixed(2)}`;
+
+const PROMOTION_FORM_FIELDS: Record<string, string> = {
+  title: 'title',
+  description: 'description',
+  discountPercent: 'discountPercent',
+  discountAmountCents: 'discountAmountDollars',
+  code: 'code',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  daysOfWeek: 'daysOfWeek',
+  maxRedemptions: 'maxRedemptions',
+};
+
+/** Server field error (`extensions.field`) mapped onto the promotion form, if any. */
+function promotionFieldError(err: unknown): { name: string; errors: string[] } | null {
+  if (!CombinedGraphQLErrors.is(err)) return null;
+  const first = err.errors[0];
+  const field = (first?.extensions as { field?: unknown } | undefined)?.field;
+  if (typeof field !== 'string') return null;
+  const name = PROMOTION_FORM_FIELDS[field.split('.')[0] ?? ''];
+  return name && first?.message ? { name, errors: [first.message] } : null;
+}
 
 const BOOST_STATUS_COLORS: Record<string, string> = {
   active: 'green',
@@ -333,23 +357,31 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
   const [deletePromotion] = useMutation(DELETE_PROMOTION);
 
   const handleSubmit = async () => {
+    let values;
     try {
-      const values = await form.validateFields();
-      const input = {
-        title: values.title,
-        description: values.description || undefined,
-        discountPercent: values.discountPercent ?? undefined,
-        discountAmountCents:
-          values.discountAmountDollars != null
-            ? Math.round(values.discountAmountDollars * 100)
-            : undefined,
-        code: values.code || undefined,
-        startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : undefined,
-        endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
-        daysOfWeek: values.daysOfWeek ?? [],
-        maxRedemptions: values.maxRedemptions ?? undefined,
-        active: values.active ?? true,
-      };
+      values = await form.validateFields();
+    } catch {
+      return;
+    }
+    // On edit, an emptied field is sent as null so the server clears it instead of keeping the old value.
+    const empty = editingId ? null : undefined;
+    const code = typeof values.code === 'string' ? values.code.trim() : '';
+    const input = {
+      title: values.title.trim(),
+      description: values.description || empty,
+      discountPercent: values.discountPercent ?? empty,
+      discountAmountCents:
+        values.discountAmountDollars != null
+          ? Math.round(values.discountAmountDollars * 100)
+          : empty,
+      code: code || empty,
+      startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : empty,
+      endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : empty,
+      daysOfWeek: values.daysOfWeek ?? [],
+      maxRedemptions: values.maxRedemptions ?? empty,
+      active: values.active ?? true,
+    };
+    try {
       if (editingId) {
         await updatePromotion({ variables: { id: editingId, input } });
         message.success('Promotion updated');
@@ -361,8 +393,10 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
       setEditingId(null);
       form.resetFields();
       refetch();
-    } catch (err: any) {
-      if (err?.message) message.error(err.message);
+    } catch (err: unknown) {
+      const fieldError = promotionFieldError(err);
+      if (fieldError) form.setFields([fieldError]);
+      message.error(getGraphQLErrorMessage(err, 'Could not save the promotion'));
     }
   };
 
@@ -485,33 +519,86 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
         width={600}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}>
-            <Input placeholder="Happy hour — 20% off" />
+          <Form.Item
+            name="title"
+            label="Title"
+            rules={[
+              { required: true, whitespace: true, message: 'Title is required' },
+              { max: 120, message: 'Title is too long (max 120)' },
+            ]}
+          >
+            <Input placeholder="Happy hour — 20% off" maxLength={120} />
           </Form.Item>
           <Form.Item name="description" label="Description">
             <RichTextArea rows={3} placeholder="20% off all bookings before 6pm" />
           </Form.Item>
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="discountPercent" label="Discount %">
-                <InputNumber min={1} max={100} style={{ width: '100%' }} placeholder="20" />
+              <Form.Item
+                name="discountPercent"
+                label="Discount %"
+                dependencies={['discountAmountDollars']}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (value != null && getFieldValue('discountAmountDollars') != null) {
+                        return Promise.reject(
+                          new Error('Use either a percent or a fixed amount, not both'),
+                        );
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <InputNumber
+                  min={1}
+                  max={100}
+                  precision={0}
+                  style={{ width: '100%' }}
+                  placeholder="20"
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="discountAmountDollars" label="Or fixed amount ($)">
-                <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} placeholder="5.00" />
+                <InputNumber
+                  min={0.01}
+                  max={100000}
+                  step={0.01}
+                  precision={2}
+                  style={{ width: '100%' }}
+                  placeholder="5.00"
+                />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="code" label="Promo code">
-                <Input placeholder="HAPPY20" />
+              <Form.Item
+                name="code"
+                label="Promo code"
+                rules={[
+                  { max: 40, message: 'Code is too long (max 40)' },
+                  { pattern: /^\S*$/, message: 'Code cannot contain spaces' },
+                ]}
+              >
+                <Input placeholder="HAPPY20" maxLength={40} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="maxRedemptions" label="Max redemptions (optional)">
-                <InputNumber min={1} style={{ width: '100%' }} placeholder="Unlimited" />
+              <Form.Item
+                name="maxRedemptions"
+                label="Max redemptions (optional)"
+                extra="Leave empty for no limit"
+              >
+                <InputNumber
+                  min={1}
+                  max={1000000}
+                  precision={0}
+                  style={{ width: '100%' }}
+                  placeholder="Unlimited"
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -522,7 +609,22 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="endDate" label="End date">
+              <Form.Item
+                name="endDate"
+                label="End date"
+                dependencies={['startDate']}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const start = getFieldValue('startDate');
+                      if (value && start && value.isBefore(start, 'day')) {
+                        return Promise.reject(new Error('End date must be on or after the start date'));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>

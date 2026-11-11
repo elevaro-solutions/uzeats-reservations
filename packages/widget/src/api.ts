@@ -152,6 +152,45 @@ export async function fetchAvailability(
   return data.availability.filter((s) => s.available);
 }
 
+export interface PromoValidation {
+  valid: boolean;
+  message: string | null;
+  discountCents: number;
+}
+
+const VALIDATE_PROMOTION_QUERY = `
+  query WidgetValidatePromotion(
+    $restaurantId: ID!
+    $code: String!
+    $slotStart: DateTime!
+    $depositCents: Int!
+  ) {
+    validatePromotion(
+      restaurantId: $restaurantId
+      code: $code
+      slotStart: $slotStart
+      depositCents: $depositCents
+    ) {
+      valid
+      message
+      discountCents
+    }
+  }
+`;
+
+/** Same check the Tablevera booking page runs: active, dates, weekdays, redemption limit. */
+export async function validatePromotion(
+  apiUrl: string,
+  input: { restaurantId: string; code: string; slotStart: string; depositCents: number },
+): Promise<PromoValidation> {
+  const data = await gql<{ validatePromotion: PromoValidation }>(
+    apiUrl,
+    VALIDATE_PROMOTION_QUERY,
+    input,
+  );
+  return data.validatePromotion;
+}
+
 export async function fetchWidgetBootstrap(
   apiUrl: string,
   restaurantId: string,

@@ -101,8 +101,25 @@ export function formatGraphqlInputMessage(message: string | undefined): string |
   if (intOverflow) {
     return `A number in this form is too large (${intOverflow[1]}). Use a smaller amount.`;
   }
+  const nonInteger = message.match(
+    /^Variable "\$\w+" got invalid value .*? at "([\w.]+)"; Int cannot represent non-integer value/,
+  );
+  if (nonInteger) {
+    return `Use a whole number for ${humanizeInputPath(nonInteger[1] ?? 'this field')}.`;
+  }
+  if (/Int cannot represent non-integer value/.test(message)) {
+    return 'Use whole numbers only in this form.';
+  }
   if (/^(Float|String|Boolean|ID) cannot represent /.test(message)) {
     return message;
   }
   return null;
+}
+
+function humanizeInputPath(path: string): string {
+  const field = path.split('.').pop() ?? path;
+  return field
+    .replace(/Cents$/, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase();
 }

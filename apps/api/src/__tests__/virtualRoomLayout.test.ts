@@ -9,7 +9,22 @@ import {
   pointInPolygon,
   rectOutline,
   rotatedRectCorners,
+  snapRotationForDisplay,
 } from '../../../../packages/ui/src/virtualRoomLayout.ts';
+
+describe('snapRotationForDisplay', () => {
+  it('squares up small accidental angles', () => {
+    expect(snapRotationForDisplay(3)).toBe(0);
+    expect(snapRotationForDisplay(356)).toBe(0);
+    expect(snapRotationForDisplay(94)).toBe(90);
+    expect(snapRotationForDisplay(null)).toBe(0);
+  });
+
+  it('keeps deliberate angles', () => {
+    expect(snapRotationForDisplay(45)).toBe(45);
+    expect(snapRotationForDisplay(15)).toBe(15);
+  });
+});
 
 function maxOutside(points: Array<{ x: number; z: number }>, outline: Array<{ x: number; z: number }>) {
   let worst = 0;

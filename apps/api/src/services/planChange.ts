@@ -5,10 +5,13 @@ import {
   createCardCollectionSecret,
   createPrepaymentIntent,
   getOpenSubscriptionPayment,
+  isStripeResourceMissing,
   syncPaidSubscriptionAfterCard,
   updateStripeSubscription,
 } from './stripe.js';
 import { logAudit } from './audit.js';
+import { withBillingErrors } from './billingErrors.js';
+import { detachMissingStripeSubscription } from './restaurantSubscription.js';
 import { ConflictError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { evaluatePlanChange, type PlanChangeDecision, type PlanSnapshot } from './planChangePolicy.js';
 import {
@@ -27,7 +30,7 @@ async function toSnapshot(planKey: string): Promise<PlanSnapshot> {
     websiteCoverFeeCents: plan.websiteCoverFeeCents,
     durationUnit: plan.durationUnit,
     durationCount: plan.durationCount,
-    features: plan.features,
+    features: plan.features ?? {},
   };
 }
 
@@ -103,7 +106,7 @@ export type PlanChangeResult = {
   amountDueCents: number;
 };
 
-export async function changeRestaurantPlan(input: {
+type ChangeRestaurantPlanInput = {
   restaurantId: string;
   plan: string;
   actorId: string;
@@ -113,7 +116,21 @@ export async function changeRestaurantPlan(input: {
    * Soft-cancel is cleared so the new plan starts now.
    */
   forceImmediate?: boolean;
-}): Promise<PlanChangeResult> {
+};
+
+export async function changeRestaurantPlan(
+  input: ChangeRestaurantPlanInput,
+): Promise<PlanChangeResult> {
+  return withBillingErrors(
+    'change the plan',
+    { restaurantId: input.restaurantId, plan: input.plan },
+    () => changeRestaurantPlanUnsafe(input),
+  );
+}
+
+async function changeRestaurantPlanUnsafe(
+  input: ChangeRestaurantPlanInput,
+): Promise<PlanChangeResult> {
   let sub = await Subscription.findOne({ restaurantId: input.restaurantId });
   if (!sub) throw new NotFoundError('Subscription');
   sub = await finalizeCancelAtPeriodEndIfDue(sub);
@@ -173,18 +190,30 @@ export async function changeRestaurantPlan(input: {
   if (decision.immediate) {
     const collectPayment = toPlan.monthlyPriceCents > 0;
     const now = new Date();
+    let stripeUpdated = false;
     if (sub.stripeSubscriptionId) {
-      const updated = await updateStripeSubscription(sub.stripeSubscriptionId, toPlan.monthlyPriceCents, {
-        prorationBehavior: 'none',
-        resetBillingCycle: true,
-        collectPayment,
-        durationUnit: toPlan.durationUnit,
-        durationCount: toPlan.durationCount,
-      });
-      clientSecret = updated.clientSecret;
-      paymentMode = updated.paymentMode;
-      paymentSettled = updated.paymentSettled;
-    } else if (collectPayment && decision.proratedChargeCents > 0) {
+      try {
+        const updated = await updateStripeSubscription(
+          sub.stripeSubscriptionId,
+          toPlan.monthlyPriceCents,
+          {
+            prorationBehavior: 'none',
+            resetBillingCycle: true,
+            collectPayment,
+            durationUnit: toPlan.durationUnit,
+            durationCount: toPlan.durationCount,
+          },
+        );
+        clientSecret = updated.clientSecret;
+        paymentMode = updated.paymentMode;
+        paymentSettled = updated.paymentSettled;
+        stripeUpdated = true;
+      } catch (err) {
+        if (!isStripeResourceMissing(err)) throw err;
+        await detachMissingStripeSubscription(sub);
+      }
+    }
+    if (!stripeUpdated && collectPayment && decision.proratedChargeCents > 0) {
       const intent = await createPrepaymentIntent({
         amountCents: decision.proratedChargeCents,
         metadata: { restaurantId: input.restaurantId, kind: 'plan_change' },

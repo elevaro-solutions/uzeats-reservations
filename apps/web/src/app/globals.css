@@ -6290,8 +6290,8 @@ body:has(.fr-page) .ant-layout {
   min-width: 11.5rem;
 }
 
-.rt-reservation-confirm-modal__approval {
-  margin-bottom: 14px;
+.rt-reservation-confirm-modal__approval.ant-alert {
+  margin-bottom: 14px !important;
 }
 
 .rt-reservation-confirm-modal__error {

@@ -27,6 +27,8 @@ import {
   recordSearchInputSchema,
   accessRuleInputSchema,
   promotionInputSchema,
+  promotionFieldsSchema,
+  promotionCrossFieldIssue,
   inHouseWaitlistInputSchema,
   updateWaitlistEntryInputSchema,
   createBlackoutInputSchema,
@@ -264,6 +266,7 @@ import { getRestaurantLoyaltyStats } from "../services/restaurantLoyaltyStats.js
 import {
   resolvePromotionDiscount,
   findBestAutoPromotion,
+  findPromotionCodeConflict,
 } from "../services/promotionCodes.js";
 import { getPromotionStats } from "../services/promotionStats.js";
 import {
@@ -587,11 +590,57 @@ async function assertRestaurantAccess(
 ) {
   if (isPlatformAdmin(role as import("@reservations/shared").UserRole)) return;
   const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant) throw new Error("Restaurant not found");
-  if (!restaurant.ownerId.equals(userId)) {
+  if (!restaurant) throw new NotFoundError("Restaurant");
+  if (!restaurant.ownerId?.equals(userId)) {
     const user = await User.findById(userId);
     const allowed = user?.restaurantIds?.some((id) => id.equals(restaurantId));
-    if (!allowed) throw new Error("Forbidden");
+    if (!allowed) throw new ForbiddenError();
+  }
+}
+
+/**
+ * Older databases may still have a non-sparse unique `apiKey_1` index from before keys were
+ * hashed; every key-less row then collides on `apiKey: null`. Rebuild it once and retry.
+ */
+async function createIntegrationDoc(fields: Record<string, unknown>) {
+  try {
+    return await Integration.create(fields);
+  } catch (err) {
+    const dup = err as { code?: number; keyPattern?: Record<string, unknown> };
+    if (dup.code !== 11000 || !dup.keyPattern?.apiKey) throw err;
+    logger.warn("[integrations] rebuilding legacy non-sparse apiKey index");
+    await Integration.collection.dropIndex("apiKey_1").catch(() => undefined);
+    await Integration.createIndexes();
+    return Integration.create(fields);
+  }
+}
+
+/** Parse promotion input, surfacing the first problem as a readable field error. */
+function parsePromotionInput<T extends import("zod").ZodTypeAny>(
+  schema: T,
+  raw: unknown,
+): import("zod").infer<T> {
+  const parsed = schema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  throw new ValidationError(issue?.message ?? "Invalid promotion", {
+    field: issue?.path.join(".") || undefined,
+    issues: parsed.error.issues.map((i) => ({ path: i.path, message: i.message })),
+  });
+}
+
+async function assertPromotionCodeFree(
+  restaurantId: string,
+  code: string | null | undefined,
+  excludeId?: string,
+) {
+  if (!code) return;
+  const conflict = await findPromotionCodeConflict({ restaurantId, code, excludeId });
+  if (conflict) {
+    throw new ConflictError(
+      `Code ${code.trim().toUpperCase()} is already used by “${conflict.title}”. Pick a different code.`,
+      { field: "code" },
+    );
   }
 }
 
@@ -2409,7 +2458,7 @@ export const resolvers = {
         user.role,
       );
       const restaurant = await Restaurant.findById(args.restaurantId);
-      if (!restaurant) throw new Error("Restaurant not found");
+      if (!restaurant) throw new NotFoundError("Restaurant");
       const team = await User.find({
         $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
       }).sort({ firstName: 1, lastName: 1 });
@@ -2903,13 +2952,13 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const group = await RestaurantGroup.findById(args.groupId);
-      if (!group) throw new Error("Group not found");
+      if (!group) throw new NotFoundError("Group");
       if (
         !group.ownerId.equals(user._id) &&
         !group.adminUserIds.some((id) => id.equals(user._id)) &&
         !isPlatformAdmin(user.role)
       ) {
-        throw new Error("Forbidden");
+        throw new ForbiddenError();
       }
 
       const restaurantIds = group.restaurantIds;
@@ -4406,7 +4455,7 @@ export const resolvers = {
         },
         { new: true },
       );
-      if (!doc) throw new Error("Restaurant not found");
+      if (!doc) throw new NotFoundError("Restaurant");
       return mapRestaurant(doc);
     },
 
@@ -4429,7 +4478,7 @@ export const resolvers = {
         { status: args.status, ...listing },
         { new: true },
       );
-      if (!doc) throw new Error("Restaurant not found");
+      if (!doc) throw new NotFoundError("Restaurant");
       if (args.status === "approved") {
         await provisionDefaultRestaurantSetup(doc._id);
         if (previous?.status !== "approved" && doc.ownerId) {
@@ -4486,7 +4535,7 @@ export const resolvers = {
         ctx,
       );
       const doc = result.items[0];
-      if (!doc) throw new Error("Restaurant not found");
+      if (!doc) throw new NotFoundError("Restaurant");
       return doc;
     },
 
@@ -6718,7 +6767,7 @@ export const resolvers = {
           );
         }
         const restaurant = await Restaurant.findById(args.restaurantId);
-        if (!restaurant) throw new Error("Restaurant not found");
+        if (!restaurant) throw new NotFoundError("Restaurant");
         const target = await User.findById(targetId);
         if (!target) throw new Error("User not found");
         const onTeam =
@@ -7638,7 +7687,7 @@ export const resolvers = {
         Restaurant.findById(review.restaurantId).select("name cuisine"),
         User.findById(review.dinerId).select("firstName"),
       ]);
-      if (!restaurant) throw new Error("Restaurant not found");
+      if (!restaurant) throw new NotFoundError("Restaurant");
 
       return generateReviewReplyDraft({
         restaurantName: restaurant.name,
@@ -7676,7 +7725,7 @@ export const resolvers = {
       }
 
       const restaurant = await Restaurant.findById(args.restaurantId);
-      if (!restaurant) throw new Error("Restaurant not found");
+      if (!restaurant) throw new NotFoundError("Restaurant");
 
       const existing = Array.isArray(restaurant.photos) ? restaurant.photos : [];
       const remaining = RESTAURANT_MAX_PHOTOS - existing.length;
@@ -8014,9 +8063,13 @@ export const resolvers = {
         user.role,
       );
       await requireFeature(args.restaurantId, "promotions");
-      const input = promotionInputSchema.parse(args.input);
+      const input = parsePromotionInput(promotionInputSchema, args.input);
+      await assertPromotionCodeFree(args.restaurantId, input.code);
+      const fields = Object.fromEntries(
+        Object.entries(input).filter(([, value]) => value != null),
+      );
       const doc = await Promotion.create({
-        ...input,
+        ...fields,
         restaurantId: args.restaurantId,
       });
       return mapPromotion(doc);
@@ -8029,15 +8082,40 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await Promotion.findById(args.id);
-      if (!doc) throw new Error("Promotion not found");
+      if (!doc) throw new NotFoundError("Promotion");
       await assertRestaurantAccess(
         user._id.toString(),
         doc.restaurantId.toString(),
         user.role,
       );
-      Object.assign(doc, args.input);
-      await doc.save();
-      return mapPromotion(doc);
+      const input = parsePromotionInput(promotionFieldsSchema.partial(), args.input);
+      const $set: Record<string, unknown> = {};
+      const $unset: Record<string, ""> = {};
+      for (const [key, value] of Object.entries(input)) {
+        if (value === undefined) continue;
+        if (value === null) $unset[key] = "";
+        else $set[key] = value;
+      }
+      const current = doc.toObject() as Record<string, unknown>;
+      const merged = { ...current, ...$set };
+      for (const key of Object.keys($unset)) delete merged[key];
+      const crossIssue = promotionCrossFieldIssue(merged);
+      if (crossIssue) {
+        throw new ValidationError(crossIssue[1], { field: crossIssue[0] });
+      }
+      if (typeof $set.code === "string") {
+        await assertPromotionCodeFree(doc.restaurantId.toString(), $set.code, args.id);
+      }
+      const updated = await Promotion.findByIdAndUpdate(
+        args.id,
+        {
+          ...(Object.keys($set).length ? { $set } : {}),
+          ...(Object.keys($unset).length ? { $unset } : {}),
+        },
+        { new: true, runValidators: true },
+      );
+      if (!updated) throw new NotFoundError("Promotion");
+      return mapPromotion(updated);
     },
 
     deletePromotion: async (
@@ -8170,13 +8248,19 @@ export const resolvers = {
         "affiliate",
         "other",
       ];
-      if (!validProviders.includes(args.provider))
-        throw new Error("Invalid provider");
+      if (!validProviders.includes(args.provider)) {
+        throw new ValidationError("Pick a partner type", { field: "provider" });
+      }
+      const name = args.name?.trim() ?? "";
+      if (!name) throw new ValidationError("Partner name is required", { field: "name" });
+      if (name.length > 80) {
+        throw new ValidationError("Partner name is too long (max 80)", { field: "name" });
+      }
       const apiKey = `int_${crypto.randomBytes(24).toString("hex")}`;
-      const doc = await Integration.create({
+      const doc = await createIntegrationDoc({
         restaurantId: args.restaurantId,
         provider: args.provider,
-        name: args.name,
+        name,
         apiKeyHash: hashOpaqueToken(apiKey),
         apiKeyPrefix: apiKey.slice(0, 12),
         enabled: true,
@@ -8191,7 +8275,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await Integration.findById(args.id);
-      if (!doc) throw new Error("Integration not found");
+      if (!doc) throw new NotFoundError("Integration");
       await assertRestaurantAccess(
         user._id.toString(),
         doc.restaurantId.toString(),
@@ -8209,7 +8293,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await Integration.findById(args.id);
-      if (!doc) throw new Error("Integration not found");
+      if (!doc) throw new NotFoundError("Integration");
       await assertRestaurantAccess(
         user._id.toString(),
         doc.restaurantId.toString(),
@@ -8242,7 +8326,7 @@ export const resolvers = {
         { featured: args.featured, featuredUntil },
         { new: true },
       );
-      if (!doc) throw new Error("Restaurant not found");
+      if (!doc) throw new NotFoundError("Restaurant");
       return mapRestaurant(doc);
     },
 
@@ -8567,7 +8651,7 @@ export const resolvers = {
 
       if (Object.keys(update).length === 0) {
         const current = await Restaurant.findById(args.restaurantId);
-        if (!current) throw new Error("Restaurant not found");
+        if (!current) throw new NotFoundError("Restaurant");
         return mapRestaurant(current);
       }
 
@@ -8576,7 +8660,7 @@ export const resolvers = {
         { $set: update },
         { new: true },
       );
-      if (!doc) throw new Error("Restaurant not found");
+      if (!doc) throw new NotFoundError("Restaurant");
       return mapRestaurant(doc);
     },
 

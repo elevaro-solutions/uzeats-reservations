@@ -14,6 +14,7 @@ import { ConflictError, ValidationError } from '../lib/errors.js';
 import { assertRestaurantClearOfPlatformDebt } from './restaurantDebt.js';
 import { resetBillingEnforcementFields } from './invoiceEnforcement.js';
 import { logger } from '../lib/logger.js';
+import { withBillingErrors } from './billingErrors.js';
 
 export type CreatedRestaurantSubscription = SubscriptionDocument & StripeSubscriptionPayment;
 
@@ -52,14 +53,28 @@ export async function detachMissingStripeSubscription(sub: SubscriptionDocument)
   );
 }
 
-export async function createRestaurantSubscription(input: {
+type CreateRestaurantSubscriptionInput = {
   restaurantId: string;
   plan: string;
   customerEmail?: string;
   customerName: string;
   actorId?: string;
   collectPaymentMethod?: boolean;
-}): Promise<CreatedRestaurantSubscription> {
+};
+
+export async function createRestaurantSubscription(
+  input: CreateRestaurantSubscriptionInput,
+): Promise<CreatedRestaurantSubscription> {
+  return withBillingErrors(
+    'start the subscription',
+    { restaurantId: input.restaurantId, plan: input.plan },
+    () => createRestaurantSubscriptionUnsafe(input),
+  );
+}
+
+async function createRestaurantSubscriptionUnsafe(
+  input: CreateRestaurantSubscriptionInput,
+): Promise<CreatedRestaurantSubscription> {
   const planDef = await getEffectivePlan(input.plan);
   if (!planDef) throw new ValidationError(`Invalid plan: ${input.plan}`);
   const planKey = planDef.key;
@@ -69,7 +84,7 @@ export async function createRestaurantSubscription(input: {
     throw new ConflictError('Subscription already exists for this restaurant');
   }
   if (existing && (existing.status === 'cancelled' || existing.billingEnforcement?.stage === 'terminated')) {
-    await assertRestaurantClearOfPlatformDebt(input.restaurantId);
+    await assertRestaurantClearOfPlatformDebt(input.restaurantId, 'starting a new plan');
   }
 
   if (existing) {

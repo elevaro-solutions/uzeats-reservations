@@ -5,6 +5,7 @@ import {
 } from '@reservations/shared';
 import { Restaurant } from '../models/Restaurant.js';
 import { Table } from '../models/Table.js';
+import { NotFoundError } from '../lib/errors.js';
 
 export type ParsedFloorPlanSave = FloorPlanSaveInput;
 
@@ -43,7 +44,7 @@ export async function saveFloorPlanDraftDoc(
   input: ParsedFloorPlanSave,
 ) {
   const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant) throw new Error('Restaurant not found');
+  if (!restaurant) throw new NotFoundError('Restaurant');
 
   const prev = restaurant.floorPlanDraft as {
     backgroundUrl?: string | null;
@@ -87,7 +88,8 @@ export async function saveFloorPlanDraftDoc(
         : (prev?.scale ?? restaurant.floorPlanScale ?? null),
   } as typeof restaurant.floorPlanDraft;
 
-  await restaurant.save();
+  // Unrelated legacy fields on the restaurant must not block a layout save.
+  await restaurant.save({ validateModifiedOnly: true });
   return restaurant;
 }
 
@@ -96,7 +98,7 @@ export async function publishFloorPlanDoc(
   input: ParsedFloorPlanSave,
 ) {
   const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant) throw new Error('Restaurant not found');
+  if (!restaurant) throw new NotFoundError('Restaurant');
 
   if (input.backgroundUrl !== undefined) {
     restaurant.floorPlanBackgroundUrl = input.backgroundUrl ?? undefined;
@@ -123,6 +125,6 @@ export async function publishFloorPlanDoc(
 
   restaurant.set('floorPlanDraft', undefined);
   restaurant.floorPlanPublishedAt = new Date();
-  await restaurant.save();
+  await restaurant.save({ validateModifiedOnly: true });
   return restaurant;
 }

@@ -16,11 +16,13 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
 import { ApiOutlined, CopyOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/auth';
+import { getGraphQLErrorMessage } from '@/lib/errors';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS_SHELL,
@@ -74,10 +76,23 @@ export default function IntegrationsPage() {
   }, [authLoading, user, router]);
 
   const handleCreate = async () => {
+    if (!activeRestaurantId) {
+      message.warning('Pick a restaurant first');
+      return;
+    }
+    let values;
     try {
-      const values = await form.validateFields();
+      values = await form.validateFields();
+    } catch {
+      return;
+    }
+    try {
       const res = await createIntegration({
-        variables: { restaurantId: activeRestaurantId, provider: values.provider, name: values.name },
+        variables: {
+          restaurantId: activeRestaurantId,
+          provider: values.provider,
+          name: values.name.trim(),
+        },
       });
       const createdKey = res.data?.createIntegration?.apiKey as string | undefined;
       message.success('Integration created');
@@ -101,8 +116,8 @@ export default function IntegrationsPage() {
           width: 520,
         });
       }
-    } catch (err: any) {
-      if (err?.message) message.error(err.message);
+    } catch (err: unknown) {
+      message.error(getGraphQLErrorMessage(err, 'Could not create the integration'));
     }
   };
 
@@ -128,16 +143,19 @@ export default function IntegrationsPage() {
           </Space>
         }
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              form.resetFields();
-              setModalOpen(true);
-            }}
-          >
-            New integration
-          </Button>
+          <Tooltip title={activeRestaurantId ? undefined : 'Pick a restaurant first'}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              disabled={!activeRestaurantId}
+              onClick={() => {
+                form.resetFields();
+                setModalOpen(true);
+              }}
+            >
+              New integration
+            </Button>
+          </Tooltip>
         }
       >
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
@@ -283,8 +301,15 @@ export default function IntegrationsPage() {
           >
             <Select options={PROVIDER_OPTIONS} />
           </Form.Item>
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-            <Input placeholder="Google Reserve — main listing" />
+          <Form.Item
+            name="name"
+            label="Name"
+            rules={[
+              { required: true, whitespace: true, message: 'Partner name is required' },
+              { max: 80, message: 'Partner name is too long (max 80)' },
+            ]}
+          >
+            <Input placeholder="Google Reserve — main listing" maxLength={80} />
           </Form.Item>
         </Form>
       </Modal>

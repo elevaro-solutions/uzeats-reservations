@@ -184,13 +184,19 @@ export function AdminRestaurantMenuPanel({
 
   const onSave = async () => {
     try {
-      const values = await form.validateFields();
-      const sections = (values.sections ?? []).map((section) => ({
-        name: section.name.trim(),
+      await form.validateFields();
+      // Validated values only hold mounted fields; collapsed dish panels are never mounted, and
+      // building from them would drop those dishes on save.
+      const values = form.getFieldsValue(true) as {
+        sections?: MenuSectionForm[];
+        menuUrl?: string;
+      };
+      const sections = (values.sections ?? []).filter(Boolean).map((section) => ({
+        name: (section.name ?? '').trim(),
         items: (section.items ?? [])
-          .filter((item) => item.name?.trim())
+          .filter((item) => item?.name?.trim())
           .map((item) => ({
-            name: item.name.trim(),
+            name: (item.name ?? '').trim(),
             description: item.description?.trim() || '',
             priceCents: Math.round((item.price ?? 0) * 100),
             dietary: item.dietary ?? [],

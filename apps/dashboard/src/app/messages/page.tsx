@@ -442,7 +442,7 @@ function MessagesContent() {
                   ))
                 )}
               </div>
-              <Space.Compact style={{ width: '100%', flexShrink: 0 }}>
+              <div className="rt-message-composer">
                 <RichTextArea
                   rows={1}
                   maxRows={4}
@@ -450,7 +450,6 @@ function MessagesContent() {
                   onChange={setDraft}
                   submitOnEnter={handleSend}
                   placeholder="Type a message…"
-                  style={{ flex: 1, minWidth: 0 }}
                 />
                 <Button
                   type="primary"
@@ -458,8 +457,9 @@ function MessagesContent() {
                   loading={sending}
                   disabled={!draft.trim()}
                   onClick={handleSend}
+                  aria-label="Send message"
                 />
-              </Space.Compact>
+              </div>
             </>
           )}
         </Card>

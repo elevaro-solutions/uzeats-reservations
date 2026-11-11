@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.106.0] — 2026-11-11
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: menu save with collapsed dishes, billing trial/upgrade errors, floor plan duplicate/fixture/rotation bounds and save errors, 3D room alignment, promotion validation, weekday limits and clearing fields, widget promo handoff, reservations All dates, integrations, composer and hub cards
+
+### Changed
+- Partner Hub floor plan places new tables and duplicates with a one-cell gap so chairs don't collide, and flags tables that overlap a fixture (kitchen, bar, wall) as well as other tables
+- Partner Hub floor plan rotation snaps to the nearest right angle when within 6° (hold Shift for 15° steps); the 3D room also squares up tables that are only a few degrees off
+- Booking widget checks the promo code as soon as a time is picked (active, dates, weekdays, redemption limit) and only passes a valid code on to Tablevera; the promo field is hidden when the restaurant takes no deposit
+
+### Fixed
+- Partner Hub "Start 30-day trial" and plan upgrade show a readable reason instead of "Internal server error"; an upgrade no longer fails when the Stripe subscription was removed or belongs to the other Stripe mode
+- Partner Hub actions on a restaurant you can't access (or that no longer exists) show "Forbidden" / "Restaurant not found" instead of "Internal server error"
+- Partner Hub floor plan: a duplicated table lands right next to the original inside the visible canvas (or shows "No room on the canvas"), new fixtures appear inside the canvas, and rotated tables and fixtures can no longer be dragged, rotated or resized outside it
+- Partner Hub floor plan: overlap warnings now account for rotation, so two turned tables that touch are flagged before publishing
+- Partner Hub floor plan "Save draft" / "Publish" show what to fix (for example which table is too wide) instead of a raw server error; blank fixture or room names and oversized tables are corrected before saving
+- Partner Hub marketing: "New promotion" explains bad input (decimals in whole-number fields, both percent and fixed discount, end date before start date, code with spaces) next to the field instead of "Internal server error"
+- Partner Hub marketing: a promo code already used by another promotion at the same restaurant is rejected, so day-of-week limits can't be bypassed by an older duplicate code
+- Partner Hub marketing: clearing "Max redemptions" (or code, dates, description, discount) when editing a promotion now removes it instead of keeping the old value
+- Moving a booking to a time its promotion doesn't cover (wrong weekday or outside the dates) is blocked with an explanation; invalid promo codes at booking show the reason instead of "Internal server error"
+- Booking widget keeps a promo code typed after picking a time when the guest continues to Tablevera
+- Partner Hub reservations "All dates" no longer shows an empty list when an older booking has missing fields; a load error now shows a message with Retry instead of an empty table
+- Partner Hub integrations: creating a partner no longer fails with "Internal server error" (empty name, no restaurant selected, or a leftover database index); the button is disabled until a restaurant is picked
+- Partner Hub menu editor: adding a dish and saving failed with "Dish 1 in … needs a name" (earlier "Cannot read properties of undefined (reading 'trim')") whenever other dishes in the menu had not been expanded; saving now includes every dish
+- Admin restaurant menu editor: saving no longer silently drops dishes whose panels were never expanded
+- Partner Hub messages: the message box and Send button now share matching corners and height
+- Partner Hub Grow (and other hub pages): link cards in a row are the same height
+- Diner booking confirm modal: spacing under the manual-approval notice is restored
+
+### Docs
+- Notes on production error masking, promotion `$set` / `$unset` updates, rotation-aware floor plan bounds, and form submit values skipping collapsed panels (`docs/notes/api.md`, `docs/notes/dashboard.md`)
+- Diner web confirm reservation modal: the restaurant approval notice no longer touches the reservation summary card below it
+
 ## [0.105.0] — 2026-11-11
 
 ### Added

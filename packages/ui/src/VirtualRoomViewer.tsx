@@ -19,6 +19,7 @@ import {
   fixtureIdsOnOutlines,
   openingsForOutline,
   rotatedRectCorners,
+  snapRotationForDisplay,
   type XZ,
 } from './virtualRoomLayout';
 
@@ -322,7 +323,7 @@ function buildTable(
   const d = Math.max(0.4, table.height * m);
   const group = new THREE.Group();
   group.position.set((table.posX + table.width / 2) * m, 0, (table.posY + table.height / 2) * m);
-  group.rotation.y = -THREE.MathUtils.degToRad(table.rotation || 0);
+  group.rotation.y = -THREE.MathUtils.degToRad(snapRotationForDisplay(table.rotation));
   group.userData.tableId = table.id;
 
   const shape = table.shape || 'rect';
@@ -1145,7 +1146,7 @@ export function VirtualRoomViewer({
             (t.posY + t.height / 2) * m,
             Math.max(0.4, t.width * m) / 2,
             Math.max(0.4, t.height * m) / 2,
-            t.rotation || 0,
+            snapRotationForDisplay(t.rotation),
             SEAT_CLEARANCE_M,
           ),
         })),

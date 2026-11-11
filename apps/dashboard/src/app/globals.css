@@ -2181,6 +2181,31 @@ button.rt-dash-menu-btn.ant-btn {
   border-color: var(--ant-color-primary, #0b3d2e);
 }
 
+/* Message composer: input and Send button read as one control with matching outer corners. */
+.rt-message-composer {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.rt-message-composer > .rt-rich-text {
+  flex: 1;
+  min-width: 0;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.rt-message-composer > .ant-btn {
+  height: auto;
+  min-width: 44px;
+  margin-inline-start: -1px;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-start-end-radius: var(--ant-border-radius-lg, 8px);
+  border-end-end-radius: var(--ant-border-radius-lg, 8px);
+}
+
 .ant-form-item-has-error .rt-rich-text,
 .ant-form-item-has-error .rt-rich-text:focus-within {
   border-color: var(--ant-color-error, #ff4d4f);

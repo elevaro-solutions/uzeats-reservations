@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HistoryStack,
   findOverlappingIds,
+  floorRectsOverlapRotated,
   normalizeFloorAreaName,
   normalizeTableShape,
   removeFloorAreaAppearance,
@@ -27,6 +28,29 @@ describe('floorPlan shared helpers', () => {
       { id: 'c', posX: 4, posY: 0, width: 2, height: 2 },
     ]);
     expect([...ids].sort()).toEqual(['a', 'b']);
+  });
+
+  it('finds overlaps between rotated tables that their unrotated boxes miss', () => {
+    const a = { id: 'a', posX: 0, posY: 1.5, width: 4, height: 1, rotation: 45 };
+    const b = { id: 'b', posX: 2.8, posY: 2.8, width: 1, height: 1, rotation: 0 };
+    expect(floorRectsOverlapRotated(a, b)).toBe(true);
+    expect([...findOverlappingIds([a, b])].sort()).toEqual(['a', 'b']);
+  });
+
+  it('treats a 90° table as its turned footprint', () => {
+    const tall = { posX: 0, posY: 0, width: 4, height: 1, rotation: 90 };
+    const right = { posX: 2.6, posY: 0, width: 1, height: 1 };
+    expect(floorRectsOverlapRotated(tall, right)).toBe(false);
+    expect(floorRectsOverlapRotated(tall, { posX: 1.5, posY: -1, width: 1, height: 1 })).toBe(true);
+  });
+
+  it('does not count touching edges as overlap', () => {
+    expect(
+      floorRectsOverlapRotated(
+        { posX: 0, posY: 0, width: 2, height: 2 },
+        { posX: 2, posY: 0, width: 2, height: 2 },
+      ),
+    ).toBe(false);
   });
 
   it('snaps with guides', () => {

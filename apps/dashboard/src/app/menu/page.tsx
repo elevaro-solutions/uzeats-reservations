@@ -504,8 +504,11 @@ export default function MenuPage() {
           }
           message.error(first.errors[0] ?? 'Fix the highlighted fields before saving');
         }}
-        onFinish={async (values) => {
+        onFinish={async () => {
           if (!activeRestaurantId || !restaurant) return;
+          // Submit values only hold mounted fields; dish panels that were never expanded are not
+          // mounted, so read the whole store instead.
+          const values = form.getFieldsValue(true) as MenuEditorValues;
           const incomplete = firstIncompleteField(values.sections ?? []);
           if (incomplete) {
             revealField(incomplete.path, incomplete.sectionIndex, incomplete.itemIndex);

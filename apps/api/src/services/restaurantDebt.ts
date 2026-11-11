@@ -58,7 +58,10 @@ export async function getRestaurantPlatformDebt(
   };
 }
 
-export async function assertRestaurantClearOfPlatformDebt(restaurantId: string) {
+export async function assertRestaurantClearOfPlatformDebt(
+  restaurantId: string,
+  action = 'deleting this restaurant',
+) {
   const debt = await getRestaurantPlatformDebt(restaurantId);
   if (debt.openInvoiceCount > 0 || debt.pastDue || debt.amountDueCents > 0) {
     const cents = debt.outstandingCents;
@@ -67,7 +70,7 @@ export async function assertRestaurantClearOfPlatformDebt(restaurantId: string) 
         ? ` Outstanding balance: $${(cents / 100).toFixed(2)}.`
         : '';
     throw new ValidationError(
-      `Settle outstanding platform balance before deleting this restaurant.${detail}`,
+      `Settle outstanding platform balance before ${action}.${detail}`,
     );
   }
   return debt;

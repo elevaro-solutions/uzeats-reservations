@@ -610,3 +610,14 @@
 - Docusaurus awaits the route's chunks (`preload`) before rendering, so gating chunks breaks any React sign-in page. Sign-in is the standalone `apps/docs/static/access/index.html`; only `/access/`, `/img/`, and `robots.txt` are public.
 - Docs OTP: `consumeDocsOtp` increments `docs_otp_attempts:<email>` before comparing (cap 5 per issued code). Batched HTTP (`graphqlBatchMiddleware`) and aliased mutations otherwise allow many guesses per request. Docs-access ops are in `SENSITIVE_GRAPHQL`.
 - Why it matters: Never rely on a client-side check to protect a static site. Don't put new public files under `/assets/`; anything under it needs a docs session.
+
+## [2026-11-11] Plain `Error` throws become "Internal server error" in production
+- `formatError` (`apps/api/src/index.ts`) only passes through `AppError`, Zod, Mongoose and Stripe errors (plus a few GraphQL coercion messages via `formatGraphqlInputMessage`). Anything else is logged as `[graphql] unexpected error` and masked. `assertRestaurantAccess` threw plain `Error("Forbidden")`, which masked every partner mutation for a stale/foreign restaurant.
+- Billing services are wrapped in `withBillingErrors` (`services/billingErrors.ts`): readable errors pass through, anything else becomes `BILLING_FAILED` with a "Could not … " message.
+- The test app (`__tests__/helpers.ts` `createTestApp`) has no `formatError`, so tests see raw codes; assert on messages there, and unit-test `formatGraphqlInputMessage` against the real GraphQL text.
+- Why it matters: New resolvers must throw `ValidationError` / `NotFoundError` / `ForbiddenError` / `ConflictError`, never `new Error(...)`.
+
+## [2026-11-11] Promotion updates use `$set` / `$unset`; codes are unique per restaurant
+- `updatePromotion` parses `promotionFieldsSchema.partial()`; `null` means clear (`$unset`), omitted means keep. Cross-field rules (`promotionCrossFieldIssue`) run on the merged document. `findValidPromotion` sorts newest first so legacy duplicate codes resolve to the latest edit.
+- Rescheduling a booking re-checks only `promotionDateRestrictionError` (dates + weekdays), not active/redemption limits — the booking already counts as a redemption.
+- Why it matters: Don't go back to `Object.assign(doc, input)`; Apollo drops `undefined`, so an emptied field would silently keep its old value.

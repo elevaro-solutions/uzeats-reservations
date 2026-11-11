@@ -9,6 +9,22 @@ export type XZ = { x: number; z: number };
 /** Chairs and booth backs sit about 0.6 m past the tabletop. */
 export const SEAT_CLEARANCE_M = 0.75;
 
+/** Degrees from a right angle that still render square in 3D. */
+export const ROTATION_SNAP_TOLERANCE_DEG = 6;
+
+/**
+ * Small accidental angles (3°, 352°) are invisible on the 2D grid but look crooked in 3D.
+ * Snap them to the nearest right angle for display; deliberate angles are kept.
+ */
+export function snapRotationForDisplay(
+  deg: number | null | undefined,
+  tolerance = ROTATION_SNAP_TOLERANCE_DEG,
+): number {
+  const n = ((((deg ?? 0) % 360) + 360) % 360);
+  const nearest = Math.round(n / 90) * 90;
+  return Math.abs(n - nearest) <= tolerance ? nearest % 360 : n;
+}
+
 export function rotatedRectCorners(
   centerX: number,
   centerZ: number,

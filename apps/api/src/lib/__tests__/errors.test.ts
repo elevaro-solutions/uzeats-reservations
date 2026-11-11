@@ -33,6 +33,14 @@ describe('formatGraphqlInputMessage', () => {
     ).toBe('A number in this form is too large (2312412300). Use a smaller amount.');
   });
 
+  it('names the field when a decimal reaches an Int variable', () => {
+    expect(
+      formatGraphqlInputMessage(
+        'Variable "$input" got invalid value 12.5 at "input.maxRedemptions"; Int cannot represent non-integer value: 12.5',
+      ),
+    ).toBe('Use a whole number for max redemptions.');
+  });
+
   it('leaves unrelated errors masked', () => {
     expect(formatGraphqlInputMessage('Cannot read properties of undefined')).toBeNull();
   });

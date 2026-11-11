@@ -352,8 +352,23 @@ export function mapShift(s: any) {
   };
 }
 
+const GRAPHQL_OCCASIONS = new Set([
+  'none',
+  'birthday',
+  'anniversary',
+  'business',
+  'date',
+  'celebration',
+  'other',
+]);
+
+/**
+ * Non-null Reservation fields get safe defaults: one legacy row with a null/unknown value would
+ * otherwise null the whole list (e.g. "All dates" showing nothing while "Today" works).
+ */
 export function mapReservation(r: any, clientSecret?: string | null) {
   const reservationId = id(r);
+  const slotStart = r.slotStart ?? r.createdAt ?? new Date(0);
   return {
     id: reservationId,
     confirmationNumber: resolveReservationConfirmationNumber(
@@ -363,21 +378,21 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     restaurantId: refId(r.restaurantId),
     dinerId: refId(r.dinerId),
     tableIds: (r.tableIds ?? []).map((x: unknown) => refId(x)),
-    partySize: r.partySize,
-    slotStart: r.slotStart,
-    slotEnd: r.slotEnd,
-    status: r.status,
+    partySize: r.partySize ?? 1,
+    slotStart,
+    slotEnd: r.slotEnd ?? slotStart,
+    status: r.status ?? 'pending',
     requiresManualApproval: r.requiresManualApproval === true,
     largePartyRequest: r.largePartyRequest === true,
-    occasion: r.occasion,
+    occasion: GRAPHQL_OCCASIONS.has(r.occasion) ? r.occasion : r.occasion ? 'other' : 'none',
     guestNotes: r.guestNotes,
-    depositAmountCents: r.depositAmountCents,
+    depositAmountCents: r.depositAmountCents ?? 0,
     depositRefundedCents: r.depositRefundedCents ?? 0,
     depositRefundableCents: Math.max(
       0,
       (r.depositAmountCents ?? 0) - (r.depositRefundedCents ?? 0),
     ),
-    depositStatus: r.depositStatus,
+    depositStatus: r.depositStatus ?? 'none',
     noShowFeeCents: r.noShowFeeCents ?? 0,
     cancellationPeriodHours:
       typeof r.cancellationPeriodHours === 'number' && r.cancellationPeriodHours >= 1
@@ -388,8 +403,8 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     noShowFeeChargedAt: r.noShowFeeChargedAt ?? null,
     noShowFeeError: r.noShowFeeError ?? null,
     clientSecret: clientSecret ?? null,
-    loyaltyPointsEarned: r.loyaltyPointsEarned,
-    loyaltyPointsRedeemed: r.loyaltyPointsRedeemed,
+    loyaltyPointsEarned: r.loyaltyPointsEarned ?? 0,
+    loyaltyPointsRedeemed: r.loyaltyPointsRedeemed ?? 0,
     restaurantLoyaltyPointsEarned: r.restaurantLoyaltyPointsEarned ?? 0,
     restaurantLoyaltyPointsRedeemed: r.restaurantLoyaltyPointsRedeemed ?? 0,
     promotionId: r.promotionId ? refId(r.promotionId) : null,

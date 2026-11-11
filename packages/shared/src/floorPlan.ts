@@ -130,13 +130,96 @@ export function floorRectsOverlap(a: FloorRectLike, b: FloorRectLike): boolean {
   );
 }
 
+export type RotatedFloorRectLike = FloorRectLike & { rotation?: number | null };
+
+const OVERLAP_EPS = 1e-6;
+
+function isRightAngle(rotation: number | null | undefined): boolean {
+  const r = (((rotation ?? 0) % 90) + 90) % 90;
+  return r < OVERLAP_EPS || 90 - r < OVERLAP_EPS;
+}
+
+/**
+ * Corners of a rect rotated around its center, clockwise on screen (y grows down) — the same
+ * direction as the editor's CSS `rotate()`.
+ */
+export function floorRectCorners(r: RotatedFloorRectLike): Array<{ x: number; y: number }> {
+  const cx = r.posX + r.width / 2;
+  const cy = r.posY + r.height / 2;
+  const rad = ((r.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const hw = r.width / 2;
+  const hh = r.height / 2;
+  return [
+    [-hw, -hh],
+    [hw, -hh],
+    [hw, hh],
+    [-hw, hh],
+  ].map(([dx, dy]) => ({ x: cx + dx! * cos - dy! * sin, y: cy + dx! * sin + dy! * cos }));
+}
+
+/** Axis-aligned box that contains the rotated rect. */
+export function rotatedFloorRectBounds(r: RotatedFloorRectLike): FloorRectLike {
+  const rad = ((r.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const halfW = (r.width / 2) * cos + (r.height / 2) * sin;
+  const halfH = (r.width / 2) * sin + (r.height / 2) * cos;
+  const cx = r.posX + r.width / 2;
+  const cy = r.posY + r.height / 2;
+  return { posX: cx - halfW, posY: cy - halfH, width: halfW * 2, height: halfH * 2 };
+}
+
+function projectOnto(corners: Array<{ x: number; y: number }>, ax: number, ay: number) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const c of corners) {
+    const p = c.x * ax + c.y * ay;
+    if (p < min) min = p;
+    if (p > max) max = p;
+  }
+  return { min, max };
+}
+
+/** Overlap test that respects rotation (separating-axis). Touching edges do not overlap. */
+export function floorRectsOverlapRotated(a: RotatedFloorRectLike, b: RotatedFloorRectLike): boolean {
+  if (isRightAngle(a.rotation) && isRightAngle(b.rotation)) {
+    const ba = rotatedFloorRectBounds(a);
+    const bb = rotatedFloorRectBounds(b);
+    return (
+      ba.posX < bb.posX + bb.width - OVERLAP_EPS &&
+      bb.posX < ba.posX + ba.width - OVERLAP_EPS &&
+      ba.posY < bb.posY + bb.height - OVERLAP_EPS &&
+      bb.posY < ba.posY + ba.height - OVERLAP_EPS
+    );
+  }
+  const ca = floorRectCorners(a);
+  const cb = floorRectCorners(b);
+  for (const corners of [ca, cb]) {
+    for (let i = 0; i < 2; i++) {
+      const p = corners[i]!;
+      const q = corners[i + 1]!;
+      const ax = q.y - p.y;
+      const ay = p.x - q.x;
+      const pa = projectOnto(ca, ax, ay);
+      const pb = projectOnto(cb, ax, ay);
+      const len = Math.hypot(ax, ay) || 1;
+      if (pa.max - pb.min <= OVERLAP_EPS * len || pb.max - pa.min <= OVERLAP_EPS * len) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 export function findOverlappingIds(
-  items: Array<FloorRectLike & { id: string }>,
+  items: Array<RotatedFloorRectLike & { id: string }>,
 ): Set<string> {
   const overlapping = new Set<string>();
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
-      if (floorRectsOverlap(items[i]!, items[j]!)) {
+      if (floorRectsOverlapRotated(items[i]!, items[j]!)) {
         overlapping.add(items[i]!.id);
         overlapping.add(items[j]!.id);
       }

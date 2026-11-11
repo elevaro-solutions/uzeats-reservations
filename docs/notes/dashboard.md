@@ -774,3 +774,16 @@
 - `VirtualRoomEditor` has no `id`, so Apollo can't normalize it and mutation results don't update the `virtualRoomEditor` query on their own. The editor page writes each result back with `client.writeQuery`.
 - Antd `ColorPicker` needs `disabledAlpha`; otherwise it can emit 8-digit hex, which fails the shared `#RRGGBB` schema.
 - Why it matters: New editor mutations must return the full `VIRTUAL_ROOM_EDITOR_FIELDS` and go through the same write helper, or the preview goes stale.
+
+## [2026-11-11] Floor plan bounds are the visible canvas, and geometry is rotation-aware
+- The editor canvas is `canvasCols × canvasRows` (from the measured box), not the fixed 24×16 `FLOOR_PLAN_GRID_*`. Placement uses `findFreeFloorSpotNear` / `findFreeFloorSpot(…, { rows, gap })` from `@reservations/shared` with that size; `clampMove(layout, dx, dy, cols, rows, rotation)` keeps the rotated footprint inside, and every rotate path (handle, R key, slider) re-clamps.
+- Overlap uses `floorRectsOverlapRotated` (separating-axis). Fixtures are checked against tables only — doors/windows on walls overlap on purpose.
+- Duplicate keeps the client-computed spot after `createTable`; the server's `placeNewTable` only sees saved positions and may move the copy off-canvas.
+- `toSaveInput` clamps to the save schema (sizes 1–24, names non-blank, positions ≥ 0); save/publish errors go through `floorPlanSaveErrorMessage` (by `extensions.code`, naming the table from `issues[].path`).
+- `@reservations/shared` resolves to `dist/`; rebuild it (`pnpm --filter @reservations/shared build`) before API tests see new helpers.
+- Why it matters: New placement or drag code must pass canvas size and rotation, or items land off-canvas again.
+
+## [2026-11-11] Form submit values skip unmounted fields (collapsed panels)
+- antd 6 uses `@rc-component/form`; `validateFields()` / `onFinish` values are built from registered fields only. A `Form.List` is not copied whole, so list rows whose inputs are not mounted (antd `Collapse` panels never opened, no `forceRender`) are missing or `undefined` in `values`.
+- The menu editors (`/menu`, `AdminRestaurantMenuPanel`) keep dishes in collapsed panels, so they read `form.getFieldsValue(true)` (the full store) when saving. Using `values` made the owner page report "Dish 1 … needs a name" and the admin page drop unopened dishes.
+- Why it matters: Any form that hides `Form.List` rows in lazy panels, tabs, or filters must save from `getFieldsValue(true)`, not from the submit values.

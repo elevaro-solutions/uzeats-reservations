@@ -48,9 +48,12 @@ export function HubLinkCards({
             : tool.href;
         const pinned = isPinned(tool.href);
         return (
-          <Col key={tool.href} {...colProps}>
-            <div className="rt-settings-link-wrap" style={{ position: 'relative', height: '100%' }}>
-              <Link href={href} style={{ display: 'block', height: '100%' }}>
+          <Col key={tool.href} {...colProps} style={{ display: 'flex' }}>
+            <div
+              className="rt-settings-link-wrap"
+              style={{ position: 'relative', flex: 1, display: 'flex', minWidth: 0 }}
+            >
+              <Link href={href} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
                 <Card
                   className="rt-settings-link"
                   size="small"
@@ -62,7 +65,8 @@ export function HubLinkCards({
                     },
                   }}
                   style={{
-                    height: '100%',
+                    flex: 1,
+                    width: '100%',
                     borderRadius: radii.lg,
                     borderColor: pinned ? colors.brand[200] : colors.border,
                   }}
@@ -119,7 +123,19 @@ export function HubLinkCards({
                           }}
                         />
                       </div>
-                      <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.45 }}>
+                      <Text
+                        type="secondary"
+                        title={tool.description}
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.45,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          minHeight: '2.9em',
+                        }}
+                      >
                         {tool.description}
                       </Text>
                     </div>

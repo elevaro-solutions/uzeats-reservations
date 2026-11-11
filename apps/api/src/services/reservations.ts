@@ -97,12 +97,13 @@ import { checkAccessRules, getBookingWindow } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
 import { scheduleReviewRequestEmail } from './reviewRequest.js';
 import {
+  promotionDateRestrictionError,
   resolvePromotionForBooking,
   recordPromotionRedemption,
   unrecordPromotionRedemption,
 } from './promotionCodes.js';
 import { redeemGiftCardBalance, resolveGiftCardDiscount, restoreGiftCardBalance } from './giftCards.js';
-import { BoostCampaign } from '../models/Marketing.js';
+import { BoostCampaign, Promotion } from '../models/Marketing.js';
 import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
 import { getBookableTables } from './floorPlanOps.js';
 import {
@@ -2115,6 +2116,20 @@ export async function updateReservationDetails(
     partySize !== reservation.partySize ||
     slotStart.getTime() !== reservation.slotStart.getTime() ||
     Boolean(requestedTableId);
+
+  if (reservation.promotionId && slotStart.getTime() !== reservation.slotStart.getTime()) {
+    const promo = await Promotion.findById(reservation.promotionId)
+      .select('startDate endDate daysOfWeek')
+      .lean();
+    const promoError = promo
+      ? promotionDateRestrictionError(promo, slotStart, restaurantTimeZone(restaurant ?? {}))
+      : null;
+    if (promoError) {
+      throw new ValidationError(
+        `This booking used a promotion that doesn't cover the new time (${promoError.toLowerCase()}). Pick a time the promotion allows.`,
+      );
+    }
+  }
 
   if (reservation.largePartyRequest && timeOrPartyChanged) {
     if (slotStart.getTime() <= Date.now()) {

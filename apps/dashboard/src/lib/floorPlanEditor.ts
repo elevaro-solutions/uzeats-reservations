@@ -2,8 +2,8 @@ import {
   DEFAULT_FLOOR_PLAN_SCALE,
   DEFAULT_TABLE_HEIGHT,
   DEFAULT_TABLE_WIDTH,
-  findFreeFloorSpot,
-  FLOOR_PLAN_GRID_COLS,
+  findFreeFloorSpotNear,
+  FLOOR_PLACEMENT_GAP,
   normalizeTableShape,
   type FloorFixtureKind,
   type FloorPlanAreaAppearance,
@@ -193,40 +193,95 @@ export function nextTableName(tables: FloorTable[]): string {
   return `T${n}`;
 }
 
+function sameArea(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a || 'Main').toLowerCase() === (b || 'Main').toLowerCase();
+}
+
+/** Tables and fixtures in `area`, as rotated rects for placement checks. */
+export function occupiedInArea(
+  area: string,
+  tables: FloorTable[],
+  fixtures: FloorFixture[],
+): Array<{ posX: number; posY: number; width: number; height: number; rotation: number }> {
+  return [...tables, ...fixtures]
+    .filter((item) => sameArea(item.floorArea, area))
+    .map((item) => ({
+      posX: item.posX,
+      posY: item.posY,
+      width: item.width,
+      height: item.height,
+      rotation: item.rotation ?? 0,
+    }));
+}
+
+/**
+ * Spot for a copy of `source` next to it, inside the visible canvas. `null` when the area
+ * has no free room left.
+ */
 export function duplicateTableLayout(
   source: FloorTable,
   tables: FloorTable[],
-): Pick<FloorTable, 'posX' | 'posY' | 'width' | 'height'> {
-  const areaKey = (source.floorArea || 'Main').toLowerCase();
-  const occupied = tables
-    .filter((t) => (t.floorArea || 'Main').toLowerCase() === areaKey)
-    .map((t) => ({
-      posX: t.posX,
-      posY: t.posY,
-      width: t.width,
-      height: t.height,
-    }));
-  const right = {
-    posX: source.posX + source.width,
-    posY: source.posY,
-    width: source.width,
-    height: source.height,
-  };
-  const freeRight = !occupied.some(
-    (o) =>
-      right.posX < o.posX + o.width &&
-      o.posX < right.posX + right.width &&
-      right.posY < o.posY + o.height &&
-      o.posY < right.posY + right.height,
-  );
-  if (freeRight && right.posX + right.width <= FLOOR_PLAN_GRID_COLS) {
-    return { posX: right.posX, posY: right.posY, width: source.width, height: source.height };
-  }
-  const spot = findFreeFloorSpot(occupied, source.width, source.height, FLOOR_PLAN_GRID_COLS);
+  fixtures: FloorFixture[],
+  canvas: { cols: number; rows: number },
+): Pick<FloorTable, 'posX' | 'posY' | 'width' | 'height'> | null {
+  const occupied = occupiedInArea(source.floorArea, tables, fixtures);
+  const spot = findFreeFloorSpotNear(source, occupied, {
+    cols: canvas.cols,
+    rows: canvas.rows,
+    gap: FLOOR_PLACEMENT_GAP,
+  });
+  if (!spot) return null;
   return { ...spot, width: source.width, height: source.height };
 }
 
+const clampNum = (value: number, min: number, max: number) =>
+  Math.min(Math.max(Number.isFinite(value) ? value : min, min), max);
+
+/** Wrap into the schema's 0–360 range. */
+const saveRotation = (deg: number | null | undefined) => {
+  const n = (deg ?? 0) % 360;
+  return n < 0 ? n + 360 : n;
+};
+
+/** Values the save schema accepts (sizes, names, ranges), so a draft save can't fail on input. */
 export function toSaveInput(snapshot: FloorPlanSnapshot) {
+  const raw = toRawSaveInput(snapshot);
+  return {
+    ...raw,
+    fixtures: raw.fixtures.map((f) => ({
+      ...f,
+      name: (f.name.trim() || FIXTURE_DEFAULTS[f.kind]?.name || 'Fixture').slice(0, 60),
+      posX: clampNum(f.posX, 0, 500),
+      posY: clampNum(f.posY, 0, 500),
+      width: clampNum(f.width, 0.25, 48),
+      height: clampNum(f.height, 0.25, 48),
+      rotation: saveRotation(f.rotation),
+    })),
+    rooms: raw.rooms
+      .filter((r) => r.points.length >= 3)
+      .map((r, i) => ({
+        ...r,
+        name: (r.name.trim() || `Room ${i + 1}`).slice(0, 60),
+        points: r.points
+          .slice(0, 40)
+          .map((p) => ({ x: clampNum(p.x, 0, 500), y: clampNum(p.y, 0, 500) })),
+      })),
+    positions: raw.positions.map((p) => ({
+      ...p,
+      posX: clampNum(p.posX, 0, 500),
+      posY: clampNum(p.posY, 0, 500),
+      width: clampNum(p.width, 1, 24),
+      height: clampNum(p.height, 1, 24),
+      rotation: saveRotation(p.rotation),
+    })),
+    scale: {
+      ...raw.scale,
+      unitsPerCell: clampNum(raw.scale.unitsPerCell, 0.25, 50),
+    },
+  };
+}
+
+function toRawSaveInput(snapshot: FloorPlanSnapshot) {
   return {
     backgroundUrl: snapshot.backgroundUrl,
     backgroundColor: snapshot.backgroundColor,

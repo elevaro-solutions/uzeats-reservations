@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -23,6 +24,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
+import { getGraphQLErrorMessage } from '@/lib/errors';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -336,7 +338,12 @@ function ReservationsPageContent() {
   const queryRestaurantId = allRestaurants ? locationFilter : activeRestaurantId;
   const listReady = allRestaurants ? restaurants.length > 0 : Boolean(activeRestaurantId);
 
-  const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
+  const {
+    data,
+    refetch,
+    loading,
+    error: listError,
+  } = useQuery(RESTAURANT_RESERVATIONS, {
     skip: !listReady,
     variables: {
       restaurantId: queryRestaurantId,
@@ -866,6 +873,20 @@ function ReservationsPageContent() {
             onExport={(format) => void onExportReservations(format)}
           />
         </div>
+        {listError && !loading && (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message="Couldn't load reservations for this filter"
+            description={getGraphQLErrorMessage(listError, 'Please try again.')}
+            action={
+              <Button size="small" onClick={() => void refetch()}>
+                Retry
+              </Button>
+            }
+          />
+        )}
         <Table<ReservationRow>
           loading={loading}
           rowKey="id"

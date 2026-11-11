@@ -52,7 +52,12 @@ export function planDirection(fromPriceCents: number, toPriceCents: number): Pla
   return 'same';
 }
 
-export function featureDiff(from: PlanFeatures, to: PlanFeatures): { lost: string[]; gained: string[] } {
+export function featureDiff(
+  fromFeatures: PlanFeatures | null | undefined,
+  toFeatures: PlanFeatures | null | undefined,
+): { lost: string[]; gained: string[] } {
+  const from = (fromFeatures ?? {}) as PlanFeatures;
+  const to = (toFeatures ?? {}) as PlanFeatures;
   const lost: string[] = [];
   const gained: string[] = [];
   for (const key of FEATURE_KEYS) {

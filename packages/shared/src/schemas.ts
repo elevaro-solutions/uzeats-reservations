@@ -1176,17 +1176,67 @@ export const accessRuleInputSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const promotionInputSchema = z.object({
-  title: z.string().min(1).max(120),
-  description: z.string().max(2000).optional(),
-  discountPercent: z.number().int().min(0).max(100).optional(),
-  discountAmountCents: z.number().int().min(0).optional(),
-  code: z.string().min(1).max(40).optional(),
-  startDate: dateStringSchema.optional(),
-  endDate: dateStringSchema.optional(),
-  daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
-  maxRedemptions: z.number().int().min(0).optional(),
+const blankToNull = (value: unknown) =>
+  typeof value === 'string' && value.trim() === '' ? null : value;
+
+/** Optional promotion fields accept `null`, which clears the stored value on update. */
+export const promotionFieldsSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(120, 'Title is too long (max 120)'),
+  description: z.string().max(2000, 'Description is too long (max 2000)').nullish(),
+  discountPercent: z
+    .number()
+    .int('Discount % must be a whole number')
+    .min(0)
+    .max(100, 'Discount % cannot be more than 100')
+    .nullish(),
+  discountAmountCents: z.number().int('Discount amount is invalid').min(0).nullish(),
+  code: z.preprocess(
+    blankToNull,
+    z
+      .string()
+      .trim()
+      .max(40, 'Code is too long (max 40)')
+      .regex(/^\S+$/, 'Code cannot contain spaces')
+      .nullish(),
+  ),
+  startDate: z.preprocess(blankToNull, dateStringSchema.nullish()),
+  endDate: z.preprocess(blankToNull, dateStringSchema.nullish()),
+  daysOfWeek: z
+    .array(z.number().int().min(0).max(6))
+    .max(7)
+    .refine((days) => new Set(days).size === days.length, 'Each weekday can be picked once')
+    .nullish(),
+  maxRedemptions: z
+    .number()
+    .int('Max redemptions must be a whole number')
+    .min(1, 'Max redemptions must be at least 1, or left empty for no limit')
+    .nullish(),
   active: z.boolean().optional(),
+});
+
+type PromotionCrossFields = {
+  discountPercent?: number | null;
+  discountAmountCents?: number | null;
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
+/** Rules that span fields; returns `[path, message]` or null. */
+export function promotionCrossFieldIssue(
+  value: PromotionCrossFields,
+): [keyof PromotionCrossFields, string] | null {
+  if ((value.discountPercent ?? 0) > 0 && (value.discountAmountCents ?? 0) > 0) {
+    return ['discountAmountCents', 'Use either a percent or a fixed discount, not both'];
+  }
+  if (value.startDate && value.endDate && value.endDate < value.startDate) {
+    return ['endDate', 'End date must be on or after the start date'];
+  }
+  return null;
+}
+
+export const promotionInputSchema = promotionFieldsSchema.superRefine((value, ctx) => {
+  const issue = promotionCrossFieldIssue(value);
+  if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [issue[0]], message: issue[1] });
 });
 
 export const inHouseWaitlistInputSchema = z

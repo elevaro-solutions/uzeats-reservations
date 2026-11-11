@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
+import { restaurantTimeZone, weekdayInTimeZone } from '@reservations/shared';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { Promotion } from '../models/Marketing.js';
+import { formatGraphqlInputMessage } from '../lib/errors.js';
 import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 describe('Promotion codes at booking', () => {
@@ -296,5 +298,94 @@ describe('Promotion codes at booking', () => {
     const reservation = res.body.data.createReservation.reservation;
     expect(reservation.promoDiscountCents).toBe(400);
     expect(reservation.depositAmountCents).toBe(3600);
+  });
+
+  const VALIDATE = `query Validate($restaurantId: ID!, $code: String!, $slotStart: DateTime!, $depositCents: Int!) {
+    validatePromotion(
+      restaurantId: $restaurantId
+      code: $code
+      slotStart: $slotStart
+      depositCents: $depositCents
+    ) { valid message }
+  }`;
+
+  const UPDATE = `mutation Update($id: ID!, $input: PromotionInput!) {
+    updatePromotion(id: $id, input: $input) { id code maxRedemptions discountPercent }
+  }`;
+
+  it('rejects a code on a weekday the owner did not select', async () => {
+    const restaurant = await Restaurant.findById(restaurantId).lean();
+    const slotDay = weekdayInTimeZone(new Date(slotStart), restaurantTimeZone(restaurant ?? {}));
+    await Promotion.create({
+      restaurantId,
+      title: 'Other days only',
+      discountPercent: 15,
+      code: 'OTHERDAYS',
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== slotDay),
+      active: true,
+    });
+
+    const res = await graphqlRequest(
+      agent,
+      VALIDATE,
+      { restaurantId, code: 'otherdays', slotStart, depositCents: 2000 },
+      dinerToken,
+    );
+    expect(res.body.data.validatePromotion.valid).toBe(false);
+    expect(res.body.data.validatePromotion.message).toMatch(/day of the week/i);
+  });
+
+  it('refuses a code another promotion already uses', async () => {
+    const other = await Promotion.create({
+      restaurantId,
+      title: 'Spare',
+      discountPercent: 5,
+      code: 'SPARE5',
+      active: true,
+    });
+    const res = await graphqlRequest(
+      agent,
+      UPDATE,
+      { id: other._id.toString(), input: { title: 'Spare', code: 'summer20' } },
+      ownerToken,
+    );
+    expect(res.body.errors?.[0]?.message).toMatch(/SUMMER20 is already used/);
+    expect((await Promotion.findById(other._id).lean())?.code).toBe('SPARE5');
+  });
+
+  it('clears max redemptions when the owner empties the field', async () => {
+    const promo = await Promotion.create({
+      restaurantId,
+      title: 'Capped',
+      discountPercent: 10,
+      code: 'CAPPED',
+      maxRedemptions: 5,
+      active: true,
+    });
+    const res = await graphqlRequest(
+      agent,
+      UPDATE,
+      { id: promo._id.toString(), input: { title: 'Capped', maxRedemptions: null } },
+      ownerToken,
+    );
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.updatePromotion.maxRedemptions).toBeNull();
+    const saved = await Promotion.findById(promo._id).lean();
+    expect(saved?.maxRedemptions).toBeUndefined();
+    expect(saved?.code).toBe('CAPPED');
+  });
+
+  it('explains a decimal discount instead of an internal error', async () => {
+    const promo = await Promotion.findOne({ restaurantId, code: 'SUMMER20' });
+    const res = await graphqlRequest(
+      agent,
+      UPDATE,
+      { id: promo!._id.toString(), input: { title: 'Summer', discountPercent: 12.5 } },
+      ownerToken,
+    );
+    // The test server has no formatError; check the real coercion text maps to the form message.
+    expect(formatGraphqlInputMessage(res.body.errors?.[0]?.message)).toBe(
+      'Use a whole number for discount percent.',
+    );
   });
 });

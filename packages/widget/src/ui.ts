@@ -1,5 +1,10 @@
 import type { RestaurantInfo, AvailabilitySlot, WidgetConfig, WidgetTheme } from './api';
-import { fetchRestaurant, fetchAvailability, fetchWidgetBootstrap } from './api';
+import {
+  fetchRestaurant,
+  fetchAvailability,
+  fetchWidgetBootstrap,
+  validatePromotion,
+} from './api';
 import { getActivePalette } from '@reservations/ui/palettes';
 import {
   LOYALTY,
@@ -76,6 +81,10 @@ function formatTime(iso: string, timeZone: string): string {
   return formatTimeInTimeZone(iso, timeZone);
 }
 
+function formatCents(cents: number): string {
+  return `$${(Math.max(0, cents) / 100).toFixed(2)}`;
+}
+
 function todayISO(timeZone: string = PLATFORM_TIMEZONE): string {
   return todayIsoInTimeZone(timeZone);
 }
@@ -116,6 +125,8 @@ interface WidgetState {
   slots: AvailabilitySlot[];
   selectedSlot: string | null;
   promoCode: string;
+  promoStatus: 'idle' | 'checking' | 'valid' | 'invalid';
+  promoMessage: string | null;
   loading: boolean;
   slotsLoading: boolean;
   error: string | null;
@@ -131,10 +142,15 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     slots: [],
     selectedSlot: null,
     promoCode: '',
+    promoStatus: 'idle',
+    promoMessage: null,
     loading: true,
     slotsLoading: false,
     error: null,
   };
+  let promoTimer: ReturnType<typeof setTimeout> | undefined;
+  let promoRequest = 0;
+  let promoStatusEl: HTMLElement | null = null;
 
   if (config.themeOverrides.primaryColor) {
     applyPrimaryColor(root, config.themeOverrides.primaryColor);
@@ -180,10 +196,78 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     }
   }
 
+  function depositCents(): number {
+    if (!state.restaurant) return 0;
+    return resolveBookingCharges({
+      restaurant: state.restaurant,
+      partySize: state.partySize,
+    }).prepaidGrossCents;
+  }
+
+  function promoHint(): { text: string; tone: 'muted' | 'ok' | 'error' } | null {
+    if (!state.promoCode.trim()) return null;
+    if (!state.selectedSlot) return { text: 'Pick a time to check this code.', tone: 'muted' };
+    if (state.promoStatus === 'checking') return { text: 'Checking code…', tone: 'muted' };
+    if (state.promoStatus === 'valid') {
+      return { text: state.promoMessage ?? 'Code applied at checkout.', tone: 'ok' };
+    }
+    if (state.promoStatus === 'invalid') {
+      return { text: state.promoMessage ?? 'This code is not valid.', tone: 'error' };
+    }
+    return null;
+  }
+
+  function paintPromoStatus() {
+    if (!promoStatusEl) return;
+    const hint = promoHint();
+    promoStatusEl.textContent = hint?.text ?? '';
+    promoStatusEl.style.display = hint ? '' : 'none';
+    promoStatusEl.style.color =
+      hint?.tone === 'error' ? '#cf1322' : hint?.tone === 'ok' ? '#389e0d' : '';
+  }
+
+  /** Re-check the code whenever it, the time, or the party (deposit) changes. */
+  function schedulePromoCheck() {
+    clearTimeout(promoTimer);
+    const code = state.promoCode.trim();
+    const slot = state.selectedSlot;
+    if (!code || !slot) {
+      state.promoStatus = 'idle';
+      state.promoMessage = null;
+      paintPromoStatus();
+      return;
+    }
+    state.promoStatus = 'checking';
+    paintPromoStatus();
+    const request = ++promoRequest;
+    promoTimer = setTimeout(async () => {
+      try {
+        const result = await validatePromotion(config.apiUrl, {
+          restaurantId: config.restaurantId,
+          code,
+          slotStart: slot,
+          depositCents: depositCents(),
+        });
+        if (request !== promoRequest) return;
+        state.promoStatus = result.valid ? 'valid' : 'invalid';
+        state.promoMessage = result.valid
+          ? `Code applied: ${formatCents(result.discountCents)} off your deposit.`
+          : result.message;
+      } catch {
+        if (request !== promoRequest) return;
+        state.promoStatus = 'invalid';
+        state.promoMessage = "Couldn't check this code. Try again.";
+      }
+      paintPromoStatus();
+    }, 400);
+  }
+
   async function loadSlots() {
     state.slotsLoading = true;
     state.slots = [];
     state.selectedSlot = null;
+    state.promoStatus = 'idle';
+    state.promoMessage = null;
     render();
     try {
       state.slots = await fetchAvailability(
@@ -210,7 +294,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     });
     if (state.selectedSlot) params.set('slot', state.selectedSlot);
     const promo = state.promoCode.trim().toUpperCase();
-    if (promo) params.set('promo', promo);
+    if (promo && state.promoStatus === 'valid') params.set('promo', promo);
     const path = buildRestaurantBookingPath(state.restaurant?.slug, config.restaurantId);
     return `${base}${path}?${params}`;
   }
@@ -367,6 +451,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
         btn.addEventListener('click', () => {
           state.selectedSlot = isSelected ? null : slot.time;
           render();
+          schedulePromoCheck();
         });
         grid.append(btn);
       }
@@ -375,28 +460,35 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
 
     body.append(slotsField);
 
-    const promoField = h('div', { className: 'rt-field' });
-    promoField.append(h('label', { className: 'rt-label', for: 'rt-promo' }, ['Promo code (optional)']));
-    const promoInput = h('input', {
-      className: 'rt-date-input',
-      type: 'text',
-      id: 'rt-promo',
-      placeholder: 'SUMMER20',
-    });
-    promoInput.value = state.promoCode;
-    promoInput.addEventListener('input', () => {
-      state.promoCode = promoInput.value.toUpperCase();
+    // Promo codes discount the booking deposit, like the Tablevera booking page.
+    promoStatusEl = null;
+    if (depositCents() > 0) {
+      const promoField = h('div', { className: 'rt-field' });
+      promoField.append(
+        h('label', { className: 'rt-label', for: 'rt-promo' }, ['Promo code (optional)']),
+      );
+      const promoInput = h('input', {
+        className: 'rt-date-input',
+        type: 'text',
+        id: 'rt-promo',
+        placeholder: 'SUMMER20',
+        maxlength: '40',
+      });
       promoInput.value = state.promoCode;
-    });
-    promoField.append(promoInput);
-    body.append(promoField);
+      promoInput.addEventListener('input', () => {
+        state.promoCode = promoInput.value.toUpperCase();
+        promoInput.value = state.promoCode;
+        schedulePromoCheck();
+      });
+      promoField.append(promoInput);
+      promoStatusEl = h('div', { className: 'rt-hint', role: 'status' });
+      promoField.append(promoStatusEl);
+      paintPromoStatus();
+      body.append(promoField);
+    }
 
     if (state.restaurant) {
-      const depositCents = resolveBookingCharges({
-        restaurant: state.restaurant,
-        partySize: state.partySize,
-      }).prepaidGrossCents;
-      const depositPts = depositPointsFromCents(depositCents);
+      const depositPts = depositPointsFromCents(depositCents());
       const earnParts = [`${LOYALTY.POINTS_PER_COMPLETED_VISIT} pts on visit completion`];
       if (depositPts > 0) earnParts.push(`${depositPts} pts on deposit`);
       const hints = [`Earn ${earnParts.join(' + ')} with Tablevera loyalty`];
@@ -413,20 +505,17 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
       }
     }
 
-    // CTA button
+    // CTA button. The URL is rebuilt on click so a promo typed after picking a time is kept.
     const cta = h('a', {
       className: 'rt-cta',
       href: buildBookingUrl(),
       target: '_blank',
       rel: 'noopener',
     }, [state.selectedSlot ? 'Complete reservation' : theme.buttonText]);
-    if (!state.selectedSlot) {
-      cta.removeAttribute('href');
-      cta.setAttribute('role', 'button');
-      cta.addEventListener('click', () => {
-        window.open(buildBookingUrl(), '_blank', 'noopener');
-      });
-    }
+    const refreshHref = () => cta.setAttribute('href', buildBookingUrl());
+    cta.addEventListener('pointerdown', refreshHref);
+    cta.addEventListener('focus', refreshHref);
+    cta.addEventListener('click', refreshHref);
     body.append(cta);
 
     widget.append(body);

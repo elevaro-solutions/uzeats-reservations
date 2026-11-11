@@ -1,5 +1,6 @@
 import {
   DEFAULT_FLOOR_PLAN_BACKGROUND_COLOR,
+  rotatedFloorRectBounds,
   type TableShape,
 } from '@reservations/shared';
 import type { CSSProperties } from 'react';
@@ -221,15 +222,31 @@ export function snapDelta(pixels: number, cellSize: number): number {
   return Math.ceil(pixels / cellSize);
 }
 
+/** Largest table/fixture side the save schema accepts, in grid cells. */
+export const MAX_ITEM_CELLS = 24;
+
+function clampAxis(pos: number, size: number, half: number, limit: number): number {
+  const center = pos + size / 2;
+  const clamped = half * 2 >= limit ? limit / 2 : Math.min(Math.max(center, half), limit - half);
+  // Positions stay >= 0 for the save schema, so a turned item may sit slightly off the top/left edge.
+  return Math.max(0, clamped - size / 2);
+}
+
+/**
+ * Move by (dx, dy) and keep the item's rotated footprint inside `cols`×`rows`.
+ * With no rotation this is the plain axis-aligned clamp.
+ */
 export function clampMove(
   layout: TableLayout,
   dx: number,
   dy: number,
   cols = FLOOR_GRID_COLS,
   rows = FLOOR_GRID_ROWS,
+  rotation = 0,
 ): TableLayout {
-  const posX = Math.min(Math.max(layout.posX + dx, 0), cols - layout.width);
-  const posY = Math.min(Math.max(layout.posY + dy, 0), rows - layout.height);
+  const bounds = rotatedFloorRectBounds({ ...layout, rotation });
+  const posX = clampAxis(layout.posX + dx, layout.width, bounds.width / 2, cols);
+  const posY = clampAxis(layout.posY + dy, layout.height, bounds.height / 2, rows);
   return { ...layout, posX, posY };
 }
 
@@ -237,12 +254,11 @@ export function clampLayout(
   layout: TableLayout,
   cols = FLOOR_GRID_COLS,
   rows = FLOOR_GRID_ROWS,
+  rotation = 0,
 ): TableLayout {
-  const width = Math.min(Math.max(layout.width, 1), cols - layout.posX);
-  const height = Math.min(Math.max(layout.height, 1), rows - layout.posY);
-  const posX = Math.min(Math.max(layout.posX, 0), cols - width);
-  const posY = Math.min(Math.max(layout.posY, 0), rows - height);
-  return { posX, posY, width, height };
+  const width = Math.min(Math.max(layout.width, 1), cols - layout.posX, MAX_ITEM_CELLS);
+  const height = Math.min(Math.max(layout.height, 1), rows - layout.posY, MAX_ITEM_CELLS);
+  return clampMove({ posX: layout.posX, posY: layout.posY, width, height }, 0, 0, cols, rows, rotation);
 }
 
 /** Wrap degrees into [0, 360). */
@@ -255,6 +271,13 @@ export function pointerAngleDeg(centerX: number, centerY: number, x: number, y: 
   return (Math.atan2(y - centerY, x - centerX) * 180) / Math.PI;
 }
 
+/** Free rotation within this many degrees of a right angle snaps to it. */
+export const RIGHT_ANGLE_MAGNET_DEG = 6;
+
+/**
+ * Rotation from a pointer drag. With `snapDeg`, steps by that amount; otherwise angles close to
+ * 0/90/180/270 snap onto them so tables don't end up a few degrees crooked.
+ */
 export function applyFreeRotation(
   origRotation: number,
   startAngle: number,
@@ -262,7 +285,12 @@ export function applyFreeRotation(
   snapDeg?: number,
 ): number {
   let next = origRotation + (currentAngle - startAngle);
-  if (snapDeg && snapDeg > 0) next = Math.round(next / snapDeg) * snapDeg;
+  if (snapDeg && snapDeg > 0) {
+    next = Math.round(next / snapDeg) * snapDeg;
+  } else {
+    const nearest = Math.round(next / 90) * 90;
+    if (Math.abs(next - nearest) <= RIGHT_ANGLE_MAGNET_DEG) next = nearest;
+  }
   return normalizeRotation(next);
 }
 
@@ -331,6 +359,14 @@ export function applyResize(
 
   width = Math.min(width, cols - posX);
   height = Math.min(height, rows - posY);
+  if (width > MAX_ITEM_CELLS) {
+    if (handle.includes('w')) posX += width - MAX_ITEM_CELLS;
+    width = MAX_ITEM_CELLS;
+  }
+  if (height > MAX_ITEM_CELLS) {
+    if (handle.includes('n')) posY += height - MAX_ITEM_CELLS;
+    height = MAX_ITEM_CELLS;
+  }
 
   return { posX, posY, width, height };
 }
