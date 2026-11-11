@@ -77,7 +77,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Features
 
-- Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages (city/state/cuisine/occasion/neighborhood/landmark hubs, cuisine×city, near-me, top/best restaurants), and live availability slots — taxonomy managed in admin **Discovery**
+- Restaurant search (city, cuisine, text, nearby geo) with **list and map views** (map clusters overlapping venues into zoomable bubbles), infinite scroll, SEO landing pages (city/state/cuisine/occasion/neighborhood/landmark hubs, cuisine×city, near-me, top/best restaurants), and live availability slots — taxonomy managed in admin **Discovery**
 - **Blog** — published articles with SEO metadata; platform admins manage posts in the dashboard
 - **For restaurants** marketing page (`/for-restaurants`) plus public pricing and contact-sales flows
 - **Downloads** (`/downloads`): Diner and partner apps on Google Play and the App Store, with logos and store graphics. Phones and tablets get a dismissible install bar; Partner Hub links to the partner app

@@ -56,8 +56,8 @@ import {
   OCCASION_LABELS,
   RESTAURANT_LOYALTY,
   defaultLoyaltyProgram,
-  pointsToDiscountCents,
-  restaurantPointsToDiscountCents,
+  resolveRedeemPoints,
+  resolveRestaurantRedeemPoints,
   depositPointsFromCents,
   loyaltyRedeemProgress,
   isMongoObjectId,
@@ -180,6 +180,49 @@ const DepositPayment = dynamic(() => import('@/components/DepositPayment'), {
 });
 
 const { Title, Paragraph, Text } = Typography;
+
+type RedeemCheck = {
+  resolution: { pointsToRedeem: number; discountCents: number } | null;
+  error: string | null;
+};
+
+const EMPTY_REDEEM: RedeemCheck = { resolution: null, error: null };
+
+/** Runs a shared redeem resolver (which throws the API's validation message) without throwing. */
+function checkRedeem(resolve: () => RedeemCheck['resolution']): RedeemCheck {
+  try {
+    return { resolution: resolve(), error: null };
+  } catch (err) {
+    return { resolution: null, error: err instanceof Error ? err.message : 'Invalid points amount' };
+  }
+}
+
+function RedeemPointsAlert({
+  check,
+  requestedPoints,
+}: {
+  check: RedeemCheck;
+  requestedPoints: number;
+}) {
+  if (check.error) {
+    return <Alert type="warning" showIcon style={{ marginTop: 10 }} message={check.error} />;
+  }
+  if (!check.resolution) return null;
+  const { pointsToRedeem, discountCents } = check.resolution;
+  const discount = `$${(discountCents / 100).toFixed(2)}`;
+  return (
+    <Alert
+      type="success"
+      showIcon
+      style={{ marginTop: 10 }}
+      message={
+        pointsToRedeem < requestedPoints
+          ? `Only ${pointsToRedeem} pts can be used on this deposit = ${discount} off`
+          : `${pointsToRedeem} pts = ${discount} off deposit`
+      }
+    />
+  );
+}
 
 const LARGE_PARTY_TIME_OPTIONS = Array.from({ length: 34 }, (_, index) => {
   const total = 7 * 60 + index * 30;
@@ -700,24 +743,53 @@ export default function RestaurantPageClient({
     !!restaurant?.loyaltyEnabled &&
     restaurantLoyaltyBalance >= restaurantMinRedeem &&
     grossDepositCents > 0;
-  const depositBeforePromo = useMemo(() => {
-    let d = grossDepositCents;
-    if (redeemPoints >= minRedeem) {
-      d -= pointsToDiscountCents(redeemPoints, program.redeemPointsPerDollar);
-    }
-    if (canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem) {
-      d -= restaurantPointsToDiscountCents(redeemRestaurantPoints);
-    }
-    return Math.max(0, d);
-  }, [
-    grossDepositCents,
-    redeemPoints,
-    redeemRestaurantPoints,
-    canRedeemRestaurant,
-    restaurantMinRedeem,
-    minRedeem,
-    program.redeemPointsPerDollar,
-  ]);
+  const canRedeemPlatform = !!user && redeemProgress.canRedeem && grossDepositCents > 0;
+  const platformRedeem = useMemo(
+    () =>
+      canRedeemPlatform
+        ? checkRedeem(() =>
+            resolveRedeemPoints(redeemPoints, grossDepositCents, user?.loyaltyPoints ?? 0, {
+              minRedeemPoints: minRedeem,
+              redeemPointsPerDollar: program.redeemPointsPerDollar,
+            }),
+          )
+        : EMPTY_REDEEM,
+    [
+      canRedeemPlatform,
+      redeemPoints,
+      grossDepositCents,
+      user?.loyaltyPoints,
+      minRedeem,
+      program.redeemPointsPerDollar,
+    ],
+  );
+  const restaurantRedeem = useMemo(
+    () =>
+      canRedeemRestaurant
+        ? checkRedeem(() =>
+            resolveRestaurantRedeemPoints(
+              redeemRestaurantPoints,
+              grossDepositCents - (platformRedeem.resolution?.discountCents ?? 0),
+              restaurantLoyaltyBalance,
+              restaurantMinRedeem,
+            ),
+          )
+        : EMPTY_REDEEM,
+    [
+      canRedeemRestaurant,
+      redeemRestaurantPoints,
+      grossDepositCents,
+      platformRedeem.resolution?.discountCents,
+      restaurantLoyaltyBalance,
+      restaurantMinRedeem,
+    ],
+  );
+  const depositBeforePromo = Math.max(
+    0,
+    grossDepositCents -
+      (platformRedeem.resolution?.discountCents ?? 0) -
+      (restaurantRedeem.resolution?.discountCents ?? 0),
+  );
   const { data: promoValidationData } = useQuery(VALIDATE_PROMOTION, {
     variables: {
       restaurantId: restaurantId!,
@@ -1063,6 +1135,14 @@ export default function RestaurantPageClient({
       message.warning('Enter your phone number to complete the reservation');
       return;
     }
+    const redeemErrors: Record<string, string> = {};
+    if (platformRedeem.error) redeemErrors.redeemPoints = platformRedeem.error;
+    if (restaurantRedeem.error) redeemErrors.redeemRestaurantPoints = restaurantRedeem.error;
+    if (Object.keys(redeemErrors).length > 0) {
+      setFieldErrors((prev) => ({ ...prev, ...redeemErrors }));
+      message.warning('Fix the points you want to redeem, or clear the field');
+      return;
+    }
     setConfirmError(null);
     setConfirmOpen(true);
   };
@@ -1082,10 +1162,8 @@ export default function RestaurantPageClient({
             slotStart: selectedSlot,
             occasion,
             guestNotes: notes || undefined,
-            ...(redeemPoints >= minRedeem ? { redeemPoints } : {}),
-            ...(canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
-              ? { redeemRestaurantPoints }
-              : {}),
+            ...(platformRedeem.resolution ? { redeemPoints } : {}),
+            ...(restaurantRedeem.resolution ? { redeemRestaurantPoints } : {}),
             ...(promoCode.trim() ? { promoCode: promoCode.trim().toUpperCase() } : {}),
             ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
             ...(selectedTableId ? { tableId: selectedTableId, tableSelectionSource } : {}),
@@ -1984,7 +2062,7 @@ export default function RestaurantPageClient({
                   }
                 />
               </Form.Item>
-              {user && redeemProgress.canRedeem && grossDepositCents > 0 && (
+              {user && canRedeemPlatform && (
                 <Form.Item
                   label="Redeem loyalty points"
                   validateStatus={fieldErrors.redeemPoints ? 'error' : undefined}
@@ -2017,9 +2095,10 @@ export default function RestaurantPageClient({
                     </Text>
                     <InputNumber
                       min={0}
-                      max={user.loyaltyPoints}
+                      precision={0}
                       step={100}
-                      value={redeemPoints}
+                      value={redeemPoints || null}
+                      placeholder={`Min ${minRedeem}`}
                       onChange={(v) => {
                         setRedeemPoints(v ?? 0);
                         clearFieldError('redeemPoints');
@@ -2027,21 +2106,9 @@ export default function RestaurantPageClient({
                       style={{ width: 160 }}
                       addonAfter="pts"
                     />
-                    {redeemPoints >= minRedeem ? (
-                      <Alert
-                        type="success"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={`${redeemPoints} pts = $${(pointsToDiscountCents(redeemPoints, program.redeemPointsPerDollar) / 100).toFixed(2)} off deposit`}
-                      />
-                    ) : redeemPoints > 0 ? (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={`Minimum ${minRedeem} points required to redeem`}
-                      />
-                    ) : null}
+                    {fieldErrors.redeemPoints ? null : (
+                      <RedeemPointsAlert check={platformRedeem} requestedPoints={redeemPoints} />
+                    )}
                   </div>
                 </Form.Item>
               )}
@@ -2061,9 +2128,10 @@ export default function RestaurantPageClient({
                     </Text>
                     <InputNumber
                       min={0}
-                      max={restaurantLoyaltyBalance}
+                      precision={0}
                       step={50}
-                      value={redeemRestaurantPoints}
+                      value={redeemRestaurantPoints || null}
+                      placeholder={`Min ${restaurantMinRedeem}`}
                       onChange={(v) => {
                         setRedeemRestaurantPoints(v ?? 0);
                         clearFieldError('redeemRestaurantPoints');
@@ -2071,21 +2139,12 @@ export default function RestaurantPageClient({
                       style={{ width: 160, marginTop: 8 }}
                       addonAfter="pts"
                     />
-                    {redeemRestaurantPoints >= restaurantMinRedeem ? (
-                      <Alert
-                        type="success"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={`${redeemRestaurantPoints} pts = $${(restaurantPointsToDiscountCents(redeemRestaurantPoints) / 100).toFixed(2)} off deposit`}
+                    {fieldErrors.redeemRestaurantPoints ? null : (
+                      <RedeemPointsAlert
+                        check={restaurantRedeem}
+                        requestedPoints={redeemRestaurantPoints}
                       />
-                    ) : redeemRestaurantPoints > 0 ? (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={`Minimum ${restaurantMinRedeem} restaurant points required to redeem`}
-                      />
-                    ) : null}
+                    )}
                   </div>
                 </Form.Item>
               )}
@@ -2414,12 +2473,8 @@ export default function RestaurantPageClient({
           promoDiscountCents: activePromo?.valid ? activePromo.discountCents : undefined,
           promoTitle: activePromo?.valid ? activePromo.promotion?.title : undefined,
           giftCardDiscountCents: giftValidation?.valid ? giftValidation.discountCents : undefined,
-          loyaltyPointsRedeemed:
-            redeemPoints >= minRedeem ? redeemPoints : undefined,
-          restaurantPointsRedeemed:
-            canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
-              ? redeemRestaurantPoints
-              : undefined,
+          loyaltyPointsRedeemed: platformRedeem.resolution?.pointsToRedeem,
+          restaurantPointsRedeemed: restaurantRedeem.resolution?.pointsToRedeem,
         }}
         onClose={() => {
           setConfirmOpen(false);

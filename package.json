@@ -1,6 +1,6 @@
 {
   "name": "reservations",
-  "version": "0.103.2",
+  "version": "0.104.0",
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=8192' turbo run dev --parallel --filter='!@reservations/mobile' --filter='!@reservations/merchant-mobile'",

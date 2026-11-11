@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.104.0] — 2026-11-11
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: map cluster bubbles, marker chips and selected state, map card polish and edge placement, map sync after filters, short-window map layout, empty redeem inputs, and redeem points validation messages
+- Diner web map view groups restaurants that overlap into a numbered bubble. Tapping it glides to the group and zooms in smoothly, one level at a time, to separate them, or lists the venues when they share the same spot. Name labels that would cover each other are hidden (the pin stays clickable)
+
+### Changed
+- Diner web map markers redesigned: each restaurant's dot and name now form a single white chip, and the selected restaurant shows a larger gold dot with a soft halo (its name label hides while the card is open). Hovering a chip smoothly deepens its shadow and pops the dot with a soft ring
+- Diner web map restaurant card: the pointer is a seamless tail that lands just above the selected dot, the card fades in, time-slot buttons are lighter, photo arrows appear on hover (always on touch), and all buttons have hover and keyboard focus states
+- Diner web map restaurant card and "restaurants here" list stay inside the map: they flip below the marker near the top edge, shift sideways near the side edges, and selecting a restaurant on a short map pans so the card fits above it
+
+### Fixed
+- Diner booking card "Redeem points" inputs start empty instead of `0`, so typing no longer produces values like `01432`
+- Typing more points than your balance into a "Redeem points" input showed "Minimum 500 points" instead of the real problem; the inline message now matches the API rules (minimum, balance, deposit too small, capped amount), and booking is blocked until the amount is valid
+- Diner web map labels and positions stay in sync after the result list changes
+- Diner web map page on short desktop windows: the filters sidebar no longer stretches the layout taller than the screen (which clipped the bottom of the map); the filters now scroll inside their panel
+
 ## [0.103.2] — 2026-11-11
 
 ### Added

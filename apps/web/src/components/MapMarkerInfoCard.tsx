@@ -10,7 +10,7 @@ import {
   StarFilled,
 } from '@ant-design/icons';
 import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
-import { colors, priceRangeLabel, radii, shadows, typography } from '@reservations/ui';
+import { priceRangeLabel, typography } from '@reservations/ui';
 import { canUseNextImage } from '@/lib/canUseNextImage';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
@@ -50,17 +50,9 @@ export function MapMarkerInfoCard({
     <div
       className="rt-map-info-card"
       onClick={(e) => e.stopPropagation()}
-      style={{
-        width: 320,
-        background: colors.surface,
-        borderRadius: radii.lg,
-        overflow: 'hidden',
-        boxShadow: shadows.lg,
-        border: `1px solid ${colors.border}`,
-        fontFamily: typography.fontFamily,
-      }}
+      style={{ fontFamily: typography.fontFamily }}
     >
-      <div style={{ position: 'relative', height: 168, background: colors.neutral[100] }}>
+      <div className="rt-map-info-card__media">
         {activePhoto ? (
           canUseNextImage(activePhoto) ? (
             <Image
@@ -72,74 +64,29 @@ export function MapMarkerInfoCard({
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={activePhoto}
-              alt={restaurant.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            />
+            <img src={activePhoto} alt={restaurant.name} className="rt-map-info-card__img" />
           )
         ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: colors.textTertiary,
-              fontSize: typography.fontSize.sm,
-            }}
-          >
-            No photo yet
-          </div>
+          <div className="rt-map-info-card__placeholder">No photo yet</div>
         )}
+
+        {photos.length > 1 && <div className="rt-map-info-card__shade" aria-hidden />}
 
         <button
           type="button"
           aria-label="Close"
+          className="rt-map-info-card__icon-btn rt-map-info-card__close"
           onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            width: 30,
-            height: 30,
-            borderRadius: '50%',
-            border: 'none',
-            background: 'rgba(255,255,255,0.95)',
-            color: colors.textPrimary,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: shadows.sm,
-          }}
         >
-          <CloseOutlined style={{ fontSize: 12 }} />
+          <CloseOutlined />
         </button>
 
         {showPrev && (
           <button
             type="button"
             aria-label="Previous photo"
+            className="rt-map-info-card__icon-btn rt-map-info-card__nav rt-map-info-card__nav--prev"
             onClick={() => setPhotoIndex((i) => Math.max(0, i - 1))}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: 10,
-              transform: 'translateY(-50%)',
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
-              border: 'none',
-              background: 'rgba(255,255,255,0.95)',
-              color: colors.textPrimary,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: shadows.sm,
-            }}
           >
             <LeftOutlined />
           </button>
@@ -148,166 +95,77 @@ export function MapMarkerInfoCard({
           <button
             type="button"
             aria-label="Next photo"
+            className="rt-map-info-card__icon-btn rt-map-info-card__nav rt-map-info-card__nav--next"
             onClick={() => setPhotoIndex((i) => Math.min(photos.length - 1, i + 1))}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              right: 10,
-              transform: 'translateY(-50%)',
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
-              border: 'none',
-              background: 'rgba(255,255,255,0.95)',
-              color: colors.textPrimary,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: shadows.sm,
-            }}
           >
             <RightOutlined />
           </button>
         )}
 
         {photos.length > 1 && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 10,
-              left: 0,
-              right: 0,
-              display: 'flex',
-              justifyContent: 'center',
-              gap: 5,
-            }}
-          >
+          <div className="rt-map-info-card__dots" aria-hidden>
             {photos.map((_, i) => (
               <span
                 key={i}
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: i === photoIndex ? '#fff' : 'rgba(255,255,255,0.55)',
-                }}
+                className={
+                  i === photoIndex
+                    ? 'rt-map-info-card__dot rt-map-info-card__dot--active'
+                    : 'rt-map-info-card__dot'
+                }
               />
             ))}
           </div>
         )}
       </div>
 
-      <div style={{ padding: '14px 16px 16px' }}>
+      <div className="rt-map-info-card__body">
         <button
           type="button"
+          className="rt-map-info-card__title"
+          aria-label={`View ${restaurant.name}`}
+          title={restaurant.name}
           onClick={onOpen}
-          style={{
-            display: 'block',
-            width: '100%',
-            padding: 0,
-            border: 'none',
-            background: 'transparent',
-            cursor: 'pointer',
-            textAlign: 'left',
-            fontFamily: 'inherit',
-          }}
         >
-          <div
-            style={{
-              fontSize: typography.fontSize.md,
-              fontWeight: typography.fontWeight.bold,
-              color: colors.textPrimary,
-              lineHeight: 1.3,
-              marginBottom: 8,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {restaurant.name}
-          </div>
+          {restaurant.name}
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 6px', marginBottom: 6 }}>
+        <div className="rt-map-info-card__meta">
           {reviewCount > 0 && (
             <>
-              <StarFilled style={{ color: colors.rating, fontSize: 13 }} />
-              <span style={{ fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold }}>
-                {rating.toFixed(1)}
-              </span>
-              <span style={{ fontSize: typography.fontSize.sm, color: colors.textSecondary }}>
-                ({reviewCount.toLocaleString('en-US')})
-              </span>
-              <span style={{ color: colors.textTertiary }}>·</span>
+              <StarFilled className="rt-map-info-card__star" />
+              <span className="rt-map-info-card__rating">{rating.toFixed(1)}</span>
+              <span>({reviewCount.toLocaleString('en-US')})</span>
+              <span className="rt-map-info-card__sep">·</span>
             </>
           )}
-          <span style={{ fontSize: typography.fontSize.sm, color: colors.textSecondary }}>
-            {priceRangeLabel(restaurant.priceRange ?? 2)}
-          </span>
-          <span style={{ color: colors.textTertiary }}>·</span>
-          <span style={{ fontSize: typography.fontSize.sm, color: colors.textSecondary }}>
-            {restaurant.cuisine}
-          </span>
+          <span>{priceRangeLabel(restaurant.priceRange ?? 2)}</span>
+          <span className="rt-map-info-card__sep">·</span>
+          <span>{restaurant.cuisine}</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-          <EnvironmentOutlined style={{ color: colors.textTertiary, fontSize: 12 }} />
-          <span style={{ fontSize: typography.fontSize.sm, color: colors.textSecondary }}>
+        <div className="rt-map-info-card__location">
+          <EnvironmentOutlined className="rt-map-info-card__location-icon" />
+          <span>
             {locationLabel}
             {restaurant.address?.state ? `, ${restaurant.address.state}` : ''}
           </span>
         </div>
 
         {slots.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+          <div className="rt-map-info-card__slots">
             {slots.map((slot: string) => (
               <button
                 key={slot}
                 type="button"
+                className="rt-map-info-card__slot"
                 onClick={() => onSelectSlot(slot)}
-                style={{
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: colors.brand[600],
-                  color: colors.textInverse,
-                  borderRadius: radii.sm,
-                  padding: '10px 6px',
-                  fontSize: typography.fontSize.sm,
-                  fontWeight: typography.fontWeight.semibold,
-                  fontFamily: 'inherit',
-                  lineHeight: 1.2,
-                  boxShadow: shadows.brand,
-                  transition: 'background 0.15s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = colors.brand[700];
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = colors.brand[600];
-                }}
               >
                 {formatSlotTime(slot, restaurant.address?.state)}
               </button>
             ))}
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={onOpen}
-            style={{
-              width: '100%',
-              border: `1.5px solid ${colors.brand[200]}`,
-              cursor: 'pointer',
-              background: colors.brand[50],
-              color: colors.brand[700],
-              borderRadius: radii.sm,
-              padding: '10px 14px',
-              fontSize: typography.fontSize.sm,
-              fontWeight: typography.fontWeight.semibold,
-              fontFamily: 'inherit',
-            }}
-          >
+          <button type="button" className="rt-map-info-card__cta" onClick={onOpen}>
             Check availability
           </button>
         )}

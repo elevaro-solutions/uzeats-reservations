@@ -1391,6 +1391,15 @@ html.rt-map-view .rt-site-footer {
 .rt-map-page__split {
   display: grid;
   grid-template-columns: 220px minmax(320px, 36%) 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+}
+
+.rt-map-page__split > .rt-filters-desktop {
+  min-height: 0;
+}
+
+.rt-map-page__split > .rt-filters-desktop > .rt-map-filters {
   height: 100%;
 }
 
@@ -1591,30 +1600,460 @@ html.rt-map-view .rt-site-footer {
   width: 100%;
 }
 
-.rt-map-marker-label {
-  border: 1px solid rgba(11, 61, 46, 0.15);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--color-brand-700);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
-  padding: 4px 10px;
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  white-space: nowrap;
-  max-width: 180px;
+.rt-map-info-card {
+  width: 320px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: inherit;
-  z-index: 2;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
 }
 
-.rt-map-marker-label--selected {
-  border-color: var(--color-accent-600);
-  background: var(--color-accent-50);
-  color: var(--color-accent-600);
-  box-shadow: var(--shadow-accent);
+.rt-map-info-card__media {
+  position: relative;
+  height: 156px;
+  background: var(--color-border-subtle);
+}
+
+.rt-map-info-card__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rt-map-info-card__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.rt-map-info-card__shade {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 48px;
+  background: linear-gradient(to top, rgba(26, 24, 22, 0.38), rgba(26, 24, 22, 0));
+  pointer-events: none;
+}
+
+.rt-map-info-card__icon-btn {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--color-text);
+  font-size: 12px;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.rt-map-info-card__icon-btn:hover {
+  background: #fff;
+  transform: scale(1.06);
+}
+
+.rt-map-info-card__icon-btn:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.rt-map-info-card__close {
+  top: 10px;
+  right: 10px;
+}
+
+.rt-map-info-card__nav {
+  top: calc(50% - 16px);
+  opacity: 0;
+}
+
+.rt-map-info-card__nav--prev {
+  left: 10px;
+}
+
+.rt-map-info-card__nav--next {
+  right: 10px;
+}
+
+.rt-map-info-card:hover .rt-map-info-card__nav,
+.rt-map-info-card:focus-within .rt-map-info-card__nav {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .rt-map-info-card__nav {
+    opacity: 1;
+  }
+}
+
+.rt-map-info-card__dots {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 10px;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.rt-map-info-card__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  transition:
+    width 0.2s ease,
+    background 0.2s ease;
+}
+
+.rt-map-info-card__dot--active {
+  width: 14px;
+  background: #fff;
+}
+
+.rt-map-info-card__body {
+  padding: 14px 16px 16px;
+}
+
+.rt-map-info-card__title {
+  display: block;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.rt-map-info-card__title:hover {
+  color: var(--color-brand-600);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rt-map-info-card__title:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.rt-map-info-card__meta,
+.rt-map-info-card__location {
+  display: flex;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.rt-map-info-card__meta {
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.rt-map-info-card__star {
+  color: var(--color-rating);
+  font-size: 13px;
+}
+
+.rt-map-info-card__rating {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.rt-map-info-card__sep {
+  color: var(--color-text-tertiary);
+}
+
+.rt-map-info-card__location {
+  margin-bottom: 14px;
+}
+
+.rt-map-info-card__location-icon {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.rt-map-info-card__slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rt-map-info-card__slot,
+.rt-map-info-card__cta {
+  height: 38px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.rt-map-info-card__slot {
+  min-width: 0;
+  padding: 0 6px;
+  border: none;
+  background: var(--color-brand-600);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.rt-map-info-card__slot:hover {
+  background: var(--color-brand-700);
+}
+
+.rt-map-info-card__cta {
+  width: 100%;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-brand-200);
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+
+.rt-map-info-card__cta:hover {
+  border-color: var(--color-brand-600);
+}
+
+.rt-map-info-card__slot:active,
+.rt-map-info-card__cta:active {
+  transform: scale(0.97);
+}
+
+.rt-map-info-card__slot:focus-visible,
+.rt-map-info-card__cta:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+/* Dot center sits 12px from the chip's left edge (LABEL_DOT_CENTER_X in mapClusters.ts). */
+.rt-map-marker-label {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 24px;
+  max-width: 200px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-12px, -50%);
+  transition: color 0.2s ease;
+}
+
+/* Hover elevation fades in on a pseudo-element; animating box-shadow or transform directly makes the text shimmer. */
+.rt-map-marker-label::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  box-shadow:
+    0 6px 16px rgba(var(--color-brand-rgb), 0.18),
+    0 2px 4px rgba(26, 24, 22, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.rt-map-marker-label:hover,
+.rt-map-marker-label:focus-visible {
+  z-index: 3;
+  color: var(--color-brand-700);
+}
+
+.rt-map-marker-label:hover::after,
+.rt-map-marker-label:focus-visible::after {
+  opacity: 1;
+}
+
+.rt-map-marker-label:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+.rt-map-marker-label__dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-brand-600);
+  box-shadow: 0 0 0 0 rgba(var(--color-brand-rgb), 0.18);
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease;
+}
+
+.rt-map-marker-label:hover .rt-map-marker-label__dot,
+.rt-map-marker-label:focus-visible .rt-map-marker-label__dot {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 3px rgba(var(--color-brand-rgb), 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-map-marker-label__dot {
+    transition: none;
+  }
+}
+
+.rt-map-marker-label__text {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 16px;
+  text-overflow: ellipsis;
+}
+
+.rt-map-overlay {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.rt-map-overlay--moving {
+  opacity: 0;
+  transition-duration: 0.12s;
+}
+
+.rt-map-overlay--moving * {
+  pointer-events: none !important;
+}
+
+.rt-map-cluster {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: var(--color-brand-600);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 4px rgba(var(--color-brand-rgb), 0.18), var(--shadow-md);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.15s ease;
+}
+
+.rt-map-cluster:hover,
+.rt-map-cluster--open {
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.rt-map-cluster:focus-visible {
+  outline: 2px solid var(--color-accent-600);
+  outline-offset: 2px;
+}
+
+.rt-map-cluster-list {
+  position: absolute;
+  z-index: 6;
+  width: 260px;
+  max-width: calc(100vw - 32px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+}
+
+.rt-map-cluster-list__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rt-map-cluster-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.rt-map-cluster-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rt-map-cluster-list__item:hover,
+.rt-map-cluster-list__item:focus-visible {
+  background: var(--color-brand-50);
+  outline: none;
+}
+
+.rt-map-cluster-list__name {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rt-map-cluster-list__meta {
+  color: var(--color-text-secondary);
+  font-size: 12px;
 }
 
 .rt-map-marker-popover {
@@ -1622,22 +2061,74 @@ html.rt-map-view .rt-site-footer {
   z-index: 6;
   width: 320px;
   max-width: min(320px, calc(100vw - 32px));
+  pointer-events: auto;
 }
 
 .rt-map-marker-popover .rt-map-info-card {
   width: 100%;
 }
 
+.rt-map-marker-popover,
+.rt-map-cluster-list {
+  --popover-enter-y: 4px;
+  animation: rt-map-popover-in 0.16s ease-out;
+}
+
+.rt-map-popover--below {
+  --popover-enter-y: -4px;
+}
+
+@keyframes rt-map-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--popover-enter-y));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Triangle tail: overlaps the card's border by 1px so there is no seam, and the
+ * drop-shadow on the wrapper outlines only the protruding part.
+ * Height must match POINTER_HEIGHT_PX in RestaurantDiscoveryMap.tsx.
+ */
 .rt-map-marker-card-pointer {
   position: absolute;
-  left: 50%;
-  bottom: -8px;
-  width: 14px;
-  height: 14px;
+  z-index: 1;
+  left: var(--pointer-x, 50%);
+  bottom: -10px;
+  width: 20px;
+  height: 11px;
+  margin-left: -10px;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0 var(--color-border)) drop-shadow(0 3px 3px rgba(26, 24, 22, 0.1));
+}
+
+.rt-map-marker-card-pointer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  transform: translateX(-50%) rotate(45deg);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.rt-map-popover--below .rt-map-marker-card-pointer {
+  top: -10px;
+  bottom: auto;
+  filter: drop-shadow(0 -1px 0 var(--color-border));
+}
+
+.rt-map-popover--below .rt-map-marker-card-pointer::before {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-map-marker-popover,
+  .rt-map-cluster-list {
+    animation: none;
+  }
 }
 
 .rt-map-page__list-panel {
