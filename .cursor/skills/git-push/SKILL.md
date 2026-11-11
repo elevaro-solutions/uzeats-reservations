@@ -53,7 +53,7 @@ Only include sections that apply. Each bullet should be concise and describe the
 
 Every release that is about to be pushed must have Partner Hub `/admin/qa` tasks **before** commit. Do not push if this step is missing.
 
-1. Read `apps/api/src/services/qaChecklistCatalog.ts`. If `QA_CHECKLIST_RELEASE` is not the version from Step 2, replace the catalog for **this** version.
+1. Read `apps/api/src/services/qaChecklistCatalog.ts`. If `QA_CHECKLIST_RELEASE` is not the version from Step 2, first copy the outgoing release's `QA_CHECKLIST_CATALOG` into `QA_CHECKLIST_ARCHIVE` in `apps/api/src/services/qaChecklistArchive.ts` (keyed by the outgoing version), then replace the catalog for **this** version. The archive lets the API create that release's History run on start even if nobody opened `/admin/qa` while it was live.
 2. Turn CHANGELOG Added / Changed / Fixed into grouped, testable catalog items (`id`, `gate`, `group`, `label`, `steps`). Steps must tell QA what to click and what to see. Keep required items to the human-verifiable delta (about 5–12). Older sign-off stays on its own `QaReleaseChecklist` row — do not leave the previous release’s items in the catalog.
 3. Add `docs/qa/releases/v{VERSION}.md` from `docs/qa/releases/_TEMPLATE.md` (status Active, same items, role smoke for surfaces touched).
 4. Set the Active pointer in `docs/qa/README.md` to that file.

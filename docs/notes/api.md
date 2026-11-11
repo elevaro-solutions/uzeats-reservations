@@ -1,5 +1,10 @@
 # API — Learnings & Observations
 
+## [2026-11-11] QA runs are created on API start, plus an archive of past catalogs
+- `QaReleaseChecklist` rows used to be created only when someone opened `/admin/qa` while that release was current. v0.103.0 was live on staging ~30 minutes, nobody opened it, and once v0.103.1 deployed its catalog was gone from code, so History skipped it.
+- `ensureQaChecklistRuns()` (API start) creates the current release's run and one for every release in `QA_CHECKLIST_ARCHIVE` (`qaChecklistArchive.ts`). Archived catalogs also fill a row that has no snapshot.
+- Why it matters: When replacing `QA_CHECKLIST_CATALOG`, move the outgoing catalog into the archive first. Archive entries can be dropped once their run exists everywhere (staging and production).
+
 ## [2026-11-10] QA checklist catalog is v0.103.0
 - `QA_CHECKLIST_RELEASE` is `0.103.0`. Catalog groups are Surveys, Exports, Booking, and Partner Hub (QA-030 … QA-036). v0.102.0 items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Close the matching Partner Hub Issues once these pass.

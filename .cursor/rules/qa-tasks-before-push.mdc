@@ -9,7 +9,7 @@ Never push a release (git-push skill, “git”, “push”, “deploy”) until
 
 Do this after the changelog version is known, before commit:
 
-1. Replace `QA_CHECKLIST_RELEASE` and `QA_CHECKLIST_CATALOG` in `apps/api/src/services/qaChecklistCatalog.ts` with testable items for **this** version (group Added / Changed / Fixed; required steps a QA person can follow).
+1. Copy the outgoing `QA_CHECKLIST_CATALOG` into `QA_CHECKLIST_ARCHIVE` (`apps/api/src/services/qaChecklistArchive.ts`, keyed by the outgoing version) so its History run still exists if it was live only briefly. Then replace `QA_CHECKLIST_RELEASE` and `QA_CHECKLIST_CATALOG` in `apps/api/src/services/qaChecklistCatalog.ts` with testable items for **this** version (group Added / Changed / Fixed; required steps a QA person can follow).
 2. Add `docs/qa/releases/vX.Y.Z.md` from `docs/qa/releases/_TEMPLATE.md`. Point `docs/qa/README.md` at it as Active.
 3. Changelog **Added**: `Partner Hub /admin/qa tasks for this release: …`
 

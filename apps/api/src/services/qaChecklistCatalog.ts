@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.103.1';
+export const QA_CHECKLIST_RELEASE = '0.103.2';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -14,14 +14,24 @@ export type QaChecklistCatalogItem = {
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
   {
-    id: 'rel-agreement-checkbox-no-scroll',
+    id: 'rel-qa-history-missed-run',
     gate: 'required',
-    group: 'Agreements',
-    label: 'Agreement modal: I accept turns on when the checkbox is ticked, without scrolling',
+    group: 'QA Hub',
+    label: 'QA History lists v0.103.0 and every release since, even ones nobody opened',
     steps: [
-      'On diner web Create account, open the Terms of Use review modal. Confirm there is no “Scroll to end” button or scroll hint, and the “I have read and agree … (version N)” checkbox is clickable right away.',
-      'Without scrolling, tick the checkbox. Confirm I accept turns on; untick it and confirm I accept turns off. Accept and finish signup.',
-      'Repeat on Partner Hub /register Confirm and owner /agreements/sign. Open an already-signed agreement and confirm Done is not blocked.',
+      'Open Partner Hub /admin/qa/history. Confirm v0.103.2 (Current), v0.103.1, v0.103.0, and v0.102.0 are all listed.',
+      'Select v0.103.0. Confirm it has 7 tasks (Surveys, Exports, Booking, Partner Hub) at 0/6 required, and Open checklist shows them.',
+      'Select v0.103.1. Confirm its progress and notes from before this deploy are unchanged (the agreement checkbox task).',
+    ],
+  },
+  {
+    id: 'rel-qa-current-run-on-deploy',
+    gate: 'required',
+    group: 'QA Hub',
+    label: 'The current release appears on QA Dashboard and History right after deploy',
+    steps: [
+      'Before opening the checklist page, open /admin/qa/dashboard. Confirm the current gate shows v0.103.2.',
+      'Open /admin/qa/history and confirm v0.103.2 is listed without having visited /admin/qa first.',
     ],
   },
 ];

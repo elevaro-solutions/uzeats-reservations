@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.103.2] — 2026-11-11
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: v0.103.0 restored in QA History, and the current release listed right after deploy
+
+### Fixed
+- Partner Hub QA History skipped a release if nobody opened its checklist while it was the current gate (v0.103.0 was missing). The API now creates the current release's checklist when it starts, keeps past releases' tasks so a missed run can still be created, and restores v0.103.0 with its 7 tasks
+
 ## [0.103.1] — 2026-11-10
 
 ### Added

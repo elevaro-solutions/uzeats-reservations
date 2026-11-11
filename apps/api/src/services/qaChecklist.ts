@@ -3,6 +3,7 @@ import {
   QA_CHECKLIST_RELEASE,
   type QaChecklistCatalogItem,
 } from './qaChecklistCatalog.js';
+import { QA_CHECKLIST_ARCHIVE } from './qaChecklistArchive.js';
 import { QaReleaseChecklist, type QaReleaseChecklistDocument } from '../models/QaReleaseChecklist.js';
 import { ValidationError } from '../lib/errors.js';
 import { readQaReleaseHistory } from './qaReleaseHistory.js';
@@ -84,7 +85,8 @@ async function ensureCatalogSnapshot(doc: QaReleaseChecklistDocument) {
       await doc.save();
       return;
     }
-    const reconstructed = catalogFromDoc(doc);
+    const archived = QA_CHECKLIST_ARCHIVE[doc.release];
+    const reconstructed = archived?.length ? archived : catalogFromDoc(doc);
     if (reconstructed.length > 0) {
       doc.catalog = snapshotCatalog(reconstructed) as typeof doc.catalog;
       await doc.save();
@@ -121,12 +123,33 @@ async function loadOrCreate(release: string) {
     await ensureCatalogSnapshot(existing);
     return existing;
   }
+  const archived = QA_CHECKLIST_ARCHIVE[release];
   return QaReleaseChecklist.create({
     release,
     checks: [],
-    catalog: release === QA_CHECKLIST_RELEASE ? snapshotCatalog() : [],
+    catalog:
+      release === QA_CHECKLIST_RELEASE
+        ? snapshotCatalog()
+        : archived
+          ? snapshotCatalog(archived)
+          : [],
     status: 'active',
   });
+}
+
+/**
+ * Runs are otherwise created the first time someone opens `/admin/qa`, so a release that
+ * was live only briefly never reached History. Called on API start.
+ */
+export async function ensureQaChecklistRuns(): Promise<string[]> {
+  const releases = [QA_CHECKLIST_RELEASE, ...Object.keys(QA_CHECKLIST_ARCHIVE)];
+  const created: string[] = [];
+  for (const release of new Set(releases)) {
+    const exists = await QaReleaseChecklist.exists({ release });
+    await loadOrCreate(release);
+    if (!exists) created.push(release);
+  }
+  return created;
 }
 
 function summarizeDoc(doc: QaReleaseChecklistDocument) {

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { QA_CHECKLIST_RELEASE } from '../services/qaChecklistCatalog.js';
+import { QA_CHECKLIST_ARCHIVE } from '../services/qaChecklistArchive.js';
 import {
+  ensureQaChecklistRuns,
   getQaChecklist,
   getQaChecklistDashboard,
   listQaChecklistRuns,
@@ -80,6 +82,22 @@ describe('qa checklist history', () => {
     expect(dashboard.current?.release).toBe(QA_CHECKLIST_RELEASE);
 
     expect(prior.release).toBe('0.97.1');
+  });
+
+  it('creates runs for the current gate and archived releases nobody opened', async () => {
+    const archivedRelease = Object.keys(QA_CHECKLIST_ARCHIVE)[0]!;
+    const created = await ensureQaChecklistRuns();
+    expect(created).toEqual(expect.arrayContaining([QA_CHECKLIST_RELEASE, archivedRelease]));
+
+    const archived = await getQaChecklist(archivedRelease);
+    expect(archived.isCurrent).toBe(false);
+    expect(archived.items.map((item) => item.id)).toEqual(
+      QA_CHECKLIST_ARCHIVE[archivedRelease]!.map((item) => item.id),
+    );
+
+    await expect(ensureQaChecklistRuns()).resolves.toEqual([]);
+    const runs = await listQaChecklistRuns();
+    expect(runs.filter((run) => run.release === archivedRelease)).toHaveLength(1);
   });
 
   it('signs off the current release and reports it on the dashboard', async () => {

@@ -50,6 +50,7 @@ import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { resolveLocalUploadPath } from "./services/spaces.js";
 import { getDocsAccessSession } from "./services/docsAccess.js";
 import { syncAllPublicReviewStats } from "./services/reviewStats.js";
+import { ensureQaChecklistRuns } from "./services/qaChecklist.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -76,6 +77,11 @@ async function main() {
       if (updated) logger.info({ updated }, "[reviews] synced public review stats");
     })
     .catch((err) => logger.warn({ err }, "[reviews] review stats sync failed"));
+  void ensureQaChecklistRuns()
+    .then((created) => {
+      if (created.length) logger.info({ created }, "[qa] created checklist runs");
+    })
+    .catch((err) => logger.warn({ err }, "[qa] checklist run setup failed"));
   await initStripeModeFromConfig();
   startNotificationWorkers();
   startCampaignWorker();
