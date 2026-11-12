@@ -12,13 +12,13 @@ type Rect = { left: number; right: number; top: number; bottom: number };
 
 export const CLUSTER_RADIUS_PX = 44;
 
-/** Must match `.rt-map-marker-label`: the chip's own dot sits on the marker point. */
-const LABEL_DOT_CENTER_X = 12;
-const LABEL_HALF_HEIGHT = 12;
+/** Must match the logo center in `.rt-map-marker-label` so the chip covers the pin. */
+const LABEL_DOT_CENTER_X = 14;
+const LABEL_HALF_HEIGHT = 14;
 const LABEL_MAX_WIDTH = 200;
 const LABEL_CHAR_WIDTH = 6.9;
-/** Borders, both paddings, the dot and the dot-to-text gap. */
-const LABEL_CHROME_X = 34;
+/** Borders, both paddings, the logo, and the logo-to-text gap. */
+const LABEL_CHROME_X = 43;
 
 /**
  * Greedy pixel clustering: each unassigned point seeds a group and absorbs every
@@ -122,7 +122,12 @@ export function placePopover(
   const roomAbove = anchor.y - offsetPx - margin;
   const roomBelow = viewport.height - anchor.y - offsetPx - margin;
   const below = roomAbove < size.height && (roomBelow >= size.height || roomBelow > roomAbove);
-  const top = below ? anchor.y + offsetPx : anchor.y - offsetPx - size.height;
+  let top = below ? anchor.y + offsetPx : anchor.y - offsetPx - size.height;
+  // A short map (phone map under the list) cannot always fit the card on the
+  // roomier side. Clamp anyway so the close button is not clipped off the top.
+  const minTop = margin;
+  const maxTop = viewport.height - margin - size.height;
+  top = maxTop >= minTop ? Math.min(Math.max(top, minTop), maxTop) : minTop;
 
   const maxLeft = viewport.width - margin - size.width;
   let left = Math.min(Math.max(anchor.x - size.width / 2, margin), Math.max(margin, maxLeft));

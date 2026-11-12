@@ -41,6 +41,7 @@ const SEARCH_QUERY = `
         address { city state }
         location { lat lng }
         photos
+        logoUrl
         averageRating
         reviewCount
         availableSlotTimes

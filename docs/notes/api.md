@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-11-12] QA checklist catalog is v0.106.1
+- `QA_CHECKLIST_RELEASE` is `0.106.1`. Catalog groups are Diner booking and Diner web map. v0.106.0 menu / billing / floor plan / promo tasks moved to `QA_CHECKLIST_ARCHIVE`.
+- Why it matters: Sign-off for this gate is the combined points fit and the map markers, not the QA-row fixes from 0.106.0.
+
 ## [2026-11-11] QA checklist catalog is v0.105.0
 - `QA_CHECKLIST_RELEASE` is `0.105.0`. Catalog groups are Profile requests, Images, Telegram bot, and Admin. v0.104.0 map / redeem tasks moved to `QA_CHECKLIST_ARCHIVE`.
 - Why it matters: Sign-off for this gate is the profile-change review flow and CDN images, not the previous map work.

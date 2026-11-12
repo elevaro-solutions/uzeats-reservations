@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Spin, Typography } from 'antd';
 import { EnvironmentOutlined, StarFilled } from '@ant-design/icons';
-import { colors, hasGoogleMapsKey, loadGoogleMaps, radii, typography } from '@reservations/ui';
+import { colors, hasGoogleMapsKey, loadGoogleMaps, pickRestaurantLogo, radii, restaurantInitials, typography } from '@reservations/ui';
 import { MapMarkerInfoCard } from './MapMarkerInfoCard';
 import {
   clusterBubbleSize,
@@ -26,6 +26,7 @@ export type MapRestaurant = {
   averageRating?: number;
   reviewCount?: number;
   photos?: string[];
+  logoUrl?: string | null;
   location?: { lat: number; lng: number } | null;
   address?: { city?: string; state?: string };
   availableSlotTimes?: string[];
@@ -110,7 +111,21 @@ function truncateLabel(name: string, max = 26): string {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name;
 }
 
-/** Idle dot must match `.rt-map-marker-label__dot` so the chip covers it seamlessly. */
+function MarkerLogo({ name, logoUrl, photos }: { name: string; logoUrl?: string | null; photos?: string[] }) {
+  const logo = pickRestaurantLogo(logoUrl, photos);
+  return (
+    <span className="rt-map-marker-label__logo" aria-hidden>
+      {logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="" />
+      ) : (
+        <span className="rt-map-marker-label__logo-fallback">{restaurantInitials(name)}</span>
+      )}
+    </span>
+  );
+}
+
+/** Idle dot must match the chip logo so the chip covers it seamlessly. */
 const IDLE_DOT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 22 22"><defs><filter id="s" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#1a1816" flood-opacity="0.35"/></filter></defs><circle cx="11" cy="11" r="7" fill="#ffffff" filter="url(#s)"/><circle cx="11" cy="11" r="5" fill="${MARKER_GREEN}"/></svg>`;
 const SELECTED_DOT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><defs><filter id="s" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#1a1816" flood-opacity="0.35"/></filter></defs><circle cx="18" cy="18" r="16" fill="${MARKER_SELECTED}" fill-opacity="0.22"/><circle cx="18" cy="18" r="11" fill="#ffffff" filter="url(#s)"/><circle cx="18" cy="18" r="8" fill="${MARKER_SELECTED}"/></svg>`;
 
@@ -497,7 +512,7 @@ export function RestaurantDiscoveryMap({
               onPointerDown={() => { suppressCloseRef.current = true; }}
               onClick={(e) => { e.stopPropagation(); handleSelect(r.id); }}
             >
-              <span className="rt-map-marker-label__dot" aria-hidden />
+              <MarkerLogo name={r.name} logoUrl={r.logoUrl} photos={r.photos} />
               <span className="rt-map-marker-label__text">{truncateLabel(r.name)}</span>
             </button>
           );
@@ -570,14 +585,19 @@ export function RestaurantDiscoveryMap({
             onPointerDown={() => { suppressCloseRef.current = true; }}
             onClick={(e) => e.stopPropagation()}
           >
-            <MapMarkerInfoCard
-              restaurant={selectedRestaurant}
-              date={date}
-              partySize={partySize}
-              onClose={() => cbRef.current.onClose?.()}
-              onOpen={() => onOpenRestaurant?.(selectedRestaurant.id)}
-              onSelectSlot={(time) => onSelectSlot?.(selectedRestaurant.id, time)}
-            />
+            <div
+              className="rt-map-marker-popover__body"
+              style={overlaySize ? { maxHeight: Math.max(160, overlaySize.height - POPOVER_MARGIN_PX * 2) } : undefined}
+            >
+              <MapMarkerInfoCard
+                restaurant={selectedRestaurant}
+                date={date}
+                partySize={partySize}
+                onClose={() => cbRef.current.onClose?.()}
+                onOpen={() => onOpenRestaurant?.(selectedRestaurant.id)}
+                onSelectSlot={(time) => onSelectSlot?.(selectedRestaurant.id, time)}
+              />
+            </div>
             <div className="rt-map-marker-card-pointer" aria-hidden />
           </div>
         ) : null}

@@ -1860,7 +1860,7 @@ html.rt-map-view .rt-site-footer {
   outline-offset: 2px;
 }
 
-/* Dot center sits 12px from the chip's left edge (LABEL_DOT_CENTER_X in mapClusters.ts). */
+/* Logo center sits 14px from the chip's left edge (LABEL_DOT_CENTER_X in mapClusters.ts). */
 .rt-map-marker-label {
   position: absolute;
   z-index: 2;
@@ -1868,9 +1868,9 @@ html.rt-map-view .rt-site-footer {
   align-items: center;
   gap: 6px;
   box-sizing: border-box;
-  height: 24px;
+  height: 28px;
   max-width: 200px;
-  padding: 0 10px 0 6px;
+  padding: 0 10px 0 3px;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-surface);
@@ -1917,26 +1917,46 @@ html.rt-map-view .rt-site-footer {
   outline-offset: 2px;
 }
 
-.rt-map-marker-label__dot {
+.rt-map-marker-label__logo {
   flex-shrink: 0;
-  width: 10px;
-  height: 10px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--color-brand-600);
+  overflow: hidden;
+  background: var(--color-brand-50);
   box-shadow: 0 0 0 0 rgba(var(--color-brand-rgb), 0.18);
   transition:
     transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.25s ease;
 }
 
-.rt-map-marker-label:hover .rt-map-marker-label__dot,
-.rt-map-marker-label:focus-visible .rt-map-marker-label__dot {
-  transform: scale(1.2);
+.rt-map-marker-label__logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rt-map-marker-label__logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-brand-700);
+}
+
+.rt-map-marker-label:hover .rt-map-marker-label__logo,
+.rt-map-marker-label:focus-visible .rt-map-marker-label__logo {
+  transform: scale(1.08);
   box-shadow: 0 0 0 3px rgba(var(--color-brand-rgb), 0.18);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rt-map-marker-label__dot {
+  .rt-map-marker-label__logo {
     transition: none;
   }
 }
@@ -2066,6 +2086,13 @@ html.rt-map-view .rt-site-footer {
 
 .rt-map-marker-popover .rt-map-info-card {
   width: 100%;
+}
+
+.rt-map-marker-popover__body {
+  max-width: 100%;
+  overflow: auto;
+  border-radius: var(--radius-lg);
+  overscroll-behavior: contain;
 }
 
 .rt-map-marker-popover,

@@ -56,8 +56,7 @@ import {
   OCCASION_LABELS,
   RESTAURANT_LOYALTY,
   defaultLoyaltyProgram,
-  resolveRedeemPoints,
-  resolveRestaurantRedeemPoints,
+  fitDepositRedemptions,
   depositPointsFromCents,
   loyaltyRedeemProgress,
   isMongoObjectId,
@@ -186,28 +185,22 @@ type RedeemCheck = {
   error: string | null;
 };
 
-const EMPTY_REDEEM: RedeemCheck = { resolution: null, error: null };
-
-/** Runs a shared redeem resolver (which throws the API's validation message) without throwing. */
-function checkRedeem(resolve: () => RedeemCheck['resolution']): RedeemCheck {
-  try {
-    return { resolution: resolve(), error: null };
-  } catch (err) {
-    return { resolution: null, error: err instanceof Error ? err.message : 'Invalid points amount' };
-  }
-}
-
 function RedeemPointsAlert({
   check,
   requestedPoints,
+  note,
 }: {
   check: RedeemCheck;
   requestedPoints: number;
+  note?: string | null;
 }) {
   if (check.error) {
     return <Alert type="warning" showIcon style={{ marginTop: 10 }} message={check.error} />;
   }
-  if (!check.resolution) return null;
+  if (!check.resolution) {
+    if (!note) return null;
+    return <Alert type="warning" showIcon style={{ marginTop: 10 }} message={note} />;
+  }
   const { pointsToRedeem, discountCents } = check.resolution;
   const discount = `$${(discountCents / 100).toFixed(2)}`;
   return (
@@ -744,46 +737,48 @@ export default function RestaurantPageClient({
     restaurantLoyaltyBalance >= restaurantMinRedeem &&
     grossDepositCents > 0;
   const canRedeemPlatform = !!user && redeemProgress.canRedeem && grossDepositCents > 0;
-  const platformRedeem = useMemo(
+  const redeemFit = useMemo(
     () =>
-      canRedeemPlatform
-        ? checkRedeem(() =>
-            resolveRedeemPoints(redeemPoints, grossDepositCents, user?.loyaltyPoints ?? 0, {
+      fitDepositRedemptions(
+        grossDepositCents,
+        canRedeemPlatform
+          ? {
+              points: redeemPoints,
+              balance: user?.loyaltyPoints ?? 0,
               minRedeemPoints: minRedeem,
               redeemPointsPerDollar: program.redeemPointsPerDollar,
-            }),
-          )
-        : EMPTY_REDEEM,
+            }
+          : null,
+        canRedeemRestaurant
+          ? {
+              points: redeemRestaurantPoints,
+              balance: restaurantLoyaltyBalance,
+              minRedeemPoints: restaurantMinRedeem,
+              redeemPointsPerDollar: RESTAURANT_LOYALTY.REDEEM_POINTS_PER_DOLLAR,
+            }
+          : null,
+      ),
     [
+      grossDepositCents,
       canRedeemPlatform,
       redeemPoints,
-      grossDepositCents,
       user?.loyaltyPoints,
       minRedeem,
       program.redeemPointsPerDollar,
-    ],
-  );
-  const restaurantRedeem = useMemo(
-    () =>
-      canRedeemRestaurant
-        ? checkRedeem(() =>
-            resolveRestaurantRedeemPoints(
-              redeemRestaurantPoints,
-              grossDepositCents - (platformRedeem.resolution?.discountCents ?? 0),
-              restaurantLoyaltyBalance,
-              restaurantMinRedeem,
-            ),
-          )
-        : EMPTY_REDEEM,
-    [
       canRedeemRestaurant,
       redeemRestaurantPoints,
-      grossDepositCents,
-      platformRedeem.resolution?.discountCents,
       restaurantLoyaltyBalance,
       restaurantMinRedeem,
     ],
   );
+  const platformRedeem: RedeemCheck = {
+    resolution: redeemFit.platform,
+    error: redeemFit.platformError,
+  };
+  const restaurantRedeem: RedeemCheck = {
+    resolution: redeemFit.restaurant,
+    error: redeemFit.restaurantError,
+  };
   const depositBeforePromo = Math.max(
     0,
     grossDepositCents -
@@ -1162,8 +1157,12 @@ export default function RestaurantPageClient({
             slotStart: selectedSlot,
             occasion,
             guestNotes: notes || undefined,
-            ...(platformRedeem.resolution ? { redeemPoints } : {}),
-            ...(restaurantRedeem.resolution ? { redeemRestaurantPoints } : {}),
+            ...(platformRedeem.resolution
+              ? { redeemPoints: platformRedeem.resolution.pointsToRedeem }
+              : {}),
+            ...(restaurantRedeem.resolution
+              ? { redeemRestaurantPoints: restaurantRedeem.resolution.pointsToRedeem }
+              : {}),
             ...(promoCode.trim() ? { promoCode: promoCode.trim().toUpperCase() } : {}),
             ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
             ...(selectedTableId ? { tableId: selectedTableId, tableSelectionSource } : {}),
@@ -2107,7 +2106,11 @@ export default function RestaurantPageClient({
                       addonAfter="pts"
                     />
                     {fieldErrors.redeemPoints ? null : (
-                      <RedeemPointsAlert check={platformRedeem} requestedPoints={redeemPoints} />
+                      <RedeemPointsAlert
+                        check={platformRedeem}
+                        requestedPoints={redeemPoints}
+                        note={redeemFit.platformNote}
+                      />
                     )}
                   </div>
                 </Form.Item>

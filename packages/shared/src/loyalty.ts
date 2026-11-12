@@ -1,4 +1,5 @@
 import { LOYALTY, LOYALTY_TIERS, type LoyaltyTierId } from './constants.js';
+import { resolveRestaurantRedeemPoints } from './restaurantLoyalty.js';
 
 export type LoyaltyTierDef = {
   id: LoyaltyTierId;
@@ -186,5 +187,128 @@ export function resolveRedeemPoints(
   return {
     pointsToRedeem,
     discountCents: pointsToDiscountCents(pointsToRedeem, redeemPerDollar),
+  };
+}
+
+export type RedeemSideInput = {
+  points: number;
+  balance: number;
+  minRedeemPoints: number;
+  redeemPointsPerDollar: number;
+};
+
+export type FittedRedeemSide = {
+  pointsToRedeem: number;
+  discountCents: number;
+};
+
+export type DepositRedeemFit = {
+  platform: FittedRedeemSide | null;
+  restaurant: FittedRedeemSide | null;
+  platformError: string | null;
+  restaurantError: string | null;
+  /** Set when Tablevera points were left off so restaurant points could fit. */
+  platformNote: string | null;
+};
+
+function catchRedeem(resolve: () => RedeemResolution | null): {
+  resolution: RedeemResolution | null;
+  error: string | null;
+} {
+  try {
+    return { resolution: resolve(), error: null };
+  } catch (err) {
+    return {
+      resolution: null,
+      error: err instanceof Error ? err.message : 'Invalid points amount',
+    };
+  }
+}
+
+/**
+ * Apply Tablevera points and restaurant points to one prepaid deposit.
+ * Restaurant points are checked against the full deposit. Tablevera points
+ * then use whatever is left, and are left off when they no longer meet their
+ * minimum — so a valid restaurant amount is not rejected for an empty range.
+ */
+export function fitDepositRedemptions(
+  depositCents: number,
+  platform: RedeemSideInput | null,
+  restaurant: RedeemSideInput | null,
+): DepositRedeemFit {
+  const empty: DepositRedeemFit = {
+    platform: null,
+    restaurant: null,
+    platformError: null,
+    restaurantError: null,
+    platformNote: null,
+  };
+  const platformRequested = platform && platform.points > 0 ? platform : null;
+  const restaurantRequested = restaurant && restaurant.points > 0 ? restaurant : null;
+
+  const resolvePlatform = (cents: number, input: RedeemSideInput) =>
+    catchRedeem(() =>
+      resolveRedeemPoints(input.points, cents, input.balance, {
+        minRedeemPoints: input.minRedeemPoints,
+        redeemPointsPerDollar: input.redeemPointsPerDollar,
+      }),
+    );
+
+  if (!restaurantRequested) {
+    if (!platformRequested) return empty;
+    const result = resolvePlatform(depositCents, platformRequested);
+    return { ...empty, platform: result.resolution, platformError: result.error };
+  }
+
+  const restaurantResult = catchRedeem(() =>
+    resolveRestaurantRedeemPoints(
+      restaurantRequested.points,
+      depositCents,
+      restaurantRequested.balance,
+      restaurantRequested.minRedeemPoints,
+    ),
+  );
+  if (restaurantResult.error || !restaurantResult.resolution) {
+    const platformResult = platformRequested
+      ? resolvePlatform(depositCents, platformRequested)
+      : { resolution: null, error: null };
+    return {
+      ...empty,
+      platform: platformResult.resolution,
+      platformError: platformResult.error,
+      restaurantError: restaurantResult.error ?? 'Invalid points amount',
+    };
+  }
+
+  if (!platformRequested) {
+    return { ...empty, restaurant: restaurantResult.resolution };
+  }
+
+  const roomCents = Math.max(0, depositCents - restaurantResult.resolution.discountCents);
+  const platformResult = resolvePlatform(roomCents, platformRequested);
+  if (platformResult.resolution) {
+    return {
+      ...empty,
+      platform: platformResult.resolution,
+      restaurant: restaurantResult.resolution,
+    };
+  }
+
+  const blockedByBalance =
+    platformResult.error != null &&
+    /Minimum redeem|Insufficient/.test(platformResult.error);
+  if (blockedByBalance) {
+    return {
+      ...empty,
+      platformError: platformResult.error,
+      restaurant: restaurantResult.resolution,
+    };
+  }
+
+  return {
+    ...empty,
+    restaurant: restaurantResult.resolution,
+    platformNote:
+      'Not applied — restaurant points use the rest of this deposit. Clear restaurant points to use Tablevera points.',
   };
 }

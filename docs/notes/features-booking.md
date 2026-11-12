@@ -229,3 +229,8 @@
 - Partner Insights `/fees` and Admin Billing `/admin/fees` list fee activity via `restaurantNoShowFeeCharges` / `adminNoShowFeeCharges`. Summary cards: collected, refunded, failed, pending charge.
 - Row actions: view/manage reservation, charge or retry fee, refund. Not the same as Billing invoices (prepaid deposits only).
 - Why it matters: Staff looking for “where did the $X no-show fee go?” should open this report, not Billing & invoices.
+
+## [2026-11-12] Restaurant points share the prepaid deposit with Tablevera points
+- `fitDepositRedemptions` checks restaurant points against the full prepaid deposit, then gives Tablevera points whatever is left. If Tablevera points no longer meet their minimum, they are left off and the booking form says so. The submitted amounts are the fitted ones, so `createReservation` (platform first, then restaurant on the remainder) still accepts them.
+- A restaurant minimum above the points that deposit can cover is still rejected. Per-guest deposit × party size is the cap (`resolveBookingCharges`).
+- Why it matters: Applying Tablevera points first made the restaurant field’s minimum higher than its maximum (QA-041). Don’t validate restaurant points only against the leftover deposit.

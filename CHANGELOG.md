@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.106.1] — 2026-11-12
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: restaurant points with Tablevera points on the same deposit, map card close button on phones, and logo / initials map markers
+
+### Fixed
+- Diner booking: a valid restaurant-points amount is no longer rejected because Tablevera points already use part of the deposit. Tablevera points are reduced, or left off, when both cannot fit, and the form says so.
+- Diner map on a phone: the restaurant card’s close button stays on the map instead of sliding under the list.
+- Diner map markers show each restaurant’s logo, or its initials when there is no logo, in place of the green dot.
+
 ## [0.106.0] — 2026-11-11
 
 ### Added

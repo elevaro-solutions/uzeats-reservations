@@ -40,6 +40,11 @@ See [features-billing.md](./features-billing.md) (platform invoices, fail-to-pay
 - `useInfiniteRestaurantSearch` keeps local `items`/`page`, dedupes by id, resets on `JSON.stringify(searchInput)`. Favorite toggle flips local state and reverts on catch with no toast; unauthenticated → sign-in with `next=/restaurant/:id`.
 - Why it matters: Pagination is React state, not Apollo `fetchMore`. Failed favorite looks like a no-op.
 
+### [2026-11-12] Map chips use the logo; card top is clamped
+- Marker chips (`.rt-map-marker-label`) show `pickRestaurantLogo`, then initials. The logo center is 14px from the chip’s left edge and must match `LABEL_DOT_CENTER_X` in `mapClusters.ts`, so the chip still covers the Google pin.
+- `placePopover` clamps the card inside the map. On a phone the map sits under the list and is often shorter than the card, which used to push the close button above the map.
+- Why it matters: A taller logo or a different left padding needs the same constant update, or the pin peeks out. Don’t only flip the card above/below — a short map still clips the top.
+
 ## favorites
 
 ### [2026-09-14] `favorite` ≠ `save`

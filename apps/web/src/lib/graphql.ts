@@ -22,6 +22,7 @@ export const SEARCH_RESTAURANTS = gql`
           lng
         }
         photos
+        logoUrl
         averageRating
         reviewCount
         availableSlotTimes
